@@ -6,19 +6,19 @@ This file uses the markdown syntax, it can be converted to an elegant pdf or HTM
 
 ```
 .
-├---- data
-|     ├---- <galaxy name>
-|     |     ├---- Muse
-|     |     ├---- Hubble
-|     |     └---- Spitzer
-|     ├---- models
-|     └---- miscellaneous_data 
-├---- data_products
-├---- exploration
-├---- miscellaneous
-├---- plots
-├---- results
-└---- src
+├──── data
+│     ├──── <galaxy name>
+│     │     ├──── Muse
+│     │     ├──── Hubble
+│     │     ╰──── Spitzer
+│     ├──── models
+│     ╰──── misc_data 
+├──── data_products
+├──── exploration
+├──── miscellaneous
+├──── plots
+├──── results
+╰──── src
 ```
 
 - data\
