@@ -40,3 +40,8 @@ I Finished a final version of the script to plot the SNR map. Also I'm implement
 
 ### Git and Dropbox
 Finally I'm going to add the current work to git and dropbox. The data is restricted and cannot be added to git also it's too big for dropbox. Then it can be shared with Lucimara only by some other means.
+
+## 2021-06-23
+
+## Resampling correction
+A correction of the flux conservative resampling procedure has been done. It seems that there some problem with the resampling routine within ppxf util where the some calculations show that the flux is not been conserved even with the option for flux conservation being enabled. The results we accomplished are consistent with those obtained with astropy routine. The resampling, rebinning and convolution are going to be very import when applying ppxf for kinematics determination. I'm going to check these procedures very carefully to avoid errors and get reliable results. Following I'm going to describe the implementation of resampling in a pdf.
