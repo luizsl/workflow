@@ -18,12 +18,14 @@ class Spectrum:
             self.flux = np.array(flux)
         else:
             self.flux = np.array(flux)[:npix]
+            
         if flux_unc is None:
             self.flux_unc = np.full_like(self.flux, np.nan)
         else:
             self.flux_unc = np.array(flux_unc)
+            
         self.medium = self._valid_key(medium,
-                                      valid = ['air', 'vacuum'])
+                                      valid = ['air', 'vacuum'])    
         self.sampling_type = self._valid_key(sampling_type,
                                              valid = ['linear', 'log', 'ln'])
         self.wave = self._build_spec_wave(wave)
@@ -71,7 +73,7 @@ class Spectrum:
         return wave
 
     def _build_snr(self):
-        return np.mean(self.flux/self.flux_unc)
+        return NotImplemented
 
     def convolve(self, sigma):
         assert self.flux.size == sigma.size, "sigma and flux arrays must have the same size"
@@ -104,14 +106,20 @@ class Spectrum:
         old_edges = self._build_edges(self.wave, self.sampling_type)
         new_edges = self._build_edges(new_wave, new_sampling_type)
 
+        # intervals
+        old_inter = old_edges[1:] - old_edges[:-1]
+        new_inter = new_edges[1:] - new_edges[:-1]
+        
         # integrate and resample the spectrum
-        int_flux = np.append([0], np.cumsum(self.flux))
+        int_flux = np.append([0], np.cumsum(self.flux) * old_inter)
 
         f_interp = interpolate.interp1d(old_edges, int_flux, kind = 'linear',
                                         bounds_error = False)
 
         res_data = f_interp(new_edges)
         res_data = np.ediff1d(res_data)
+        res_data = res_data/new_inter
+
 
 
         #to do: Add resampling of uncertainty when there is no other alternative

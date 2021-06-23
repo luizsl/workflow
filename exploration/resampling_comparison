@@ -1,0 +1,99 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+Created on Mon Jun 14 16:16:21 2021
+
+@author: Luiz
+"""
+
+import numpy as np
+import matplotlib.pyplot as plt
+import ppxf.ppxf_util as util
+from spectres import spectres
+from spectrum import Spectrum
+from astropy.io import fits
+from scipy import integrate
+
+cube_file = '../data/NGC613/Muse/NGC0613_DATACUBE_FINAL_clean.fits'
+
+with fits.open(cube_file) as hdu:
+    header = hdu[1].header
+    flux = np.array(hdu[1].data[:,150,150])
+    err_f = np.array(hdu[2].data[:,150,150])
+    
+own = Spectrum(flux = flux,
+                      wave = [header['CRVAL3'], header['CD3_3']],
+                      medium = 'air', sampling_type = 'linear',
+                      flux_unc = err_f)
+
+# getting wavelength array for the other methods
+wave_lin = own.wave
+# wave_log = 10.**(np.log10(wave_lin[0]) + np.log10(wave_lin[1]/wave_lin[0])*np.arange(2574))
+wave_ln = np.e**(np.log(wave_lin[0]) + np.log(wave_lin[1]/wave_lin[0])*np.arange(2574))
+
+
+
+
+
+
+# from scipy import interpolate
+
+# old_edges = own._build_edges(own.wave, own.sampling_type)
+# new_edges = Spectrum._build_edges(wave_ln, sampling_type = 'ln')
+# int_flux = np.append([0],
+#                      np.cumsum(own.flux) * (old_edges[1:] - old_edges[:-1]))
+                     
+# f_interp = interpolate.interp1d(old_edges, int_flux, kind = 'linear',
+#                                 bounds_error = False)
+
+# res_data = f_interp(new_edges)
+# res_data = np.ediff1d(res_data)
+
+
+# res_data = res_data/(new_edges[1:] - new_edges[:-1])
+
+
+
+# Resampling with our method
+own.resampling(wave_ln, new_sampling_type = 'ln')
+
+# Resampling with Spectres
+spectres_data, spectres_err = spectres(wave_ln, wave_lin, flux, err_f)
+
+# Resampling with Cappellari method
+cap_data, wave_cap = util.log_rebin([wave_lin[0], wave_lin[-1]], flux,
+                                    flux = True, velscale = 78)[0:2]
+
+# Plot
+plt.style.use('plot_script/fig_conf.mplstyle')
+
+ax = plt.subplot()
+ax.step(wave_lin, flux, where = 'mid', label = 'Original')
+ax.step(wave_ln, own.flux, where = 'mid', label = 'Own')
+# ax.step(wave_ln, res_data, where = 'mid', lw = 3, label = 'alt')
+ax.step(wave_ln, spectres_data, where = 'mid', label = 'Spectres (*Astropy)')
+ax.step(np.e**(wave_cap), cap_data, where = 'mid', label = 'Cappellari (pPXF util)')
+ax.set_yscale('log')
+ax.legend()
+
+ax.set_xlabel(r'$\textbf{Wavelength} \mathbf{(\AA)}$')
+ax.set_ylabel(r'$\textbf{Flux density} \, \mathbf{(10^{-20} \, \erg/\s/\cm^{2}/\AA)}$')
+ax.set_title(r'Resampling comparison (flux conservative)')
+
+# %% Flux computation
+
+# Flux Muse
+1.25*flux.sum()
+np.trapz(flux, wave_lin)
+
+# Flux with our method
+integrate.trapezoid(own.flux, wave_ln)
+
+# Flux with Spectres
+integrate.trapezoid(spectres_data[1:], wave_ln[1:])
+
+# Flux with Cappellari method
+integrate.trapezoid(cap_data, np.e**(wave_cap))
+
+
+

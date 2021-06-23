@@ -1,4 +1,6 @@
+text.latex.preamble : \usepackage{amsmath} \usepackage{physunits}
 text.usetex : True
+
 font.family : sans-serif
 font.serif: Times
 
@@ -8,5 +10,7 @@ figure.autolayout : True
 
 xtick.minor.visible : True
 xtick.direction : in
+ytick.minor.visible : True
+ytick.direction : in
 
 savefig.bbox : tight
