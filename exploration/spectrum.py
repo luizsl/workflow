@@ -107,8 +107,8 @@ class Spectrum:
         new_edges = self._build_edges(new_wave, new_sampling_type)
 
         # intervals
-        old_inter = old_edges[1:] - old_edges[:-1]
-        new_inter = new_edges[1:] - new_edges[:-1]
+        old_inter = np.ediff1d(old_edges)
+        new_inter = np.ediff1d(new_edges)
         
         # integrate and resample the spectrum
         int_flux = np.append([0], np.cumsum(self.flux) * old_inter)

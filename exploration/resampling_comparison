@@ -13,6 +13,7 @@ from spectres import spectres
 from spectrum import Spectrum
 from astropy.io import fits
 from scipy import integrate
+from time import perf_counter as clock
 
 cube_file = '../data/NGC613/Muse/NGC0613_DATACUBE_FINAL_clean.fits'
 
@@ -20,7 +21,7 @@ with fits.open(cube_file) as hdu:
     header = hdu[1].header
     flux = np.array(hdu[1].data[:,150,150])
     err_f = np.array(hdu[2].data[:,150,150])
-    
+
 own = Spectrum(flux = flux,
                       wave = [header['CRVAL3'], header['CD3_3']],
                       medium = 'air', sampling_type = 'linear',
@@ -30,29 +31,6 @@ own = Spectrum(flux = flux,
 wave_lin = own.wave
 # wave_log = 10.**(np.log10(wave_lin[0]) + np.log10(wave_lin[1]/wave_lin[0])*np.arange(2574))
 wave_ln = np.e**(np.log(wave_lin[0]) + np.log(wave_lin[1]/wave_lin[0])*np.arange(2574))
-
-
-
-
-
-
-# from scipy import interpolate
-
-# old_edges = own._build_edges(own.wave, own.sampling_type)
-# new_edges = Spectrum._build_edges(wave_ln, sampling_type = 'ln')
-# int_flux = np.append([0],
-#                      np.cumsum(own.flux) * (old_edges[1:] - old_edges[:-1]))
-                     
-# f_interp = interpolate.interp1d(old_edges, int_flux, kind = 'linear',
-#                                 bounds_error = False)
-
-# res_data = f_interp(new_edges)
-# res_data = np.ediff1d(res_data)
-
-
-# res_data = res_data/(new_edges[1:] - new_edges[:-1])
-
-
 
 # Resampling with our method
 own.resampling(wave_ln, new_sampling_type = 'ln')
@@ -69,8 +47,7 @@ plt.style.use('plot_script/fig_conf.mplstyle')
 
 ax = plt.subplot()
 ax.step(wave_lin, flux, where = 'mid', label = 'Original')
-ax.step(wave_ln, own.flux, where = 'mid', label = 'Own')
-# ax.step(wave_ln, res_data, where = 'mid', lw = 3, label = 'alt')
+ax.step(wave_ln, own.flux, where = 'mid', lw = 2, label = 'Own')
 ax.step(wave_ln, spectres_data, where = 'mid', label = 'Spectres (*Astropy)')
 ax.step(np.e**(wave_cap), cap_data, where = 'mid', label = 'Cappellari (pPXF util)')
 ax.set_yscale('log')
@@ -80,20 +57,66 @@ ax.set_xlabel(r'$\textbf{Wavelength} \mathbf{(\AA)}$')
 ax.set_ylabel(r'$\textbf{Flux density} \, \mathbf{(10^{-20} \, \erg/\s/\cm^{2}/\AA)}$')
 ax.set_title(r'Resampling comparison (flux conservative)')
 
+plt.savefig('../plots/resampling_comparison.pdf')
+
 # %% Flux computation
 
 # Flux Muse
-1.25*flux.sum()
-np.trapz(flux, wave_lin)
+t_flux_muse = '{:.2e}'.format(np.trapz(flux, wave_lin)).split('e+')
+# t_flux_muse = f'{t_flux_muse[0]} \\times 10^{ {int(t_flux_muse[1])} }'
 
 # Flux with our method
-integrate.trapezoid(own.flux, wave_ln)
+t_flux_our = '{:.2e}'.format(integrate.trapezoid(own.flux, wave_ln)).split('e+')
+# t_flux_our = f'{t_flux_our[0]} \\times 10^{ {int(t_flux_our[1])} }'
 
 # Flux with Spectres
-integrate.trapezoid(spectres_data[1:], wave_ln[1:])
+t_flux_spectres = '{:.2e}'.format(integrate.trapezoid(spectres_data[1:], wave_ln[1:])).split('e+')
+# t_flux_spectres = f'{t_flux_spectres[0]} \\times 10^{ {int(t_flux_spectres[1])} }'
 
 # Flux with Cappellari method
-integrate.trapezoid(cap_data, np.e**(wave_cap))
+t_flux_cap = '{:.2e}'.format(integrate.trapezoid(cap_data, np.e**(wave_cap))).split('e+')
+# t_flux_cap = f'{t_flux_cap[0]} \\times 10^{ {int(t_flux_cap[1])} }'
 
+# %% Compare performance
 
+n_rep = int(1e3)
 
+# Resampling with Spectres
+t_spectres = np.empty(n_rep)
+for i in range(n_rep):
+    t1 = clock()
+    spectres_data = spectres(wave_ln, wave_lin, flux)
+    t_spectres[i] = clock() - t1
+t_spectres = round(t_spectres.mean()*1e3, 3)
+
+# Resampling with Cappellari method
+t_cap = np.empty(n_rep)
+for i in range(n_rep):
+    t1 = clock()
+    cap_data, wave_cap = util.log_rebin([wave_lin[0], wave_lin[-1]], flux,
+                                        flux = True, velscale = 78)[0:2]
+    t_cap[i] = clock() - t1
+t_cap = round(t_cap.mean()*1e3, 3)
+
+# Resampling with our method
+t_our = np.empty(n_rep)
+for i in range(n_rep):
+    t1 = clock()
+    own = Spectrum(flux = flux,
+                          wave = [header['CRVAL3'], header['CD3_3']],
+                          medium = 'air', sampling_type = 'linear',
+                          flux_unc = err_f)
+    own.resampling(wave_ln, new_sampling_type = 'ln')
+    t_our[i] = clock() - t1
+t_our = round(t_our.mean()*1e3, 3)
+
+# %% write latex table
+
+with open('../tables/table_resampling_comparison.tex', 'w') as t:
+    t.write(f"""
+               & Flux $(10^{{-14}} \\, \\erg/\\s/\\cm^{{2}})$ & Average execution time (ms)    \\\\ \\hline
+    MUSE       & $ {t_flux_muse[0]}     $  & -                   \\\\
+    Our method & $ {t_flux_our[0]}      $  & {t_our}             \\\\
+    Spectres   & $ {t_flux_spectres[0]} $  & {t_spectres}        \\\\
+    pPXF util  & $ {t_flux_cap[0]}      $  & {t_cap}             \\\\ \\hline
+    """)

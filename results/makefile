@@ -1,4 +1,4 @@
-DOCNAME = snr_draft
+DOCNAME = progress_report_draft
 
 all: report clean
 

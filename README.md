@@ -18,6 +18,7 @@ This file uses the markdown syntax, it can be converted to an elegant pdf or HTM
 ├──── miscellaneous
 ├──── plots
 ├──── results
+├──── tables
 ╰──── src
 ```
 
@@ -38,6 +39,9 @@ To save plots produced by code residing in the src directory.
 
 - results\
 Documents for publication.
+
+- tables\
+Tables to be used in latex documents.
 
 - src\
 Directory for code which are tested, debugged and whose results are trustworthy.

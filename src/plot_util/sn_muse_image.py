@@ -38,7 +38,7 @@ def build_map(cube_file, name_out):
     # Create map
     # There's a division by nan whose result is also nan.
     # This is not a problem, then I'm disabling the warnings.
-    np.seterr(divide='ignore', invalid='ignore')
+    np.seterr(divide = 'ignore', invalid = 'ignore')
     sn_per_pixel = (flux_cube/np.sqrt(err_cube)) * (1./np.sqrt(n_pixel))
 
     # Plot
@@ -53,6 +53,7 @@ def build_map(cube_file, name_out):
     cbar.set_ticklabels([r'$<$ 1']
                         + np.linspace(10,70,7, dtype = int).tolist()
                         + [r'$>$ 80'])
+    cbar.minorticks_off()
 
     ax.grid(color = 'white', ls = 'dotted')
     ax.set_xlabel(r'$\textbf{Right Ascension (J2000)}$')
