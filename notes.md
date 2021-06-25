@@ -46,7 +46,7 @@ Finally I'm going to add the current work to git and dropbox. The data is restri
 ### Resampling correction
 A correction of the flux conservative resampling procedure was made. It seems that there some problem with the resampling routine within ppxf util where the some calculations show that the flux is not been conserved even with the option for flux conservation being enabled. The results we accomplished are consistent with those obtained with astropy routine. The resampling, rebinning and convolution are going to be very import when applying ppxf for kinematics determination. I'm going to check these procedures very carefully to avoid errors and get reliable results. Following I'm going to describe the implementation of resampling in a pdf.
 
-## 2021-05-24
+## 2021-06-24
 
 ###
 A plot comparing the results of resampling with different methods was made. The performance regarding runtime was measured.
