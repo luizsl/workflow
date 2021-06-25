@@ -114,7 +114,7 @@ t_our = round(t_our.mean()*1e3, 3)
 
 with open('../tables/table_resampling_comparison.tex', 'w') as t:
     t.write(f"""
-               & Flux $(10^{{-14}} \\, \\erg/\\s/\\cm^{{2}})$ & Average execution time (ms)    \\\\ \\hline
+               & Flux $(10^{{-14}} \\, \\erg/\\s/\\cm^{{2}})$ & Average runtime (ms)    \\\\ \\hline
     MUSE       & $ {t_flux_muse[0]}     $  & -                   \\\\
     Our method & $ {t_flux_our[0]}      $  & {t_our}             \\\\
     Spectres   & $ {t_flux_spectres[0]} $  & {t_spectres}        \\\\
