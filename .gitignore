@@ -3,5 +3,5 @@ data/*
 !data/.gitkeep
 
 results/*.pdf
-duvidas
-melhorias
+duvidas.md
+melhorias.md
