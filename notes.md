@@ -36,7 +36,7 @@ I did a tex draft with the procedure description to compute the SNR. It also con
 ## 2021-06-22
 
 ### Final version of script to signal-to-noise
-I Finished a final version of the script to plot the SNR map. Also I'm implementing a package structure to the scripts this is going to be useful in the future.
+I finished a final version of the script to plot the SNR map. Also I'm implementing a package structure to the scripts this is going to be useful in the future.
 
 ### Git and Dropbox
 Finally I'm going to add the current work to git and dropbox. The data is restricted and cannot be added to git also it's too big for dropbox. Then it can be shared with Lucimara only by some other means.
@@ -50,3 +50,8 @@ A correction of the flux conservative resampling procedure was made. It seems th
 
 ###
 A plot comparing the results of resampling with different methods was made. The performance regarding runtime was measured.
+
+## 2021-06-26
+
+### Resampling
+I described the resampling results made with different applications. It was shown that our implementation is the fastest one that still conserves the flux.

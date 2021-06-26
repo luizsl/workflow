@@ -9,6 +9,7 @@
 \usepackage{physunits}
 \usepackage{times}
 \usepackage{import}
+\usepackage{hyperref}
 
 \begin{document}
 
@@ -66,23 +67,42 @@ Thereafter, we apply the previous formulas to obtain a signal-to-noise map of an
 	\caption{Signal-to-noise map of galaxy NGC 613. The observation was done with MUSE spectrograph. The image was enhanced \citep{gonzalez+18} by clipping the intensity range between 1 and 80. The image was colorized was produced by mapping the intensity of each pixel $I(x,y)$ with a color scale using an arcsinh function \citep{lupton+04}.}
 \end{figure}
 
-\section{Resampling}
+\section{Spectrum processing}
+In this section, we will test the performance of different implementations for processing signals. We will analyze implementations for resampling, rebinning and convolution of signals.
+For this we will use one of the spectra close to the central region of NGC 613 obtained with MUSE as the signal to be processed.
+The programs to be used are the following:
+\begin{itemize}
+	\item Our implementation;
+	\item \texttt{SpectRes} \citep{spectres+17} which is a function\footnote{\url{https://www.github.com/ACCarnall/SpectRes}} for resampling that conserves the flux. \texttt{SpectRes} code is used in \texttt{specutils}\footnote{\url{https://specutils.readthedocs.io/en/stable/manipulation.htm\#resamplingl}} which is one of Astropy components \citep{astropy+13, astropy+18}, thus being a widespread application;
+	\item \texttt{pPXF} util \citep{cappellari+17, cappellari+03} is part of the \texttt{pPXF}\footnote{\url{https://www-astro.physics.ox.ac.uk/~mxc/software/\#ppxf}} (Penalized Pixel-Fitting, a code for spectrum fitting) being composed of auxiliary functions for the preparation of spectra.
+\end{itemize}
+All programs used are open source \texttt{python} applications.
 
+\subsection{Resampling}
+First we're going to evaluate the performance of different applications that perform signal resampling. The MUSE spectra are sampled in a linear scale with unfinorme steps of 1.25 \AA. The MUSE spectrum used is shown in blue in Figure \ref{fig:resampling_comparison} in units of $10^{-20} \, \erg/\s/\cm^{2}\AA$, being its flux equal to $4.88 \times 10^{-14} \, \erg/\s/\cm^{2})$.
+
+The implementation of \texttt{pPXF} util allows only the conversion from linear scale to natural logarithmic scale. Thus for this test we use all implementations for the same conversion of linear scale to natural logarithmic scale. For \texttt{pPXF} util, the \texttt{flux} keyword is set to \texttt{True} thus enabling the option that guarantees the flux conservation. The resampling made both with our implementation and \texttt{SpectRes} and \texttt{pPPXF util} was done in natural logarithmic scale with uniforme steps in ln-scale of $78.89 \kmps$ . The result of resampling for all applications is shown in Figure \ref{fig:resampling_comparison}. It can be noted that the flux was conserved only with \texttt{SpectRes} and with our implementation. These two methods achieve such similar results that it is difficult to distinguish the two signal. Therefore we employed a wider line for our implementation.
 \begin{figure}[h]
 	\label{fig:resampling_comparison}
 	\centering
 	\includegraphics[width = \linewidth]{resampling_comparison.pdf}
-	\caption{}
+	\caption{Resampling result for the three methods: Our implementation(orange), \texttt{pPXF}(red) and \texttt{SpectRes} - attached to Astropy(green), compared to MUSE spectrum (blue).}
 \end{figure}
 
+We measure the execution time of these programs. The results are summarized in Table \ref{tab:resampling_comparison}. In the last column, we show the average execution time after 1000 execution rounds. The \texttt{SpectRes} implementation despite conserving the flux is two orders of magnitude slower than our implementation and \texttt{pPXF} util. For a single spectrum this a not an issue, but for tens of thousands of spectra, it can have a big impact on runtime.
+
 \begin{table}[h]
-	\caption{}
+	\caption{Results of comparison of three different implementations of resampling. For \texttt{pPXF} util, the \texttt{flux} keyword is set to \texttt{True}. In the central column the flux integrated over the wavelength range. In the last column, we show the average execution time after 1000 rounds of execution.}
 	\label{tab:resampling_comparison}
 	\begin{tabular}{lcc}
 		\hline
 		\import{../tables/}{table_resampling_comparison.tex}
 	\end{tabular}
 \end{table}
+
+\subsection{Rebinning}
+
+\subsection{Convolution with MUSE LSF}
 
 \bibliography{biblio.bib}
 
