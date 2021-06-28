@@ -37,7 +37,6 @@ def run_comparison():
     wave_ln = np.e**(np.log(wave_lin[0]) 
                      + np.log(wave_lin[1]/wave_lin[0])*np.arange(2574))
     
-  
     # Resampling with our method
     own.resampling(wave_ln, new_sampling_type = 'ln')
     
@@ -113,10 +112,10 @@ def run_comparison():
         t_our[i] = clock() - t1
     t_our = round(t_our.mean()*1e3, 3)
 
-
     # Write latex table with results
     with open('../tables/table_resampling_comparison.tex', 'w') as t:
-        t.write(f""" & Flux $(10^{{-14}} \\, \\erg/\\s/\\cm^{{2}})$ & Average runtime (ms) \\\\ \\hline
+        t.write(f"""
+                & Flux $(10^{{-14}} \\, \\erg/\\s/\\cm^{{2}})$ & Average runtime (ms) \\\\ \\hline
         MUSE                  & $ {t_flux_muse[0]}     $  & -             \\\\
         Our implementation    & $ {t_flux_our[0]}      $  & {t_our}       \\\\
         \\texttt{{SpectRes}}  & $ {t_flux_spectres[0]} $  & {t_spectres}  \\\\

@@ -48,10 +48,18 @@ A correction of the flux conservative resampling procedure was made. It seems th
 
 ## 2021-06-24
 
-###
+### Plot
 A plot comparing the results of resampling with different methods was made. The performance regarding runtime was measured.
 
 ## 2021-06-26
 
 ### Resampling
 I described the resampling results made with different applications. It was shown that our implementation is the fastest one that still conserves the flux.
+
+## 2021-06-28
+
+### MUSE LSF
+The resolving power (R) as function of wavelength of MUSE is available in the [MUSE user manual](https://www.eso.org/sci/facilities/paranal/instruments/muse/doc/ESO-261650_MUSE_User_Manual.pdf). We did the calculation to get the LSF in angstrom and the dispersion in km/s.
+
+### Convolution
+The convolution made with ppxf util is very general. It allows us to use a single average LSF, a piecewise convolution as done in ELODIE or even a different LSF for each pixel. We compared these different LSF injections, the results are similar to each other.

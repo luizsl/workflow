@@ -79,23 +79,22 @@ The programs to be used are the following:
 All programs used are open source \texttt{python} applications.
 
 \subsection{Resampling}
-First we're going to evaluate the performance of different applications that perform signal resampling. The MUSE spectra are sampled in a linear scale with unfinorme steps of 1.25 \AA. The MUSE spectrum used is shown in blue in Figure \ref{fig:resampling_comparison} in units of $10^{-20} \, \erg/\s/\cm^{2}\AA$, being its flux equal to $4.88 \times 10^{-14} \, \erg/\s/\cm^{2})$.
+First we're going to evaluate the performance of different applications that perform signal resampling. The MUSE spectra are sampled in a linear scale with unfinorme steps of 1.25 \AA. The MUSE spectrum used is shown in blue in Figure \ref{fig:resampling_comparison} in units of $10^{-20} \, \erg/\s/\cm^{2}/\AA$, being its flux equal to $4.88 \times 10^{-14} \, \erg/\s/\cm^{2})$.
 
 The implementation of \texttt{pPXF} util allows only the conversion from linear scale to natural logarithmic scale. Thus for this test we use all implementations for the same conversion of linear scale to natural logarithmic scale. For \texttt{pPXF} util, the \texttt{flux} keyword is set to \texttt{True} thus enabling the option that guarantees the flux conservation. The resampling made both with our implementation and \texttt{SpectRes} and \texttt{pPPXF util} was done in natural logarithmic scale with uniforme steps in ln-scale of $78.89 \kmps$ . The result of resampling for all applications is shown in Figure \ref{fig:resampling_comparison}. It can be noted that the flux was conserved only with \texttt{SpectRes} and with our implementation. These two methods achieve such similar results that it is difficult to distinguish the two signal. Therefore we employed a wider line for our implementation.
 \begin{figure}[h]
 	\label{fig:resampling_comparison}
 	\centering
 	\includegraphics[width = \linewidth]{resampling_comparison.pdf}
-	\caption{Resampling result for the three methods: Our implementation(orange), \texttt{pPXF}(red) and \texttt{SpectRes} - attached to Astropy(green), compared to MUSE spectrum (blue).}
+	\caption{Resampling result for the three methods: Our implementation (orange), \texttt{pPXF} (red) and \texttt{SpectRes} - attached to Astropy (green), compared to MUSE spectrum (blue).}
 \end{figure}
 
-We measure the execution time of these programs. The results are summarized in Table \ref{tab:resampling_comparison}. In the last column, we show the average execution time after 1000 execution rounds. The \texttt{SpectRes} implementation despite conserving the flux is two orders of magnitude slower than our implementation and \texttt{pPXF} util. For a single spectrum this a not an issue, but for tens of thousands of spectra, it can have a big impact on runtime.
+We measure the execution time of these programs. The results are summarized in Table \ref{tab:resampling_comparison}. In the last column, we show the average execution time after 1000 execution rounds. The \texttt{SpectRes} implementation despite conserving the flux is two orders of magnitude slower than our implementation and \texttt{pPXF} util. For a single spectrum this a not an issue, but for tens of thousands of spectra it can have a big impact on runtime.
 
 \begin{table}[h]
 	\caption{Results of comparison of three different implementations of resampling. For \texttt{pPXF} util, the \texttt{flux} keyword is set to \texttt{True}. In the central column the flux integrated over the wavelength range. In the last column, we show the average execution time after 1000 rounds of execution.}
 	\label{tab:resampling_comparison}
 	\begin{tabular}{lcc}
-		\hline
 		\import{../tables/}{table_resampling_comparison.tex}
 	\end{tabular}
 \end{table}
@@ -103,6 +102,27 @@ We measure the execution time of these programs. The results are summarized in T
 \subsection{Rebinning}
 
 \subsection{Convolution with MUSE LSF}
+
+\begin{figure}[h]
+	\label{fig:muse_lsf}
+	\centering
+	\includegraphics[width = 0.8\linewidth]{muse_lsf.pdf}
+	\caption{}
+\end{figure}
+
+\begin{figure}[h]
+	\label{fig:lsf_for_convolution}
+	\centering
+	\includegraphics[width = \linewidth]{lsf_comparison.pdf}
+	\caption{}
+\end{figure}
+
+\begin{figure}[h]
+	\label{fig:convolution_comparison}
+	\centering
+	\includegraphics[width = 0.8\linewidth]{convolution_comparison.pdf}
+	\caption{}
+\end{figure}
 
 \bibliography{biblio.bib}
 

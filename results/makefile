@@ -14,4 +14,4 @@ view: report
 	open $(DOCNAME).pdf
 
 clean:
-	rm *.blg *.bbl *.aux *.log
+	rm *.blg *.bbl *.aux *.log *.out

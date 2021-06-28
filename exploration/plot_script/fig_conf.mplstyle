@@ -10,7 +10,10 @@ figure.autolayout : True
 
 xtick.minor.visible : True
 xtick.direction : in
+xtick.top : True
+
 ytick.minor.visible : True
 ytick.direction : in
+ytick.right : True
 
 savefig.bbox : tight
