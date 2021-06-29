@@ -92,5 +92,3 @@ ax.set_ylabel(r'$\textbf{Flux density in arbitrary units}$')
 ax.set_title(r'Convolution comparison')
 
 plt.savefig('../plots/convolution_comparison.pdf')
-
-

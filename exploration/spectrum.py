@@ -29,7 +29,6 @@ class Spectrum:
         self.sampling_type = self._valid_key(sampling_type,
                                              valid = ['linear', 'log', 'ln'])
         self.wave = self._build_spec_wave(wave)
-        self.snr = self._build_snr()
 
     @staticmethod
     def _valid_key(item, valid):
@@ -69,14 +68,9 @@ class Spectrum:
             wave = 10.0**(first_wave + step*np.arange(npix, dtype = np.double))
         elif self.sampling_type == 'ln':
             wave = np.e**(first_wave + step*np.arange(npix, dtype = np.double))
-
         return wave
 
-    def _build_snr(self):
-        return NotImplemented
-
     def convolve(self, sigma):
-        assert self.flux.size == sigma.size, "sigma and flux arrays must have the same size"
         self.flux = gaussian_filter1d(self.flux, sigma)
 
     @staticmethod
@@ -93,7 +87,6 @@ class Spectrum:
             step = np.log(wave[1]/wave[0])
             edges = np.array(wave[0]/np.e**(step/np.double(2)), dtype = np.double)
             edges = np.append(edges, wave*np.e**(step/np.double(2)))
-
         return edges
 
     def trim_w_mask(self, mask):
@@ -121,27 +114,22 @@ class Spectrum:
         res_data = res_data/new_inter
 
 
-
         #to do: Add resampling of uncertainty when there is no other alternative
-
 
 
         self.sampling_type = new_sampling_type
         self.flux = res_data
         self.wave = new_wave
         self.flux_unc = np.full_like(self.flux, np.nan)
-        #to do: self.snr
 
     def rebinning(self, new_wave, new_sampling_type):
         # todo: maybe use more x-axis points
         f_interp = interpolate.interp1d(self.wave, self.flux, kind = 'linear',
                                         bounds_error = False)
-
         reb_data = f_interp(new_wave)
 
         e_interp = interpolate.interp1d(self.wave, self.flux_unc, kind = 'linear',
                                         bounds_error = False)
-
         reb_error = e_interp(new_wave)
 
         self.sampling_type = new_sampling_type

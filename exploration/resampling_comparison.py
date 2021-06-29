@@ -44,7 +44,7 @@ def run_comparison():
     spectres_data, spectres_err = spectres(wave_ln, wave_lin, flux, err_f)
     
     # Resampling with ppxf util method
-    # Computing sampling in km/s for logarithmic rebinning
+    # Computing sampling in km/s
     velscale = C * np.log(wave_lin[1]/wave_lin[0])
     ppxf_data, wave_ppxf = util.log_rebin([wave_lin[0], wave_lin[-1]], flux,
                                           flux = True, velscale = velscale)[0:2]
@@ -91,7 +91,7 @@ def run_comparison():
         t_spectres[i] = clock() - t1
     t_spectres = round(t_spectres.mean()*1e3, 3)
     
-    # Resampling with ppxf util method method
+    # Resampling with ppxf util method
     t_ppxf = np.empty(n_rep)
     for i in range(n_rep):
         t1 = clock()
