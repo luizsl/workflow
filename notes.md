@@ -63,3 +63,8 @@ The resolving power (R) as function of wavelength of MUSE is available in the [M
 
 ### Convolution
 The convolution made with ppxf util is very general. It allows us to use a single average LSF, a piecewise convolution as done in ELODIE or even a different LSF for each pixel. We compared these different LSF injections, the results are similar to each other.
+
+## 2021-06-29
+
+### Rebinning
+Some tests with rebinning were done. The results depend more on the number of pixels than on the implementation. Here, our goal is just to reproduce the signal without modifying its shape, just changing the points on the x-axis. At this point we have all the tools to treat the spectra to determine the kinematics.
