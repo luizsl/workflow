@@ -14,6 +14,7 @@ from astropy.io import fits
 from scipy import integrate
 from scipy.constants import physical_constants
 
+
 C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
 cube_file = '../data/NGC613/Muse/NGC0613_DATACUBE_FINAL_clean.fits'
 

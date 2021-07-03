@@ -11,6 +11,7 @@ from scipy import interpolate
 import matplotlib.pyplot as plt
 from ppxf.ppxf_util import gaussian_filter1d
 
+
 class Spectrum:
     def __init__(self, flux, wave, medium = None, sampling_type = None,
                  flux_unc = None, npix = None):
