@@ -68,3 +68,13 @@ The convolution made with ppxf util is very general. It allows us to use a singl
 
 ### Rebinning
 Some tests with rebinning were done. The results depend more on the number of pixels than on the implementation. Here, our goal is just to reproduce the signal without modifying its shape, just changing the points on the x-axis. At this point we have all the tools to treat the spectra to determine the kinematics.
+
+## 2021-07-08
+
+### Resampling and uncertainties
+The resampling function works identically to the one that is part of astropy (but ~200x faster). But I'm facing some difficulties with the uncertainties management. I have discarded the employ of the [uncertainties package](https://pythonhosted.org/uncertainties/). There're some discussions about uncertainties handling [here1](https://github.com/astropy/specutils/issues/255) and [here2](https://github.com/astropy/specutils/pull/461).
+
+## 2021-07-09
+
+### Handling uncertainties on resampling
+
