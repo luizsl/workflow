@@ -61,7 +61,7 @@ class Spectrum:
         first_wave, step = wave
 
         if npix is None:
-            npix = self.flux.size
+            npix = len(self.flux)
 
         if self.sampling_type == 'linear':
             wave = first_wave + step*np.arange(npix, dtype = np.double)

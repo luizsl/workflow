@@ -77,4 +77,7 @@ The resampling function works identically to the one that is part of astropy (bu
 ## 2021-07-09
 
 ### Handling uncertainties on resampling
+The uncertainties are currently being resampled, at least for now. I'm not sure if this is a correct procedure.
+
+## 2021-07-10
 
