@@ -48,17 +48,18 @@ with fits.open(obs_file) as hdu:
     step_wave = hdu['DATA'].header['CD3_3']
     obs = Spectrum(flux, wave = [first_wave, step_wave],
                    medium = 'air', sampling_type = 'linear', flux_unc = error)
-    obs.flux = np.nan_to_num(obs.flux)
-    plt.plot()
+    # obs.flux = np.nan_to_num(obs.flux)
     mask = (obs.wave > np.min(model.wave)) & (obs.wave < np.max(model.wave))
     obs.trim_w_mask(mask)
     obs.normalize_median()
+    
     wave_ln = np.e**(np.arange(np.log(obs.wave[0]), 
                                np.log(obs.wave[-1]), 
                                1*np.log(obs.wave[1]/obs.wave[0])))
+    
     obs.resampling(wave_ln, new_sampling_type = 'ln')
-    obs.flux = np.nan_to_num(obs.flux)
-    plt.plot()
+    # obs.flux = np.nan_to_num(obs.flux)
+    obs.plot()
 
 ########## Observation Properties ###########
 

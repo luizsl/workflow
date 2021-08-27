@@ -86,12 +86,17 @@ class Spectrum:
                           old_wave = self.wave,
                           old_sampling_type = self.sampling_type,
                           new_wave = new_wave,
-                          new_sampling_type = new_sampling_type)
+                          new_sampling_type = new_sampling_type,
+                          flux_err= self.flux_unc)
             
         self.sampling_type = new_sampling_type
         self.flux = res_data
         self.wave = new_wave
-        self.flux_unc = res_err
+        
+        if res_err is None:
+            self.flux_unc  = np.full_like(res_data, None)
+        else:
+            self.flux_unc = res_err
 
     def normalize_median(self):
         self.flux = self.flux/np.median(self.flux)

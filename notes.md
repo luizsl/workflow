@@ -84,6 +84,10 @@ The uncertainties are currently being resampled, at least for now. I'm not sure 
 ### SpectCube
 Now the function for resampling is within an independent package (SpectCube). It will be available on PyPI soon allowing instalation via pip.
 
-###  
+## 2021-08-27
 
+### LSF
+Introducing function to use LSF as described by equation 8 in Bacon et al. 2017.
+
+## 2021-08-28
 
