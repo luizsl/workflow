@@ -10,6 +10,7 @@ import numpy as np
 from scipy import interpolate
 import matplotlib.pyplot as plt
 from ppxf.ppxf_util import gaussian_filter1d
+import spectcube as sc
 
 
 class Spectrum:
@@ -74,69 +75,23 @@ class Spectrum:
     def convolve(self, sigma):
         self.flux = gaussian_filter1d(self.flux, sigma)
 
-    @staticmethod
-    def _build_edges(wave, sampling_type):
-        if sampling_type == 'linear':
-            step = wave[1] - wave[0]
-            edges = np.array([wave[0] - step/np.double(2)], dtype = np.double)
-            edges = np.append(edges, wave + step/np.double(2))
-        elif sampling_type == 'log':
-            step = np.log10(wave[1]/wave[0])
-            edges = np.array(wave[0]/np.double(10)**(step/np.double(2)), dtype = np.double)
-            edges = np.append(edges, wave*np.double(10)**(step/np.double(2)))
-        elif sampling_type == 'ln':
-            step = np.log(wave[1]/wave[0])
-            edges = np.array(wave[0]/np.e**(step/np.double(2)), dtype = np.double)
-            edges = np.append(edges, wave*np.e**(step/np.double(2)))
-        return edges
-
     def trim_w_mask(self, mask):
         self.wave = self.wave[mask]
         self.flux = self.flux[mask]
         self.flux_unc = self.flux_unc[mask]
 
     def resampling(self, new_wave, new_sampling_type):
-        # edges
-        old_edges = self._build_edges(self.wave, self.sampling_type)
-        new_edges = self._build_edges(new_wave, new_sampling_type)
-
-        # intervals
-        old_inter = np.ediff1d(old_edges)
-        new_inter = np.ediff1d(new_edges)
-        
-        # integrate and resample the spectrum
-        int_flux = np.append([0], np.cumsum(self.flux) * old_inter)
-
-        f_interp = interpolate.interp1d(old_edges, int_flux, kind = 'linear',
-                                        bounds_error = False)
-
-        res_data = f_interp(new_edges)
-        res_data = np.ediff1d(res_data)
-        res_data = res_data/new_inter
-
-
-        #to do: Add resampling of uncertainty when there is no other alternative
-
-
+        res_data, new_wave, res_err = \
+            sc.resampling(flux = self.flux,
+                          old_wave = self.wave,
+                          old_sampling_type = self.sampling_type,
+                          new_wave = new_wave,
+                          new_sampling_type = new_sampling_type)
+            
         self.sampling_type = new_sampling_type
         self.flux = res_data
         self.wave = new_wave
-        self.flux_unc = np.full_like(self.flux, np.nan)
-
-    def rebinning(self, new_wave, new_sampling_type):
-        # todo: maybe use more x-axis points
-        f_interp = interpolate.interp1d(self.wave, self.flux, kind = 'linear',
-                                        bounds_error = False)
-        reb_data = f_interp(new_wave)
-
-        e_interp = interpolate.interp1d(self.wave, self.flux_unc, kind = 'linear',
-                                        bounds_error = False)
-        reb_error = e_interp(new_wave)
-
-        self.sampling_type = new_sampling_type
-        self.flux = reb_data
-        self.wave = new_wave
-        self.flux_unc = reb_error
+        self.flux_unc = res_err
 
     def normalize_median(self):
         self.flux = self.flux/np.median(self.flux)
