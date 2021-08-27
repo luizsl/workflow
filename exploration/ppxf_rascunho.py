@@ -10,7 +10,7 @@ import glob
 import numpy as np
 import pandas as pd
 from astropy.io import fits
-from spectrum.spectrum import Spectrum
+from spectrum import Spectrum
 from ppxf.ppxf import ppxf
 import ppxf.ppxf_util as util
 from scipy.constants import physical_constants
@@ -56,7 +56,7 @@ with fits.open(obs_file) as hdu:
     wave_ln = np.e**(np.arange(np.log(obs.wave[0]), 
                                np.log(obs.wave[-1]), 
                                1*np.log(obs.wave[1]/obs.wave[0])))
-    obs.rebinning(wave_ln, new_sampling_type = 'ln')
+    obs.resampling(wave_ln, new_sampling_type = 'ln')
     obs.flux = np.nan_to_num(obs.flux)
     plt.plot()
 
@@ -90,7 +90,7 @@ for j, file in enumerate(vazdekis):
         model = Spectrum(flux, wave = [first_wave, step_wave],
                          medium = 'air', sampling_type = 'linear')
         model.convolve(sigma)
-        model.rebinning(wave_ln, new_sampling_type = 'ln')
+        model.resampling(wave_ln, new_sampling_type = 'ln')
         model.flux = np.nan_to_num(model.flux)
         model.normalize_median()
         templates[:, j] = model.flux
@@ -102,16 +102,6 @@ dv = C*np.log(model.wave[0]/obs.wave[0])    # eq.(8) of Cappellari (2017)
 goodpixels = util.determine_goodpixels(np.log(obs.wave), wave_range_model, z)
 vel = C*np.log(1 + z)   # eq.(8) of Cappellari (2017)
 start = [vel, 200.]  # (km/s), starting guess for [V, sigma]
-
-# import numpy as np
-# import matplotlib.pyplot as plt
-# import scipy.ndimage as ndimage
-
-# sigma = 1       # Velocity dispersion in pixels
-# shift = 400   # Velocity shift in pixels
-# template = np.roll(ndimage.gaussian_filter1d(templates, sigma), shift)
-# plt.plot(obs.flux, 'k')
-# plt.plot(template[:,1]*np.median(obs.flux)/np.median(templates[:,1]), 'r')
 
 pp = ppxf(templates[:, :], obs.flux, noise, velscale, start,
           goodpixels = goodpixels, plot = True, moments=4,

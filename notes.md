@@ -79,5 +79,11 @@ The resampling function works identically to the one that is part of astropy (bu
 ### Handling uncertainties on resampling
 The uncertainties are currently being resampled, at least for now. I'm not sure if this is a correct procedure.
 
-## 2021-07-10
+## 2021-08-26
+
+### SpectCube
+Now the function for resampling is within an independent package (SpectCube). It will be available on PyPI soon allowing instalation via pip.
+
+###  
+
 
