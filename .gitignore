@@ -2,5 +2,12 @@
 data/*
 !data/.gitkeep
 
+data_products/*
+data_products/NGC613/
+exploration/NGC613
+exploration/run_ifscube/*
+exploration/run_ppxf/NGC613_1
+exploration/run_ppxf/*.pdf
+exploration/run_ppxf/*.fits
 duvidas.md
 melhorias.md

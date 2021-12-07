@@ -91,3 +91,27 @@ Introducing function to use LSF as described by equation 8 in Bacon et al. 2017.
 
 ## 2021-08-28
 
+### ppxf for the whole MUSE cube
+Starting the implementation of scripts to run ppxf with the MUSE cube.
+
+## 2021-08-31
+
+### Preparing model and observations to use on ppxf
+Some adaptations were made in the functions to prepare the data in its final form. That is, use all muse data and all the ssp models.
+
+## 2021-09-01
+
+### Muse cube on ppxf
+Apparently some bug remains in the code to prepare the muse cube to use on ppxf. The models are prepared. It seems I need to investigate some aspects of the convolution. Currently I using th funcion provided by ppxf to convolve the data.
+
+## 2021-10-12
+
+## Missing annotations
+
+I have missed the annotations of a few days. In summary, I have completed an execution of ppxf with the whole MUSE cube. The output data was saved which allowed to subtract the stellar component. For the nebular emission lines I first attempt of fitting will be made with IFSCube.
+
+## Starting test IFSCube
+
+I have read almost the all IFScube instruction. It seems to be an great tool to accomplish the task of fitting emission line kinematics. I will start testing with a single spectrum. Next, I will test the routine to fit data in cube using a central region of the field of view.
+
+##
