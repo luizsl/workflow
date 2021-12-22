@@ -118,4 +118,4 @@ I have read almost the all IFScube instruction. It seems to be an great tool to 
 
 ### Improving ppxf usage
 
-Some improvements in the code that controls the ppxf execution was implemented. This new features, such a .ini file, provides a more flexible control of ppxf execution.
+Some improvements in the code that controls the ppxf execution was implemented. This new features, such a .ini file, provides a more flexible ppxf execution control.
