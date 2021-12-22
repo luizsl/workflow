@@ -106,12 +106,16 @@ Apparently some bug remains in the code to prepare the muse cube to use on ppxf.
 
 ## 2021-10-12
 
-## Missing annotations
+### Missing annotations
 
 I have missed the annotations of a few days. In summary, I have completed an execution of ppxf with the whole MUSE cube. The output data was saved which allowed to subtract the stellar component. For the nebular emission lines I first attempt of fitting will be made with IFSCube.
 
-## Starting test IFSCube
+### Starting test IFSCube
 
 I have read almost the all IFScube instruction. It seems to be an great tool to accomplish the task of fitting emission line kinematics. I will start testing with a single spectrum. Next, I will test the routine to fit data in cube using a central region of the field of view.
 
-##
+## 2021-12-21
+
+### Improving ppxf usage
+
+Some improvements in the code that controls the ppxf execution was implemented. This new features, such a .ini file, provides a more flexible control of ppxf execution.
