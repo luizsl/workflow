@@ -6,22 +6,12 @@ Created on Sat Dec 18 19:23:13 2021
 @author: Luiz
 """
 
-# import glob
-# import json
-# import dataclasses
 import numpy as np
 import _pickle as pickle
-# from json import JSONEncoder
 from dataclasses import dataclass
 from configparser import ConfigParser
 from configparser import ExtendedInterpolation
 
-# class NumpyArrayEncoder(JSONEncoder):
-#     def default(self, obj):
-#         if isinstance(obj, np.ndarray):
-#             return obj.tolist()
-#         return JSONEncoder.default(self, obj)
-    
 @dataclass
 class Meta:
     # configuration file
@@ -81,7 +71,6 @@ class Meta:
         configur.read(self.conf_file)
 
         self.model_path = configur.get('resources', 'model')
-        # self.model_path = 'teste'
         self.obs_path = configur.get('resources', 'observation')
         
         model_wave_trim = configur.get('model', 'wave_trim').split(' ')
@@ -92,10 +81,3 @@ class Meta:
         
         self.z = configur.getfloat('observation', 'redshift')
         self.output_dir = configur.get('output', 'output_dir')
-
-
-# if __name__ == '__main__':
-#     metadata = Meta(conf_file = 'config.ini')
-#     with open('metadata.pkl', 'wb') as out:
-#         pickle.dump(metadata, out)
-    

@@ -3,7 +3,7 @@ Created on Tue Aug 31 16:52:36 2021
 
 @author: Luiz
 """
-# import os
+
 import glob
 import numpy as np
 import spectcube as sc
@@ -27,7 +27,7 @@ class DataPreprocessing:
         self.prepare_observation()
         self.data_to_mmap()
 
-        with open('metadata.pkl', 'wb') as out:
+        with open(metadata_path, 'wb') as out:
             pickle.dump(self.meta, out)
 
     def pre_prepare(self):
@@ -74,7 +74,6 @@ class DataPreprocessing:
         print(f'{round(clock()-t,2)} s\n')
 
     def prepare_model(self, dtype = float):
-        # global flux_model
         print('''
               Model preparation
               *****************''')
@@ -158,7 +157,6 @@ class DataPreprocessing:
         self.flux_model = np.array(flux_model, dtype = dtype)
 
     def prepare_observation(self, dtype = float):
-        # global flux_obs, flux_obs_unc
         print('''
               Observation preparation
               ***********************
@@ -229,16 +227,13 @@ class DataPreprocessing:
                                   dtype='float32', mode='w+',
                                   shape= self.flux_obs.shape)
         mmap_flux_obs[:] = self.flux_obs[:]
-        # del self.flux_obs
 
         mmap_flux_obs_unc = np.memmap(f'{temp_input}/flux_obs_unc.dat', 
                                       dtype='float32', mode='w+',
                                       shape= self.flux_obs_unc.shape)
         mmap_flux_obs_unc[:] = self.flux_obs_unc[:]
-        # del self.flux_obs_unc
 
         mmap_flux_model = np.memmap(f'{temp_input}/flux_model.dat', 
                                     dtype='float32', mode='w+',
                                     shape= self.flux_model.shape)
         mmap_flux_model[:] = self.flux_model[:]
-        # del self.flux_model
