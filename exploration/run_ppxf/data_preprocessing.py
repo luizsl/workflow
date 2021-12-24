@@ -169,10 +169,10 @@ class DataPreprocessing:
         with fits.open(self.meta.obs_path, memmap = True, lazy_load_hdus = True,
                        cache = False) as hdu:
             flux_obs = np.array(hdu['DATA'].data,
-                                dtype = dtype)[:, 110:120, 110:120]
+                                dtype = dtype)#[:, 110:120, 110:120]
             del hdu['DATA'].data
             flux_obs_unc = np.array(hdu['STAT'].data,
-                                    dtype = dtype)[:, 110:120, 110:120]
+                                    dtype = dtype)#[:, 110:120, 110:120]
             flux_obs_unc = np.sqrt(flux_obs_unc)
             del hdu['STAT'].data
         print(f'{round(clock()-t,2)} s\n')
