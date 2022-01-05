@@ -22,49 +22,49 @@ class Meta:
     obs_path: str = ''
     
     # model lsf
-    model_lsf: float = 0
+    # model_lsf: float = 0
     
-    # original model sampling
-    o_model_sampling: str = ''
+    # # original model sampling
+    # o_model_sampling: str = ''
     
-    #number of models
-    n_model: int = 0
+    # #number of models
+    # n_model: int = 0
 
-    # original wavelength steps of model and data 
-    o_step_wave_model: float = 0
-    o_step_wave_obs: float = 0
+    # # original wavelength steps of model and data 
+    # o_step_wave_model: float = 0
+    # o_step_wave_obs: float = 0
 
-    # original and new number of pixels of model and data 
-    o_n_pixel_model: int = 0
-    o_n_pixel_obs: int = 0
-    n_pixel_model: int = 0
-    n_pixel_obs: int = 0
+    # # original and new number of pixels of model and data 
+    # o_n_pixel_model: int = 0
+    # o_n_pixel_obs: int = 0
+    # n_pixel_model: int = 0
+    # n_pixel_obs: int = 0
     
-    # arrays with original and new wavelengths
-    o_wave_model: np.ndarray = np.array([])
-    o_wave_obs: np.ndarray = np.array([])
-    wave_model: np.ndarray = np.array([])
-    wave_obs: np.ndarray = np.array([])
+    # # arrays with original and new wavelengths
+    # o_wave_model: np.ndarray = np.array([])
+    # o_wave_obs: np.ndarray = np.array([])
+    # wave_model: np.ndarray = np.array([])
+    # wave_obs: np.ndarray = np.array([])
     
-    # redundant information
-    o_limit_model: np.ndarray = np.array([])
-    o_limit_obs: np.ndarray = np.array([])
-    limit_model: np.ndarray = np.array([])
-    limit_obs: np.ndarray = np.array([])
-    o_first_wave_model = float = 0
-    o_first_wave_obs = float = 0
+    # # redundant information
+    # o_limit_model: np.ndarray = np.array([])
+    # o_limit_obs: np.ndarray = np.array([])
+    # limit_model: np.ndarray = np.array([])
+    # limit_obs: np.ndarray = np.array([])
+    # o_first_wave_model = float = 0
+    # o_first_wave_obs = float = 0
     
-    # original shape of observational data structure
-    shape_obs: tuple = ()
-    # Trim to remove leading and trailing zeros
-    model_wave_trim: np.ndarray = np.array([])
+    # # original shape of observational data structure
+    # shape_obs: tuple = ()
+    # # Trim to remove leading and trailing zeros
+    # model_wave_trim: np.ndarray = np.array([])
     
-    # observation redshift
-    z = float
+    # # observation redshift
+    # z = float
     
-    # temporary directories
-    temp_input_dir = str = ''
-    temp_output_dir = str = ''
+    # # temporary directories
+    # temp_input_dir = str = ''
+    # temp_output_dir = str = ''
 
     def __post_init__(self):
         configur = ConfigParser(interpolation=ExtendedInterpolation())
@@ -73,6 +73,9 @@ class Meta:
         self.model_path = configur.get('resources', 'model')
         self.obs_path = configur.get('resources', 'observation')
         
+        self.model_name = configur.get('model', 'model_name')
+        self.obs_name = configur.get('observation', 'obs_name')
+        
         model_wave_trim = configur.get('model', 'wave_trim').split(' ')
         self.model_wave_trim = np.array(model_wave_trim, dtype = float)
     
@@ -80,4 +83,5 @@ class Meta:
         self.o_model_sampling = configur.get('model', 'sampling')
         
         self.z = configur.getfloat('observation', 'redshift')
+        self.output_root = configur.get('output', 'output_root')
         self.output_dir = configur.get('output', 'output_dir')

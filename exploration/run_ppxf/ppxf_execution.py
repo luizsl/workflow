@@ -5,17 +5,13 @@ Created on Sat Sep 25 12:54:40 2021
 
 @author: Luiz
 """
-# from numba import jit, cuda
 import numpy as np
 import ppxf.ppxf_util as util
 import _pickle as pickle
-
 from scipy.constants import physical_constants
 from ppxf.ppxf import ppxf
+from datetime import datetime
 from time import perf_counter as clock
-
-# from tempfile import mkdtemp
-# import os.path as path
 
 
 class ExecutePpxf:
@@ -23,9 +19,12 @@ class ExecutePpxf:
     def __init__(self, metadata_path):
         with open(metadata_path, 'rb') as inp:
             self.meta = pickle.load(inp)
-
+            
         self.build_output_storage()
         self.run_all_data()
+        
+        with open(metadata_path, 'wb') as out:
+            pickle.dump(self.meta, out)
 
     def build_output_storage(self):
         np.memmap(filename = f'{self.meta.temp_output_dir}/velocity.dat', dtype = float, mode='w+',
@@ -188,7 +187,9 @@ class ExecutePpxf:
         mmap_flux_model = np.memmap(f'{self.meta.temp_input_dir}/flux_model.dat',
                                     dtype = 'float32', mode = 'r',
                                     shape = shape_model)
-
+        # keep start time
+        self.meta.ppxf_start_time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        
         for index, _ in np.ndenumerate(mmap_flux_obs[0, ...]):
             print('\n' + str(index[0]))
             flux_obs_slice = mmap_flux_obs[:, index[0]]
@@ -202,7 +203,10 @@ class ExecutePpxf:
                 pp = self.execute_ppxf(flux_obs_slice, flux_obs_unc_slice,
                                        flux_model)
                 self.store_output(pp, index[0])
-
+        
+        # keep end time
+        self.meta.ppxf_end_time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        
     def execute_ppxf(self, flux_obs, flux_obs_unc, flux_model):
         C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
 
