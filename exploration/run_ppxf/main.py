@@ -5,6 +5,7 @@ Created on Tue Aug 31 17:55:58 2021
 
 @author: Luiz
 """
+import sys
 import os
 import tempfile
 import shutil
@@ -68,4 +69,5 @@ class Main:
         return NotImplemented
         
 if __name__ == '__main__':
-    Main('config.ini')
+    conf = sys.argv[1]
+    Main(conf)
