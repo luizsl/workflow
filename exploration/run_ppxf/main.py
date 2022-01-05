@@ -64,9 +64,6 @@ class Main:
     def remove_temporary(self):
         shutil.rmtree(self.meta.temp_input_dir)
         shutil.rmtree(self.meta.temp_output_dir)
-
-    def move_data_products(self):
-        return NotImplemented
         
 if __name__ == '__main__':
     conf = sys.argv[1]
