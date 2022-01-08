@@ -9,11 +9,13 @@ import sys
 import os
 import tempfile
 import shutil
+import json
 import _pickle as pickle
 from build_metadata import Meta
 from data_preprocessing import DataPreprocessing
 from ppxf_execution import ExecutePpxf
 from post_processing import PostProcessing
+from astropy.utils.misc import JsonCustomEncoder
 
 
 class Main:
@@ -21,11 +23,13 @@ class Main:
         self.conf_file = conf_file
         self.read_config()
         self.create_output_folder()
+        self.keep_conf_copy()
         self.create_temporary()
         self.create_metadata_file()
         self.execute()
         self.remove_temporary()
-
+        self.meta_to_json()
+        
     def read_config(self): 
         self.meta = Meta(conf_file = self.conf_file)
 
@@ -45,9 +49,12 @@ class Main:
 
         os.mkdir(self.meta.output_dir)
         
+    def keep_conf_copy(self):
+        shutil.copy(self.conf_file, self.meta.output_dir)
+        
     def create_temporary(self):
-        self.temp_input_dir = tempfile.mkdtemp(dir =  self.meta.output_root)
-        self.temp_output_dir = tempfile.mkdtemp(dir =  self.meta.output_root)
+        self.temp_input_dir = tempfile.mkdtemp(dir = self.meta.output_root)
+        self.temp_output_dir = tempfile.mkdtemp(dir = self.meta.output_root)
         self.meta.temp_input_dir = self.temp_input_dir
         self.meta.temp_output_dir = self.temp_output_dir
 
@@ -64,7 +71,15 @@ class Main:
     def remove_temporary(self):
         shutil.rmtree(self.meta.temp_input_dir)
         shutil.rmtree(self.meta.temp_output_dir)
+    
+    def meta_to_json(self):
+        with open(f'{self.meta.output_dir}/metadata.pkl', 'rb') as inp:
+            meta = pickle.load(inp)
+            meta = meta.__dict__
+        with open(f'{self.meta.output_dir}/metadata.json', 'w') as out:
+            json.dump(meta, fp = out, indent=4, cls = JsonCustomEncoder)
         
 if __name__ == '__main__':
     conf = sys.argv[1]
+    # conf = 'test.ini'
     Main(conf)

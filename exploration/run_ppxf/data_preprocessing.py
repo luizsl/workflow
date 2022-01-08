@@ -41,6 +41,7 @@ class DataPreprocessing:
         t = clock()
 
         model_files = glob.glob(self.meta.model_path)
+        self.meta.model_files = model_files
         with fits.open(model_files[0]) as hdu:
             self.meta.o_first_wave_model = np.double(hdu['PRIMARY'].header['CRVAL1'])
             self.meta.o_step_wave_model = np.double(hdu['PRIMARY'].header['CDELT1'])
