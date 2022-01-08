@@ -3,7 +3,8 @@ data/*
 !data/.gitkeep
 
 data_products/*
-data_products/NGC613/
+!data_products/.gitkeep
+
 exploration/NGC613
 exploration/run_ifscube/previous_results
 exploration/run_ifscube/*.pdf
