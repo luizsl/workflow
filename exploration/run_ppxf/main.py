@@ -11,16 +11,19 @@ import tempfile
 import shutil
 import json
 import _pickle as pickle
+from astropy.utils.misc import JsonCustomEncoder
+
 from build_metadata import Meta
 from data_preprocessing import DataPreprocessing
 from ppxf_execution import ExecutePpxf
 from post_processing import PostProcessing
-from astropy.utils.misc import JsonCustomEncoder
 
 
 class Main:
     def __init__(self, conf_file):
         self.conf_file = conf_file
+
+    def run_all(self):
         self.read_config()
         self.create_output_folder()
         self.keep_conf_copy()
@@ -29,14 +32,14 @@ class Main:
         self.execute()
         self.remove_temporary()
         self.meta_to_json()
-        
-    def read_config(self): 
+
+    def read_config(self):
         self.meta = Meta(conf_file = self.conf_file)
 
     def create_output_folder(self):
         if os.path.isdir(self.meta.output_root) is False:
             os.makedirs(self.meta.output_root)
-            
+
         if os.path.isdir(f'{self.meta.output_root}/{self.meta.output_dir}') is False:
             self.meta.output_dir = f'{self.meta.output_root}/{self.meta.output_dir}'
         else:
@@ -48,10 +51,10 @@ class Main:
             self.meta.output_dir = f'{root}/{name}_{str(count)}'
 
         os.mkdir(self.meta.output_dir)
-        
+
     def keep_conf_copy(self):
         shutil.copy(self.conf_file, self.meta.output_dir)
-        
+
     def create_temporary(self):
         self.temp_input_dir = tempfile.mkdtemp(dir = self.meta.output_root)
         self.temp_output_dir = tempfile.mkdtemp(dir = self.meta.output_root)
@@ -62,24 +65,25 @@ class Main:
         self.metadata_path = f'{self.meta.output_dir}/metadata.pkl'
         with open(self.metadata_path, 'wb') as out:
             pickle.dump(self.meta, out)
-        
+
     def execute(self):
         DataPreprocessing(self.metadata_path)
         ExecutePpxf(self.metadata_path)
         PostProcessing(self.metadata_path)
-        
+
     def remove_temporary(self):
         shutil.rmtree(self.meta.temp_input_dir)
         shutil.rmtree(self.meta.temp_output_dir)
-    
+
     def meta_to_json(self):
         with open(f'{self.meta.output_dir}/metadata.pkl', 'rb') as inp:
             meta = pickle.load(inp)
             meta = meta.__dict__
         with open(f'{self.meta.output_dir}/metadata.json', 'w') as out:
             json.dump(meta, fp = out, indent=4, cls = JsonCustomEncoder)
-        
+
 if __name__ == '__main__':
     conf = sys.argv[1]
     # conf = 'test.ini'
-    Main(conf)
+    ppxf_control = Main(conf)
+    ppxf_control.run_all()
