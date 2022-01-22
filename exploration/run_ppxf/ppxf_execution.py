@@ -5,13 +5,14 @@ Created on Sat Sep 25 12:54:40 2021
 
 @author: Luiz
 """
-import numpy as np
-import ppxf.ppxf_util as util
-import _pickle as pickle
-from scipy.constants import physical_constants
-from ppxf.ppxf import ppxf
 from datetime import datetime
 from time import perf_counter as clock
+
+import _pickle as pickle
+import numpy as np
+import ppxf.ppxf_util as util
+from ppxf.ppxf import ppxf
+from scipy.constants import physical_constants
 
 
 class ExecutePpxf:
@@ -25,6 +26,8 @@ class ExecutePpxf:
         
         with open(metadata_path, 'wb') as out:
             pickle.dump(self.meta, out)
+        
+        print('ppxf execution complete')
 
     def build_output_storage(self):
         np.memmap(filename = f'{self.meta.temp_output_dir}/velocity.dat', dtype = float, mode='w+',
@@ -190,8 +193,9 @@ class ExecutePpxf:
         # keep start time
         self.meta.ppxf_start_time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
         
+        print('Running ppxf...', end = '\n\n')
         for index, _ in np.ndenumerate(mmap_flux_obs[0, ...]):
-            print('\n' + str(index[0]))
+            # print('\n' + str(index[0]))
             flux_obs_slice = mmap_flux_obs[:, index[0]]
             flux_obs_unc_slice = mmap_flux_obs_unc[:, index[0]]
             flux_model = mmap_flux_model
@@ -221,16 +225,17 @@ class ExecutePpxf:
         vel = C*np.log(1 + z)   # eq.(8) of Cappellari (2017)
         start = [vel, 200.]  # (km/s), starting guess for [V, sigma]
 
-        t = clock()
-        pp = ppxf(flux_model, flux_obs, flux_obs_unc, velscale, start,
-                  goodpixels=goodpixels, plot=False, moments=4,
-                  degree=12, vsyst=dv, clean=False, lam=self.meta.wave_obs,
-                  quiet=True)
-
+        # t = clock()
+        pp = ppxf(
+            flux_model, flux_obs, flux_obs_unc, velscale, start,
+            goodpixels=goodpixels, plot=False, moments=self.meta.ppxf_moments,
+            degree=self.meta.ppxf_degree, vsyst=dv, clean=self.meta.ppxf_clean,
+            lam=self.meta.wave_obs,quiet=True)
+        
         # print("Formal errors:")
         # print("     dV    dsigma   dh3      dh4")
         # print("".join("%8.2g" % f for f in pp.error*np.sqrt(pp.chi2)))
 
-        print('Elapsed time in PPXF: %.2f s' % (clock() - t))
+        # print('Elapsed time in PPXF: %.2f s' % (clock() - t))
 
         return pp

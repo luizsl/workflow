@@ -11,7 +11,11 @@ exploration/run_ifscube/*.pdf
 exploration/run_ifscube/*.fits
 exploration/run_ppxf/NGC613_1
 exploration/run_ppxf/__pycache__/*
+exploration/run_ifscube/__pycache__/*
 exploration/run_ppxf/*.pdf
 exploration/run_ppxf/*.fits
 duvidas.md
 melhorias.md
+improvements.md
+
+exploration/test_conf/

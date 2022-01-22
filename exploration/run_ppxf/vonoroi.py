@@ -7,11 +7,11 @@ Created on Wed Dec 15 13:36:02 2021
 """
 
 from os import path
-from astropy.io import fits
-import numpy as np
-import matplotlib.pyplot as plt
 
+import matplotlib.pyplot as plt
+import numpy as np
 import vorbin
+from astropy.io import fits
 from vorbin.voronoi_2d_binning import voronoi_2d_binning
 
 #%%

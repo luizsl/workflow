@@ -6,9 +6,10 @@ Created on Sat Sep 25 17:52:07 2021
 @author: Luiz
 """
 
-import numpy as np
 import _pickle as pickle
+import numpy as np
 from astropy.io import fits
+
 
 class PostProcessing:
 
@@ -32,7 +33,7 @@ class PostProcessing:
     def save_fits(self, data_param, name):
         hdu = fits.PrimaryHDU(data=data_param)
         hdul = fits.HDUList([hdu])
-        hdul.writeto(f'{self.meta.output_dir}/{name}.fits', overwrite=True)
+        hdul.writeto(f'{self.meta.output_run_ppxf}/{name}.fits', overwrite=True)
 
     def velocity(self):
         out = np.memmap(filename = f'{self.meta.temp_output_dir}/velocity.dat', dtype = float, mode='r',

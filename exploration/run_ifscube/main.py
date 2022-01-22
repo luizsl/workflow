@@ -1,136 +1,134 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Wed Oct 13 09:16:51 2021
+Created on Tue Jan 18 19:02:39 2022
 
-@author: Luiz
+@author: chess-lin
 """
 
+import json
 import os
+
 import numpy as np
-from astropy.io import fits
-import matplotlib.pyplot as plt
 import spectcube as sc
+from astropy.io import fits
 
 
-def build_input(input_cube_ppxf_path, stellar_flux_path):
-    
-    # input_cube_ppxf_path = '../run_ppxf/input_cube_ppxf.fits'
-    # stellar_flux_path = '../run_ppxf/NGC613_1/bestfit.fits'
-
-    with fits.open(input_cube_ppxf_path) as hdu:
-        header0 = hdu[0].header
-        header1 = hdu[1].header
-        header2 = hdu[2].header
-    
-        flux_obs = np.array(hdu[1].data, dtype = 'float32')
-        flux_obs = flux_obs[:, 100:110, 100:110]
+class IFSCubeInput:
+    def __init__(self, obs_path, metadata_path):
+        self.obs_path = obs_path
+        self.metadata_path = metadata_path
+        self.meta = self.read_meta()
+        self.get_headers()
+        self.hdul_out = fits.HDUList()
+        self.add_muse_data()
+        self.hdul_out.writeto('input_cube.fits', overwrite = True)
         
-        flux_unc_obs = np.array(hdu[2].data, dtype = 'float32')
-        flux_unc_obs = flux_unc_obs[:, 100:110, 100:110]
+    def read_meta(self):
+        with open(self.metadata_path) as f:
+            meta = json.load(f)
+        return meta
+    
+    def get_headers(self):
+        with fits.open(self.obs_path) as hdul:
+            self.header_primary = hdul[0].header
+            self.header_sci = hdul[1].header
+            self.header_err = hdul[2].header
+            
+    def add_muse_data(self):    
+        primary_hdu = fits.PrimaryHDU(header = self.header_primary)
+        self.hdul_out.append(primary_hdu)
+    
+        with fits.open(self.obs_path) as hdul:
+            flux = hdul['data'].data
+            uncertainty = hdul['stat'].data
+            flux, wave, uncertainty = sc.resampling(
+                flux = flux, 
+                old_wave = np.array(self.meta['o_wave_obs']),
+                old_sampling_type = 'linear',
+                new_wave = np.array(self.meta['wave_obs']), 
+                new_sampling_type = 'log',
+                flux_err = uncertainty)
+            
+        new_wave = sc.util.fit_wave_interval(
+            wave = np.array(self.meta['wave_obs']), 
+            old_sampling = 'log', new_sampling = 'linear')
         
-        old_log_wave = \
-            sc.util.build_wave_array(wave = [header1['CRVAL3'], header1['CD3_3']],
-                                     sampling_type = 'log',
-                                     size = header1['NAXIS3'])
-        new_lin_wave = \
-            sc.util.fit_wave_interval(wave = old_log_wave, 
-                                      old_sampling = 'log',
-                                      new_sampling = 'linear')
+        flux, wave, uncertainty = sc.resampling(
+            flux = flux, 
+            old_wave = np.array(self.meta['wave_obs']),
+            old_sampling_type = 'log',
+            new_wave = np.array(new_wave), 
+            new_sampling_type = 'linear',
+            flux_err = uncertainty)
             
-        flux_obs_res, _, flux_unc_obs_res = \
-            sc.resampling(flux = flux_obs, 
-                          old_wave = old_log_wave, old_sampling_type = 'log',
-                          new_wave = new_lin_wave, new_sampling_type = 'linear',
-                          flux_err = flux_unc_obs)
-    
-        del flux_obs, flux_unc_obs, hdu
-        flux_obs_res = np.array(flux_obs_res, dtype = np.single)
-        flux_unc_obs_res = np.array(flux_unc_obs_res, dtype = np.single)
-            
-    new_hdul = fits.HDUList()
-    new_hdul.append(fits.ImageHDU())
-    new_hdul.append(fits.ImageHDU())
-    new_hdul.append(fits.ImageHDU())
-    new_hdul.append(fits.ImageHDU())
-    new_hdul.append(fits.ImageHDU())
-
-    new_hdul[0].header = header0
-    
-    new_hdul[1].header = header1[:-2]
-    new_hdul[1].name = 'sci'
-    new_hdul[1].data = flux_obs_res
-    new_hdul[1].header['CTYPE3'] = 'AWAV'
-    new_hdul[1].header['CRVAL3'] = new_lin_wave[0]
-    new_hdul[1].header['CD3_3'] = new_lin_wave[1] - new_lin_wave[0]
-    
-    new_hdul[2].header = header2[:-2]
-    new_hdul[2].name = 'error'
-    new_hdul[2].data = flux_unc_obs_res
-    new_hdul[2].header['CTYPE3'] = 'AWAV'
-    new_hdul[2].header['CRVAL3'] = new_lin_wave[0]
-    new_hdul[2].header['CD3_3'] = new_lin_wave[1] - new_lin_wave[0]
-    
-    # new_hdul[2].header = header1[:-2]
-    new_hdul[3].name = 'mask'
-    mask_nan = np.any(np.isnan(flux_obs_res[:, ...]), axis = 0)
-    new_hdul[3].data = np.array(mask_nan, dtype = int)
-    # new_hdul[2].header['CTYPE3'] = 'AWAV'
-    # new_hdul[2].header['CRVAL3'] = new_lin_wave[0]
-    # new_hdul[2].header['CD3_3'] = new_lin_wave[1] - new_lin_wave[0]
-    
-    del flux_obs_res, flux_unc_obs_res
-    
-    with fits.open(stellar_flux_path) as hdu:
-        stellar_flux = np.array(hdu[0].data, dtype = 'float32')
-        stellar_flux = stellar_flux[:, 100:110, 100:110]
+        sci_hdu = fits.ImageHDU(flux, name = 'SCI', header = self.header_sci)
+        # sci_hdu.header['CTYPE3'] = 'AWAV-LOG'
+        sci_hdu.header['CTYPE3'] = 'AWAV'
+        sci_hdu.header['CRVAL3'] = new_wave[0]
+        sci_hdu.header['CD3_3'] = wave[1] - new_wave[0]
+        self.hdul_out.append(sci_hdu)
         
-        stellar_flux_res, _, _ = \
-            sc.resampling(flux = stellar_flux, 
-                          old_wave = old_log_wave, old_sampling_type = 'log',
-                          new_wave = new_lin_wave, new_sampling_type = 'linear')
-        stellar_flux_res = np.array(stellar_flux_res, dtype = np.single)     
+        err_hdu = fits.ImageHDU(
+            uncertainty, name = 'ERR', header = self.header_err)
+        # err_hdu.header['CTYPE3'] = 'AWAV-LOG'
+        err_hdu.header['CTYPE3'] = 'AWAV'
+        err_hdu.header['CRVAL3'] = new_wave[0]
+        err_hdu.header['CD3_3'] = new_wave[1] - new_wave[0]
+        self.hdul_out.append(err_hdu)
+        
+        mask = np.any(np.isnan(flux[:, ...]), axis = 0)
+        mask = np.array(mask, dtype = int)
+        mask_hdu = fits.ImageHDU(
+            mask, name = 'MASK', header = self.header_sci)
+        # mask_hdu.header['CTYPE3'] = 'AWAV-LOG'
+        mask_hdu.header['CTYPE3'] = 'AWAV'
+        mask_hdu.header['CRVAL3'] = new_wave[0]
+        mask_hdu.header['CD3_3'] = new_wave[1] - new_wave[0]
+        self.hdul_out.append(mask_hdu)
+    
+    def add_bestfit_ssp(self):
+        new_wave = sc.util.fit_wave_interval(
+            wave = np.array(self.meta['wave_obs']), 
+            old_sampling = 'log', new_sampling = 'linear')
+        
+        with fits.open(self.obs_path) as hdul:
+            stellar = hdul['PRIMARY'].data
+            stellar, wave, _ = sc.resampling(
+                flux = stellar, 
+                old_wave = np.array(self.meta['wave_obs']),
+                old_sampling_type = 'log',
+                new_wave = np.array(new_wave), 
+                new_sampling_type = 'linear')
             
-    new_hdul[4].header = header2[:-2]
-    new_hdul[4].name = 'stellar'
-    new_hdul[4].data = stellar_flux_res
-    new_hdul[4].header['CTYPE3'] = 'AWAV'
-    new_hdul[4].header['CRVAL3'] = new_lin_wave[0]
-    new_hdul[4].header['CD3_3'] = new_lin_wave[1] - new_lin_wave[0]
-    
-    new_hdul.info()
-    
-    new_hdul.writeto('input_cube_ifscube.fits', overwrite = True)
+        stellar_hdu = fits.ImageHDU(
+            stellar, name = 'STELLAR', header = self.header_sci)
+        # stellar_hdu.header['CTYPE3'] = 'AWAV-LOG'
+        stellar_hdu.header['CTYPE3'] = 'AWAV'
+        stellar_hdu.header['CRVAL3'] = wave[0]
+        stellar_hdu.header['CD3_3'] = wave[1] - wave[0]
+        self.hdul_out.append(stellar_hdu)
 
-def run_ifscube(input_ifscube_path, conf_ifscube_path):
-    
-    os.system(f'cubefit -oc {conf_ifscube_path} {input_ifscube_path}')
 
-    
+class RunIFScube:
+    def __init__(self, conf_file, input_cube):
+        os.system(f'cubefit -oc {conf_file} {input_cube}')
+
+
+# class ControlIFSCube:
+#     pass
+#     IFSCubeInput(obs_path, metadata_path)
+#     RunIFScube(conf_file, input_cube)
+
 if __name__ == '__main__':
     
-    build_input(input_cube_ppxf_path = '../run_ppxf/input_cube_ppxf.fits',
-                stellar_flux_path = '../run_ppxf/NGC613_1/bestfit.fits')
+    bestfit_path = '../../data_products/toy_20x20/miles/ppxf/bestfit.fits'
+    metadata_path = '../../data_products/toy_20x20/miles/ppxf/metadata.json'
+    obs_path = '../../data/toy_20x20.fits'
+     
+    conf_file = 'halpha_cube_muse.cfg'
+    input_cube = 'input_cube.fits'
     
-    run_ifscube(input_ifscube_path = 'input_cube_ifscube.fits',
-                conf_ifscube_path = 'halpha_cube_muse.cfg')
-
-
-#%%
-# x = 9
-
-# hdu_res = fits.open('input_cube_ifscube_linefit.fits')
-
-# # print(hdu_res['status'].data)
-
-# plt.plot(hdu_res['restwave'].data,
-#          hdu_res['fitspec'].data[:,x,0] - hdu_res['stellar'].data[:,x,0], label = 'spectrum')
-# # plt.plot(hdu_res['restwave'].data, hdu_res['var'].data[:,x,0])
-# # plt.plot(hdu_res['restwave'].data, hdu_res['model'].data[:,x,0], label = 'model')
-# plt.plot(hdu_res['restwave'].data, hdu_res['fitcont'].data[:,x,0], label = 'continuum')
-# plt.plot(hdu_res['restwave'].data,
-#          hdu_res['model'].data[:,x,0] - hdu_res['stellar'].data[:,x,0], label = 'fit')
-# plt.legend()
-
-# # hdu_res['solution'].data[:,2,0]
+    IFSCubeInput(obs_path, metadata_path)
+    RunIFScube(conf_file, input_cube)
 

@@ -6,10 +6,9 @@ Created on Sat Oct 16 18:21:48 2021
 @author: Luiz
 """
 
+import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
-import matplotlib.pyplot as plt
-
 
 hdu_res = fits.open('input_cube_ifscube_linefit.fits')
 

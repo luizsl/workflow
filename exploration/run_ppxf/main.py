@@ -5,18 +5,19 @@ Created on Tue Aug 31 17:55:58 2021
 
 @author: Luiz
 """
-import sys
-import os
-import tempfile
-import shutil
 import json
+import os
+import shutil
+import sys
+import tempfile
+
 import _pickle as pickle
 from astropy.utils.misc import JsonCustomEncoder
 
 from build_metadata import Meta
 from data_preprocessing import DataPreprocessing
-from ppxf_execution import ExecutePpxf
 from post_processing import PostProcessing
+from ppxf_execution import ExecutePpxf
 
 
 class Main:
@@ -26,8 +27,8 @@ class Main:
     def run_all(self):
         self.read_config()
         self.create_output_folder()
-        self.keep_conf_copy()
         self.create_temporary()
+        self.keep_conf_copy()
         self.create_metadata_file()
         self.execute()
         self.remove_temporary()
@@ -37,23 +38,28 @@ class Main:
         self.meta = Meta(conf_file = self.conf_file)
 
     def create_output_folder(self):
-        if os.path.isdir(self.meta.output_root) is False:
-            os.makedirs(self.meta.output_root)
+        dir_ = os.path.join(self.meta.output_root, self.meta.output_dir)
+        if os.path.isdir(dir_) is False:
+            os.makedirs(dir_, exist_ok=True)
 
-        if os.path.isdir(f'{self.meta.output_root}/{self.meta.output_dir}') is False:
-            self.meta.output_dir = f'{self.meta.output_root}/{self.meta.output_dir}'
+        # later add a function to write a more complex _sec_dir name
+        sec_dir_ = f'{dir_}miles'
+        
+        # create unique name
+        if os.path.isdir(sec_dir_) is False:
+            self.meta.output_run = sec_dir_
         else:
-            root = self.meta.output_root
-            name = self.meta.output_dir
             count = 1
-            while os.path.isdir(f'{root}/{name}_{str(count)}') is True:
+            while os.path.isdir(f'{sec_dir_}_{str(count)}') is True:
                 count += 1
-            self.meta.output_dir = f'{root}/{name}_{str(count)}'
-
-        os.mkdir(self.meta.output_dir)
-
+            self.meta.output_run = f'{sec_dir_}_{str(count)}'
+            
+        self.meta.output_run_ppxf = \
+            os.path.join(self.meta.output_run, 'ppxf')
+        os.makedirs(self.meta.output_run_ppxf, exist_ok=True)
+        
     def keep_conf_copy(self):
-        shutil.copy(self.conf_file, self.meta.output_dir)
+        shutil.copy(self.conf_file, self.meta.output_run_ppxf)
 
     def create_temporary(self):
         self.temp_input_dir = tempfile.mkdtemp(dir = self.meta.output_root)
@@ -62,7 +68,7 @@ class Main:
         self.meta.temp_output_dir = self.temp_output_dir
 
     def create_metadata_file(self):
-        self.metadata_path = f'{self.meta.output_dir}/metadata.pkl'
+        self.metadata_path = f'{self.meta.output_run_ppxf}/metadata.pkl'
         with open(self.metadata_path, 'wb') as out:
             pickle.dump(self.meta, out)
 
@@ -76,10 +82,10 @@ class Main:
         shutil.rmtree(self.meta.temp_output_dir)
 
     def meta_to_json(self):
-        with open(f'{self.meta.output_dir}/metadata.pkl', 'rb') as inp:
+        with open(f'{self.meta.output_run_ppxf}/metadata.pkl', 'rb') as inp:
             meta = pickle.load(inp)
             meta = meta.__dict__
-        with open(f'{self.meta.output_dir}/metadata.json', 'w') as out:
+        with open(f'{self.meta.output_run_ppxf}/metadata.json', 'w') as out:
             json.dump(meta, fp = out, indent=4, cls = JsonCustomEncoder)
 
 if __name__ == '__main__':
@@ -87,3 +93,7 @@ if __name__ == '__main__':
     # conf = 'test.ini'
     ppxf_control = Main(conf)
     ppxf_control.run_all()
+    # ppxf_control.read_config()
+    # ppxf_control.create_output_folder()
+
+

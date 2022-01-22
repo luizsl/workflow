@@ -5,14 +5,16 @@ Created on Tue Aug 31 16:52:36 2021
 """
 
 import glob
+from time import perf_counter as clock
+
+import _pickle as pickle
 import numpy as np
 import spectcube as sc
-import _pickle as pickle
-import compute_muse_lsf as lsf
 from astropy.io import fits
-from normalize_median import normalize_median
+
+import compute_muse_lsf as lsf
 from convolve import convolve
-from time import perf_counter as clock
+from normalize_median import normalize_median
 
 
 class DataPreprocessing:
@@ -51,7 +53,7 @@ class DataPreprocessing:
 
         self.meta.o_wave_model = \
             sc.util.build_wave_array([self.meta.o_first_wave_model, self.meta.o_step_wave_model],
-                                      sampling_type = 'linear',
+                                      sampling_type = self.meta.o_model_sampling,
                                       size = self.meta.o_n_pixel_model)
 
         self.meta.o_limit_model = self.meta.o_wave_model[[0,-1]]
@@ -68,7 +70,7 @@ class DataPreprocessing:
             self.meta.o_n_pixel_obs = hdu['DATA'].header['NAXIS3']
         self.meta.o_wave_obs = \
             sc.util.build_wave_array([self.meta.o_first_wave_obs, self.meta.o_step_wave_obs],
-                                      sampling_type = 'linear',
+                                      sampling_type = self.meta.o_obs_sampling,
                                       size = self.meta.o_n_pixel_obs)
 
         self.meta.o_obs_limit = self.meta.o_wave_obs[[0,-1]]
@@ -117,9 +119,10 @@ class DataPreprocessing:
 
         flux_model, _, _ = sc.resampling(flux = flux_model,
                                          old_wave = self.meta.o_wave_model,
-                                         old_sampling_type = 'linear',
+                                         old_sampling_type = self.meta.o_model_sampling,
                                          new_wave = self.meta.wave_model,
                                          new_sampling_type ='log')
+        self.meta.new_model_sampling = 'log'
         print(f'{round(clock()-t,2)} s\n')
 
 
@@ -170,10 +173,10 @@ class DataPreprocessing:
         with fits.open(self.meta.obs_path, memmap = True, lazy_load_hdus = True,
                        cache = False) as hdu:
             flux_obs = np.array(hdu['DATA'].data,
-                                dtype = dtype)#[:, 110:120, 110:120]
+                                dtype = dtype)
             del hdu['DATA'].data
             flux_obs_unc = np.array(hdu['STAT'].data,
-                                    dtype = dtype)#[:, 110:120, 110:120]
+                                    dtype = dtype)
             flux_obs_unc = np.sqrt(flux_obs_unc)
             del hdu['STAT'].data
         print(f'{round(clock()-t,2)} s\n')
@@ -185,13 +188,14 @@ class DataPreprocessing:
         flux_obs, self.meta.wave_obs, flux_obs_unc = \
             sc.resampling(flux = flux_obs,
                           old_wave = self.meta.o_wave_obs,
-                          old_sampling_type = 'linear',
+                          old_sampling_type =  self.meta.o_obs_sampling,
                           new_wave = self.meta.wave_model,
                           new_sampling_type = 'log',
                           flux_err = flux_obs_unc)
 
         flux_obs = np.array(flux_obs, dtype = dtype)
         flux_obs_unc = np.array(flux_obs_unc, dtype = dtype)
+        self.meta.new_obs_sampling = 'log'
         print(f'{round(clock()-t,2)} s\n')
 
         # Normalising
@@ -199,7 +203,7 @@ class DataPreprocessing:
         t = clock()
 
         flux_obs, factor = normalize_median(flux_obs, save = True,
-                                            directory=self.meta.output_dir)
+                                            directory=self.meta.output_run_ppxf)
         flux_obs_unc = flux_obs_unc/factor
         print(f'{round(clock()-t,2)} s\n')
 
