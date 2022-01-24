@@ -75,7 +75,7 @@ class IFSCubeInput:
             new_sampling_type = 'linear',
             flux_err = uncertainty)
 
-        sci_hdu = fits.ImageHDU(flux, name = 'SCI', header = self.header_sci)
+        sci_hdu = fits.ImageHDU(np.single(flux), name = 'SCI', header = self.header_sci)
         # sci_hdu.header['CTYPE3'] = 'AWAV-LOG'
         sci_hdu.header['CTYPE3'] = 'AWAV'
         sci_hdu.header['CRVAL3'] = new_wave[0]
@@ -83,7 +83,7 @@ class IFSCubeInput:
         self.hdul_out.append(sci_hdu)
 
         err_hdu = fits.ImageHDU(
-            uncertainty, name = 'ERR', header = self.header_err)
+            np.single(uncertainty), name = 'ERR', header = self.header_err)
         # err_hdu.header['CTYPE3'] = 'AWAV-LOG'
         err_hdu.header['CTYPE3'] = 'AWAV'
         err_hdu.header['CRVAL3'] = new_wave[0]
@@ -119,7 +119,8 @@ class IFSCubeInput:
             
         stellar = stellar * self.normalization_factor
         self.stellar = stellar
-        stellar_hdu = fits.ImageHDU(stellar, name = 'STELLAR', header = self.header_sci)
+        stellar_hdu = fits.ImageHDU(
+            np.single(stellar), name = 'STELLAR', header = self.header_sci)
         # stellar_hdu.header['CTYPE3'] = 'AWAV-LOG'
         stellar_hdu.header['CTYPE3'] = 'AWAV'
         stellar_hdu.header['CRVAL3'] = wave[0]
