@@ -10,9 +10,9 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
 
-hdu_res = fits.open('input_cube_ifscube_linefit.fits')
+hdu = fits.open('../../data_products/NGC613/miles/ifscube_1/input_cube_linefit.fits', memmap = True)
 
-# print(hdu_res['status'].data)
+print(hdu_res['status'].data)
 x = 5
 # plt.plot(hdu_res['restwave'].data, hdu_res['fitspec'].data[:,x,0], label = 'spectrum')
 # plt.plot(hdu_res['restwave'].data, hdu_res['stellar'].data[:,x,0], label = 'stellar')
@@ -429,3 +429,40 @@ ax.set_xlabel('Pixel')
 ax.set_ylabel('Pixel')
 
 plt.savefig('sii_6730_sum.pdf')
+
+#%%
+
+# plt.imshow(hdu['solution'].data[2], cmap = 'afmhot', origin = 'lower')
+
+
+
+plt.plot(hdu['restwave'].data, hdu['fitspec'].data[:, 155, 130] - 
+         hdu['stellar'].data[:, 155, 130])
+
+plt.plot(hdu['restwave'].data, hdu['model'].data[:, 155, 130] - 
+         hdu['stellar'].data[:, 155, 130])
+
+#%% Hb model map
+
+flux_hb_model = np.nansum(hdu['model'].data[123:133, ...], axis = 0)
+plt.imshow(np.log10(flux_hb_model), origin = 'lower', vmin = 2.6, vmax = 4.6)
+
+#%% Hb velocity map
+
+hb_velocity = hdu['solution'].data[1]
+plt.imshow(hb_velocity, origin = 'lower', vmin = 1300, vmax = 1600)
+
+#%% Hb velocity map
+
+hb_sigma = hdu['solution'].data[2]
+plt.imshow(hb_sigma, origin = 'lower', vmin = 30, vmax = 160)
+
+#%% Hb map
+
+flux_hb = np.nansum(hdu['fitspec'].data[123:133, ...], axis = 0)
+plt.imshow(np.log10(flux_hb), origin = 'lower', vmin = 2.6, vmax = 4.6)
+
+#%% Ha map
+
+flux_ha = np.nansum(hdu['fitspec'].data[1784:1800, ...], axis = 0)
+plt.imshow(np.log10(flux_ha), origin = 'lower', vmin = 2.8, vmax = 5.5)

@@ -195,7 +195,7 @@ if __name__ == '__main__':
 
 
 #%%
-import matplotlib.pyplot as plt
+# import matplotlib.pyplot as plt
 
 # metadata_path = '../../data_products/toy_20x20/miles/ppxf/metadata.json'
 # bestfit_path = '../../data_products/toy_20x20/miles/ppxf/bestfit.fits'
@@ -232,13 +232,13 @@ import matplotlib.pyplot as plt
 
 # #%%
 
-res = '../../data_products/toy_20x20/miles/ifscube/input_cube_linefit.fits'
+# res = '../../data_products/toy_20x20/miles/ifscube/input_cube_linefit.fits'
 # # res = 'input_cube.fits'
-hdul = fits.open(res)
+# hdul = fits.open(res)
 
 # plt.plot(hdul['restwave'].data, hdul['stellar'].data[:,0,0])
 # plt.plot(hdul['restwave'].data, hdul['fitspec'].data[:,0,0] - hdul['stellar'].data[:,0,0])
 # plt.plot(hdul['restwave'].data, hdul['fitcont'].data[:,0,0])
 # plt.plot(hdul['restwave'].data, hdul['fitspec'].data[:,0,0] - hdul['model'].data[:,0,0])
 # a = hdul['stellar'].data
-plt.imshow(hdul['red_chi'].data)
+# plt.imshow(hdul['red_chi'].data)
