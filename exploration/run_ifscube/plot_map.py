@@ -434,7 +434,7 @@ plt.savefig('sii_6730_sum.pdf')
 #%%
 
 # plt.imshow(hdu['solution'].data[2], cmap = 'afmhot', origin = 'lower')
-hdu = fits.open('../../data_products/NGC613/miles/ifscube_2/input_cube_linefit.fits', memmap = True)
+hdu = fits.open('../../data_products/NGC613/miles/ifscube_3/input_cube_linefit.fits', memmap = True)
 
 
 
@@ -456,8 +456,8 @@ plt.imshow(hb_velocity, origin = 'lower', vmin = 1300, vmax = 1600)
 
 #%% Hb velocity map
 
-hb_sigma = hdu['solution'].data[2]
-plt.imshow(hb_sigma, origin = 'lower', vmin = 30, vmax = 160)
+hb_sigma = hdu['solution'].data[1]
+plt.imshow(hb_sigma, origin = 'lower')
 
 #%% Hb map
 

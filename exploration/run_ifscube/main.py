@@ -53,8 +53,8 @@ class IFSCubeInput:
         self.hdul_out.append(primary_hdu)
 
         with fits.open(self.obs_path) as hdul:
-            flux = hdul['data'].data
-            uncertainty = hdul['stat'].data
+            flux = np.single(hdul['data'].data)
+            uncertainty = np.single(hdul['stat'].data)
             flux, wave, uncertainty = sc.resampling(
                 flux = flux,
                 old_wave = np.array(self.meta['o_wave_obs']),
@@ -141,7 +141,7 @@ class RunIFScube:
         os.system(f'cubefit -oc {self.ifscube_conf} input_cube.fits')
 
         self.move_data_products()
-        self.remove_temporary()
+        # self.remove_temporary()
         
     def read_conf(self):
         configur = ConfigParser(interpolation=ExtendedInterpolation())
