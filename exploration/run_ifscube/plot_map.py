@@ -10,7 +10,8 @@ import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
 
-hdu = fits.open('../../data_products/NGC613/miles/ifscube_1/input_cube_linefit.fits', memmap = True)
+#%%
+# hdu = fits.open('../../data_products/NGC613/miles/ifscube_1/input_cube_linefit.fits', memmap = True)
 
 print(hdu_res['status'].data)
 x = 5
@@ -433,6 +434,7 @@ plt.savefig('sii_6730_sum.pdf')
 #%%
 
 # plt.imshow(hdu['solution'].data[2], cmap = 'afmhot', origin = 'lower')
+hdu = fits.open('../../data_products/NGC613/miles/ifscube_2/input_cube_linefit.fits', memmap = True)
 
 
 
@@ -464,5 +466,19 @@ plt.imshow(np.log10(flux_hb), origin = 'lower', vmin = 2.6, vmax = 4.6)
 
 #%% Ha map
 
-flux_ha = np.nansum(hdu['fitspec'].data[1784:1800, ...], axis = 0)
+flux_ha = np.nansum(hdu['model'].data[1784:1800, ...], axis = 0)
 plt.imshow(np.log10(flux_ha), origin = 'lower', vmin = 2.8, vmax = 5.5)
+
+#%%
+
+
+import matplotlib.pyplot as plt
+import numpy as np
+from astropy.io import fits
+
+hdu = fits.open('../../data_products/toy_20x20/miles/ifscube_9/input_cube_linefit.fits', memmap = True)
+
+plt.plot(hdu['restwave'].data, hdu['fitcont'].data[:, 0, 0])
+plt.plot(hdu['restwave'].data, hdu['model'].data[:, 0, 0])
+plt.plot(hdu['restwave'].data, hdu['fitspec'].data[:, 0, 0])
+plt.plot(hdu['restwave'].data, hdu['stellar'].data[:, 0, 0])
