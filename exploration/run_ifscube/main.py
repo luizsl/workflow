@@ -141,7 +141,7 @@ class RunIFScube:
         os.system(f'cubefit -oc {self.ifscube_conf} input_cube.fits')
 
         self.move_data_products()
-        # self.remove_temporary()
+        self.remove_temporary()
         
     def read_conf(self):
         configur = ConfigParser(interpolation=ExtendedInterpolation())
@@ -189,9 +189,9 @@ class RunIFScube:
         os.remove('input_cube.fits')
 
 if __name__ == '__main__':
-    # RunIFScube(initialization_file = 'test_ifscube.ini')
-    initialization_file = sys.argv[1]
-    RunIFScube(initialization_file)
+    RunIFScube(initialization_file = 'test_ifscube.ini')
+    # initialization_file = sys.argv[1]
+    # RunIFScube(initialization_file)
 
 
 #%%

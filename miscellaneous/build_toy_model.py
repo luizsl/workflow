@@ -21,6 +21,12 @@ with fits.open(cube_path) as hdul:
     hdul.writeto('../data/toy_10x10.fits', overwrite = True)
 
 with fits.open(cube_path) as hdul:
+    hdul['data'].data = hdul['data'].data[:, 150:200, 150:200]
+    hdul['stat'].data = hdul['stat'].data[:, 150:200, 150:200]
+    hdul.writeto('../data/toy_50x50.fits', overwrite = True)
+
+with fits.open(cube_path) as hdul:
     hdul['data'].data = hdul['data'].data[:, 100:200, 100:200]
     hdul['stat'].data = hdul['stat'].data[:, 100:200, 100:200]
     hdul.writeto('../data/toy_100x100.fits', overwrite = True)
+
