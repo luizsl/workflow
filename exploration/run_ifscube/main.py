@@ -189,9 +189,9 @@ class RunIFScube:
         os.remove('input_cube.fits')
 
 if __name__ == '__main__':
-    RunIFScube(initialization_file = 'test_ifscube.ini')
-    # initialization_file = sys.argv[1]
-    # RunIFScube(initialization_file)
+    # RunIFScube(initialization_file = 'test_ifscube.ini')
+    initialization_file = sys.argv[1]
+    RunIFScube(initialization_file)
 
 
 #%%
