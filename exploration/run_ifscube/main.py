@@ -18,7 +18,8 @@ from astropy.io import fits
 
 
 class IFSCubeInput:
-    def __init__(self, obs_path, metadata_path):
+    def __init__(self, obs_path, metadata_path, output_dir, count):
+        self.output_dir = output_dir
         self.obs_path = obs_path
         self.metadata_path = metadata_path
         self.meta = self.read_meta()
@@ -27,8 +28,14 @@ class IFSCubeInput:
         self.normalization_factor = self.recover_norm_factor()
         self.add_muse_data()
         self.add_bestfit_ssp()
-        self.hdul_out.writeto('input_cube.fits', overwrite = True)
-
+        
+        if count is None:
+            self.hdul_out.writeto(f'{self.output_dir}/input_cube.fits',
+                                  overwrite = False)
+        else:
+            self.hdul_out.writeto(f'{self.output_dir}/input_cube_{count}.fits',
+                      overwrite = False)
+            
     def read_meta(self):
         with open(self.metadata_path) as f:
             meta = json.load(f)
@@ -127,21 +134,27 @@ class IFSCubeInput:
         stellar_hdu.header['CD3_3'] = wave[1] - wave[0]
         self.hdul_out.append(stellar_hdu)
 
+
 class RunIFScube:
     def __init__(self, initialization_file):
         self.initialization_file = initialization_file
         self.read_conf()
         self.meta = self.read_meta()
         self.create_output_dir()
+        self.define_filename()
+        self.copy_metadata()
 
         IFSCubeInput(
             obs_path = self.meta['obs_path'],
-            metadata_path = os.path.join(self.meta['output_run_ppxf'], 'metadata.json'))
-
-        os.system(f'cubefit -oc {self.ifscube_conf} input_cube.fits')
-
-        self.move_data_products()
+            metadata_path = os.path.join(self.meta['output_run_ppxf'], 'metadata.json'),
+            output_dir = self.meta['output_run_ifscube'],
+            count = self.count)
+        
+        os.system(f"cubefit -oc {self.ifscube_conf} {self.meta['output_run_ifscube']}/{self.filename}")
+        
         self.remove_temporary()
+        self.move_data_products()
+        
         
     def read_conf(self):
         configur = ConfigParser(interpolation=ExtendedInterpolation())
@@ -156,6 +169,12 @@ class RunIFScube:
             meta = json.load(f)
         return meta
 
+    def define_filename(self):
+        if self.count is None:
+            self.filename = 'input_cube.fits'
+        else:
+            self.filename = f'input_cube_{self.count}.fits'
+            
     def create_output_dir(self):
         # # later add a function to write a more complex _sec_dir name
         # sec_dir_ = f'{dir_}miles'
@@ -164,19 +183,22 @@ class RunIFScube:
         # create unique name
         if os.path.isdir(dir_) is False:
             self.meta['output_run_ifscube'] = dir_
+            self.count = None
         else:
             count = 1
             while os.path.isdir(f'{dir_}_{str(count)}') is True:
                 count += 1
+            self.count = count
             self.meta['output_run_ifscube'] = f'{dir_}_{str(count)}'
 
         os.makedirs(self.meta['output_run_ifscube'], exist_ok=True)
 
     def move_data_products(self):
         shutil.move(
-            'input_cube_linefit.fits',
+            self.filename.split('.')[0] + '_linefit.fits',
             self.meta['output_run_ifscube'])
-
+        
+    def copy_metadata(self):
         shutil.copy(
             self.ifscube_conf,
             self.meta['output_run_ifscube'])
@@ -186,7 +208,7 @@ class RunIFScube:
             self.meta['output_run_ifscube'])
         
     def remove_temporary(self):
-        os.remove('input_cube.fits')
+        os.remove(f"{self.meta['output_run_ifscube']}/{self.filename}")
 
 if __name__ == '__main__':
     # RunIFScube(initialization_file = 'test_ifscube.ini')

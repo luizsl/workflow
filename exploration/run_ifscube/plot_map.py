@@ -477,21 +477,81 @@ import numpy as np
 from astropy.io import fits
 from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes, RGBAxes
 
-hdul = fits.open('../../data_products/toy_100x100/miles/ifscube_8/input_cube_linefit.fits', memmap = True)
+hdul = fits.open('../../input_cube_linefit.fits')
 
-flux_ha_narrow = hdul['solution'].data[0]
+#%%
+chi = hdul['red_chi'].data
+plt.imshow(chi,
+           vmin = 0.3,
+           vmax = 2.5,
+           origin = 'lower')
 
+#%%
+param = hdul['solution'].data[38]
+fig, ax = plt.subplots(1,1)
+ax.imshow(param,
+          vmin = 250,
+          vmax = 400,
+          cmap = 'Spectral',
+          origin = 'lower')
+
+param = hdul['solution'].data[37]
+fig, ax = plt.subplots(1,1)
+ax.imshow(param,
+          vmin = 1480-200,
+          vmax = 1480+200,
+          cmap = 'Spectral',
+          origin = 'lower')
+
+param = hdul['solution'].data[36]
+fig, ax = plt.subplots(1,1)
+ax.imshow(param,
+          vmin = 10,
+          vmax = 2e2,
+          cmap = 'Reds',
+          origin = 'lower')
+
+param = hdul['solution'].data[2]
+fig, ax = plt.subplots(1,1)
+ax.imshow(param,
+          vmax = 160,
+          cmap = 'Spectral',
+          origin = 'lower')
+
+param = hdul['solution'].data[1]
+fig, ax = plt.subplots(1,1)
+ax.imshow(param - 1480,
+          vmin = -200,
+          vmax = +200,
+          cmap = 'Spectral_r',
+          origin = 'lower')
+
+#%%
+# param = hdul['solution'].data[0]
+# fig, ax = plt.subplots(1,1)
+
+plt.imshow(np.log10(param.clip(1e-3)),
+          vmin = 1.2,
+          vmax = 4.5,
+          origin = 'lower')
+
+#%%
+grad_param = np.gradient(param)
+plt.imshow(grad_param[0],
+           vmax = 50,
+           vmin = -50,
+           cmap = 'Spectral',
+           origin = 'lower')
+#%%
 # flux_ha_narrow = flux_ha_narrow / np.nanmax(flux_ha_narrow)
 # flux_ha_narrow = np.uint8(255*flux_ha_narrow)
 
-flux_ha_broad_blue = hdul['solution'].data[38]
 # flux_ha_broad_blue = flux_ha_broad_blue / np.nanmax(flux_ha_broad_blue)
 # flux_ha_broad_blue = np.uint8(255*flux_ha_broad_blue)
 
 fig, ax = plt.subplots(1,1)
 ax.imshow(flux_ha_broad_blue, origin = 'lower')
 
-plt.imshow(np.arcsinh(flux_ha_narrow), vmax = 11.5, vmin= 4, origin = 'lower')
 
 # a = np.dstack((flux_ha_narrow,
 #                np.zeros_like(flux_ha_broad_blue),
