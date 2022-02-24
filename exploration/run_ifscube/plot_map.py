@@ -477,7 +477,7 @@ import numpy as np
 from astropy.io import fits
 from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes, RGBAxes
 
-hdul = fits.open('../../input_cube_linefit.fits')
+hdul = fits.open('../data_products/NGC613/miles/ifscube_5/input_cube_5_linefit.fits')
 
 #%%
 chi = hdul['red_chi'].data
@@ -527,12 +527,21 @@ ax.imshow(param - 1480,
           origin = 'lower')
 
 #%%
-# param = hdul['solution'].data[0]
-# fig, ax = plt.subplots(1,1)
+param = hdul['solution'].data[0]
+fig, ax = plt.subplots(1,1)
 
 plt.imshow(np.log10(param.clip(1e-3)),
           vmin = 1.2,
           vmax = 4.5,
+          origin = 'lower')
+
+#%%
+param = hdul['solution'].data[36]
+fig, ax = plt.subplots(1,1)
+
+plt.imshow(np.log10(param.clip(1e-3)),
+          vmin = 0.8,
+          vmax = 3.3,
           origin = 'lower')
 
 #%%
@@ -562,3 +571,135 @@ ax.imshow(flux_ha_broad_blue, origin = 'lower')
 # plt.plot(hdu['restwave'].data, hdu['model'].data[:, 0, 0])
 # plt.plot(hdu['restwave'].data, hdu['fitspec'].data[:, 0, 0])
 # plt.plot(hdu['restwave'].data, hdu['stellar'].data[:, 0, 0])
+
+#%%
+
+
+import matplotlib.pyplot as plt
+import numpy as np
+from astropy.io import fits
+
+hdul = fits.open('../../data_products/NGC613/miles/ifscube_6/input_cube_6_linefit.fits')
+
+# data = hdul['solution'].data
+
+# plt.imshow(data[1], origin = 'lower')
+
+
+param = hdul['solution'].data[38]
+fig, ax = plt.subplots(1,1)
+ax.imshow(param,
+          vmin = 250,
+          vmax = 400,
+          cmap = 'Spectral',
+          origin = 'lower')
+
+param = hdul['solution'].data[37]
+fig, ax = plt.subplots(1,1)
+ax.imshow(param,
+          vmin = 1480-200,
+          vmax = 1480+200,
+          cmap = 'Spectral_r',
+          origin = 'lower')
+
+param = hdul['solution'].data[36]
+fig, ax = plt.subplots(1,1)
+ax.imshow(param,
+          vmin = 1,
+          vmax = 1.5e3,
+          # cmap = 'Reds',
+          origin = 'lower')
+
+param = hdul['solution'].data[2]
+fig, ax = plt.subplots(1,1)
+ax.imshow(param,
+          vmax = 160,
+          cmap = 'Spectral',
+          origin = 'lower')
+
+param = hdul['solution'].data[1]
+fig, ax = plt.subplots(1,1)
+ax.imshow(param - 1480,
+          vmin = -200,
+          vmax = +200,
+          cmap = 'Spectral_r',
+          origin = 'lower')
+
+#%%
+param = hdul['solution'].data[42]
+fig, ax = plt.subplots(1,1)
+plt.imshow(np.log10(param.clip(1e-3)),
+          vmin = 1.2,
+          vmax = 4.5,
+          origin = 'lower')
+
+#%%
+
+i = 0
+hdul['parnames'].data[3*i]
+
+j = 10
+hdul['parnames'].data[3*j]
+
+
+k = 20
+hdul['parnames'].data[3*k]
+
+
+param = hdul['solution'].data[3*i]
+fig, ax = plt.subplots(1,1)
+plt.imshow(np.log10(param),
+            vmin= 1,
+            vmax = 4.6,
+          origin = 'lower')
+
+param = hdul['solution'].data[3*i+1]
+fig, ax = plt.subplots(1,1)
+plt.imshow(param,
+            # vmin= 0,
+            # vmax = 4.6,
+            origin = 'lower')
+
+param1 = hdul['solution'].data[3*i+2]
+fig, ax1 = plt.subplots(1,1)
+ax1.imshow(param1,
+           vmin = 60,
+           vmax = 130,
+           origin = 'lower')
+
+
+
+param2 = hdul['solution'].data[3*j+0]
+fig, ax2 = plt.subplots(1,1)
+ax2.imshow(np.log10(param2),
+            vmin = 1,
+            vmax = 3,
+            origin = 'lower')
+
+param3 = hdul['solution'].data[3*k+0]
+fig, ax2 = plt.subplots(1,1)
+ax2.imshow(np.arcsinh(param3),
+            vmin = 3,
+            vmax = 7 ,
+            origin = 'lower')
+
+
+
+fig, ax = plt.subplots(1,1)
+ax.hist(param1[50:250, 50:250].flatten(), bins = 500)
+ax.hist(param2[50:250, 50:250].flatten(), bins = 500)
+
+#%%
+fig, ax = plt.subplots(1,1)
+plt.plot(hdul['restwave'].data,
+         hdul['model'].data[:, 183, 168] - hdul['stellar'].data[:, 183, 168])
+plt.plot(hdul['restwave'].data,
+         hdul['fitspec'].data[:, 183, 168] - hdul['stellar'].data[:, 183, 168])
+
+from scipy import ndimage
+
+img = ndimage.sobel(param)
+#%%
+plt.imshow(img,
+           vmin = 30,
+           origin = 'lower')

@@ -150,7 +150,7 @@ class RunIFScube:
             output_dir = self.meta['output_run_ifscube'],
             count = self.count)
         
-        os.system(f"cubefit -oc {self.ifscube_conf} {self.meta['output_run_ifscube']}/{self.filename}")
+        os.system(f"cubefit -lc {self.ifscube_conf} {self.meta['output_run_ifscube']}/{self.filename}")
         
         self.remove_temporary()
         self.move_data_products()

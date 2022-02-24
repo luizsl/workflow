@@ -95,5 +95,3 @@ if __name__ == '__main__':
     ppxf_control.run_all()
     # ppxf_control.read_config()
     # ppxf_control.create_output_folder()
-
-

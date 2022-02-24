@@ -195,7 +195,7 @@ class ExecutePpxf:
         
         print('Running ppxf...', end = '\n\n')
         for index, _ in np.ndenumerate(mmap_flux_obs[0, ...]):
-            # print('\n' + str(index[0]))
+            print('\n' + str(index[0]))
             flux_obs_slice = mmap_flux_obs[:, index[0]]
             flux_obs_unc_slice = mmap_flux_obs_unc[:, index[0]]
             flux_model = mmap_flux_model
@@ -225,17 +225,17 @@ class ExecutePpxf:
         vel = C*np.log(1 + z)   # eq.(8) of Cappellari (2017)
         start = [vel, 200.]  # (km/s), starting guess for [V, sigma]
 
-        # t = clock()
+        t = clock()
         pp = ppxf(
             flux_model, flux_obs, flux_obs_unc, velscale, start,
             goodpixels=goodpixels, plot=False, moments=self.meta.ppxf_moments,
             degree=self.meta.ppxf_degree, vsyst=dv, clean=self.meta.ppxf_clean,
             lam=self.meta.wave_obs,quiet=True)
         
-        # print("Formal errors:")
-        # print("     dV    dsigma   dh3      dh4")
-        # print("".join("%8.2g" % f for f in pp.error*np.sqrt(pp.chi2)))
+        print("Formal errors:")
+        print("     dV    dsigma   dh3      dh4")
+        print("".join("%8.2g" % f for f in pp.error*np.sqrt(pp.chi2)))
 
-        # print('Elapsed time in PPXF: %.2f s' % (clock() - t))
+        print('Elapsed time in PPXF: %.2f s' % (clock() - t))
 
         return pp
