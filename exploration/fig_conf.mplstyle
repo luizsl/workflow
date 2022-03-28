@@ -1,8 +1,8 @@
 text.latex.preamble : \usepackage{amsmath} \usepackage{physunits} \usepackage{amssymb}
 text.usetex : True
 
-font.family : serif
-font.serif: Times
+font.family: serif
+#font.serif: Times
 
 font.size : 10
 

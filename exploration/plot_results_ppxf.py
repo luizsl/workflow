@@ -20,8 +20,8 @@ from astropy.visualization import simple_norm
 class PlotMap:
 
     def __init__(self, object_name):
-        plt.style.use('../fig_conf.mplstyle')
-        self.dir = object_name
+        plt.style.use('fig_conf.mplstyle')
+        self.dir = f'../data_products/{object_name}/miles/ppxf/'
         self.object_name = object_name
         self.get_header()
         
@@ -31,12 +31,13 @@ class PlotMap:
         # with fits.open(file_path) as hdu:
         #     self.header = hdu[0].header
             
-        file_path = '../../data/NGC613/Muse/NGC0613_DATACUBE_FINAL_clean.fits'
+        file_path = '../data/NGC613/Muse/NGC0613_DATACUBE_FINAL_clean.fits'
         with fits.open(file_path) as hdu:
             self.header = hdu[1].header
 
     def get_data(self, param):
-        file_path = os.path.join(self.dir, param + '.fits')
+        # file_path = os.path.join(self.dir, param + '.fits')
+        file_path = f"{self.dir}{param}.fits"
         hdu = fits.open(file_path)
         return hdu
       
@@ -258,7 +259,7 @@ class PlotMap:
         return mask
     
 if __name__ == "__main__":
-    ngc613_map = PlotMap('NGC613_1')
+    ngc613_map = PlotMap('NGC613')
 
     # ngc613_map.moment('velocity', vmin = -120., vmax = 120., n_tick = 7,
     #                   data_offset = 1480, unit = True, save = True)

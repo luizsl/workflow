@@ -6,12 +6,16 @@ Created on Sat Jun 26 17:52:01 2021
 @author: chess-lin
 """
 
+import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
 lsf_file = '../../data/misc_data/muse_manual_resolution.csv'
 
 lsf = pd.read_csv(lsf_file)
+
+lamb = np.arange(4750, 9000)
+lsf = 5.866e-8*lamb**2 - 9.187e-4*lamb + 6.040
 
 # Plot
 plt.style.use('fig_conf.mplstyle')
@@ -31,4 +35,5 @@ ax.set_ylabel(r'\textbf{FWHM of LSF (\AA)}')
 ax2.set_ylabel(r'\textbf{$\sigma_{\text{ins}}$ ($\kmps$})')
 ax.set_title(r'MUSE LSF')
 
-plt.savefig('../../plots/muse_lsf.pdf')
+#plt.savefig('../../plots/muse_lsf.pdf')
+plt.savefig('../../plots/muse_lsf_bacon.pdf')

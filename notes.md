@@ -112,10 +112,62 @@ I have missed the annotations of a few days. In summary, I have completed an exe
 
 ### Starting test IFSCube
 
-I have read almost the all IFScube instruction. It seems to be an great tool to accomplish the task of fitting emission line kinematics. I will start testing with a single spectrum. Next, I will test the routine to fit data in cube using a central region of the field of view.
+I have read almost the all IFScube instruction. It seems to be an great tool to 
+accomplish the task of fitting emission line kinematics. I will start testing with a single spectrum. Next, I will test the routine to fit data in cube using a central region of the field of view.
 
 ## 2021-12-21
 
 ### Improving ppxf usage
 
-Some improvements in the code that controls the ppxf execution was implemented. This new features, such a .ini file, provides a more flexible ppxf execution control.
+Some improvements in the code that controls the ppxf execution was implemented. 
+This new features, such a .ini file, provides a more flexible ppxf execution control.
+
+## 2021-02-26
+
+### Partial results of emission-line fit of NGC 613
+
+- ifscube/
+Fit with single component where it's clear that a single gaussian component is unable to fit the emission-line in most of the field of view. For some outer regions of FoV a single component is approximately adequate to fit, yet they're rare.
+All components are narrow (~ 40-120 km/s) and compose a single group; refit was employed with a strong constraint in amplitude variation (0.05); continuum polynomial has a degree of 10.
+
+- ifscube_1/
+Fit with a single component with similar constraints to *ifscube/*. Different from previous, there are three groups: H, [OIII], and  intermediate-potential. The separation into groups seems to decrease an artefact in the map of velocity  around pixel (152, 219). The map of sigma shows an intermediate ring region in  the Fov covering about one third of Fov with poor fit for H group. The ring region around the centre shows a low-level saturated sigma for [OIII]; and for intermediate-level line, there are linear artefacts from centre to edges.
+
+- ifscube_2/
+A single H component. It was done as a test, the results are not interesting. The .fits file of this folder was removed.
+
+- ifscube_3/
+Also a single component of H; the .fits with the output was removed.
+
+- ifscube_4/
+Along with narrow components, this fit includes broad components. For narrow components there 4 independent groups: H, [OIII], intermediate-potential, and low-potential; wiht the same groups are employed in the broad components.
+Velocity maps are smooth for most of Fov for narrow components of H, intermediate- and low-potential lines. In addition, the different elements present similar maps of this parameter, even though they are fitted independently.
+The maps of dispersion show different behaviours, it can be explained by the different constraints applied to these components. [NII] show a smooth sigma map up to 130 km/s, contrasting with a small central region saturated at 180 km/s. Also, [NII] presents a linear artefact in the maps of dispersion, in the region where it can be noted broad components, down to 120 km/s, are being fitted instead of narrow components (narrow components were fitted with 40~60 km/s). H maps don't present artefacts, but there are some regions where the map is not smooth, with saturated lines up to 150km/s. **Observing H and [NII], and the maps of stellar velocity dispersion obtained by the TIMER project, it seems that narrow lines should be constrained between 60~130 km/s**. In addition, **H, intermediate- and low-potential narrow components should be included into a single group, as done in MAGNUM survey.** Even though their behaviour might differ according to the ionization potential. It is a decision towards the simplification of the model to avoid overfitting and, to some extent, increase the signal of the fitted lines; since they will be more robust to noise when fitted as a single group, eventual distortion in a line can be counterbalanced by the signal of the anther lines of the group. It goes in favour of a global model which assumes a similar behaviour to the kinematics of these lines. **Before the inclusion of all narrow lines into a single group, it can be useful to exclude [OI6300] and [OI6363], since these lines' behaviour differs more to the previous ones discussed**. Nevertheless, this lines can also be included in favour of a unified model.
+[OIII] lines, both narrow and broad, do not present a smoooth fit result in this fit configuration.
+
+The continuum polynomial has degree 5, refit parameters are respectevely 2, 40 and 30
+
+- ifscube_5
+The configurations are similar to the ones in *ifscube_4*. But with all broad lines composing a single group. The [NII] dispersion maps are smoother, and the artefacts disappeared with the lower bound of dispersion increased to 60 km/s; the saturation at the centre with \sigma = 180 km/s persists.
+Some artefacts in dispersion map of H arose. It seems related to the increase of lower bound of H broad to 160 km/s in comparison with *ifscube_4*. The broad [OIII] dispersion map is better, the narrow is worst. **The overall result of this fit is good, mainly for narrow lines.**
+
+- ifscube_6
+This fit has three components, **it will be analysed later**.
+
+- ifscube_7
+Refit is used with constraints respectively 0.5, 40, and 30. Some artifacts arose in dispersion map with the descrease of lower bound to 50 km/s. There is no other significative differences in relation to the previous ones (*ifscube_4* and *ifscube_5*).
+
+- ifscube_8
+This is an old test, only with H group. At this point, it does not show interesting results that can be used to improve the fit.
+
+- ifscube_9
+This fit also has a problem with the constraints of H group. It has configuration similar to *ifscube_4* and *ifscube_5*, with except of the more restricted constraint refit (20 km/s). [OIII] is fitted independently, in the regions where the flux of this line is more significant, the fit seems to be better in comparison with the previous one. The same can be said for the other components.
+
+- ifscube_16
+This fit has an artefact in the velocity and dispersion map. This configuration has the advantage of being very simple, with a unified narrow group and a unified group of broad components. **Except for the artefact this would be a very good configuration**. **Some changes should be applied in trying to remove the artefact.**
+
+### New configurations
+
+At this point it getting more clear quais devem ser as configurações finais, as configurações mais promissoras são **ifscube_4 , ifscube_5 and ifscube_16**
+
+
