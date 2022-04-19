@@ -228,14 +228,14 @@ class ExecutePpxf:
         t = clock()
         pp = ppxf(
             flux_model, flux_obs, flux_obs_unc, velscale, start,
-            goodpixels=goodpixels, plot=False, moments=self.meta.ppxf_moments,
+            goodpixels=goodpixels, moments=self.meta.ppxf_moments,
             degree=self.meta.ppxf_degree, vsyst=dv, clean=self.meta.ppxf_clean,
-            lam=self.meta.wave_obs,quiet=True)
+            lam=self.meta.wave_obs)
         
         print("Formal errors:")
         print("     dV    dsigma   dh3      dh4")
         print("".join("%8.2g" % f for f in pp.error*np.sqrt(pp.chi2)))
 
         print('Elapsed time in PPXF: %.2f s' % (clock() - t))
-
+        
         return pp

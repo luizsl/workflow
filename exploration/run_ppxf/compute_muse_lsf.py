@@ -41,15 +41,20 @@ def equation_lsf(lamb, lower_lamb = None, upper_lamb = None, unit = None):
     if lower_lamb or upper_lamb is not None:
         lsf = truncate_domain(lamb, lsf, lower_lamb, upper_lamb)
         
-    if unit is None or unit == 'a':
+    if unit is None:
+        pass
+    elif unit == 'a':
         pass
     elif unit == 'kms':
         lsf = (lsf*C)/(2.355*lamb)
+    else:
+        raise Exception
         
     return lsf
 
 if __name__ == '__main__':
-    import matplotlib.pyplot as plt
-    x = np.arange(5000, 9000, 1)
-    lsf = equation_lsf(x, 5000, 7000, 'a')
-    plt.plot(x, lsf)
+    pass
+    # import matplotlib.pyplot as plt
+    # x = np.arange(5000, 9000, 1)
+    # lsf = equation_lsf(x, 5000, 7000, 'a')
+    # plt.plot(x, lsf)

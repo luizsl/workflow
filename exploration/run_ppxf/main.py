@@ -88,10 +88,21 @@ class Main:
         with open(f'{self.meta.output_run_ppxf}/metadata.json', 'w') as out:
             json.dump(meta, fp = out, indent=4, cls = JsonCustomEncoder)
 
+#%%
 if __name__ == '__main__':
-    conf = sys.argv[1]
-    # conf = 'test.ini'
-    ppxf_control = Main(conf)
-    ppxf_control.run_all()
-    # ppxf_control.read_config()
-    # ppxf_control.create_output_folder()
+    # conf = sys.argv[1]
+    # ppxf_control = Main(conf)
+    # ppxf_control.run_all()
+    
+    conf = 'test.ini'
+    t = Main(conf)
+    t.read_config()
+    
+    t.create_output_folder()
+    
+    t.create_temporary()
+    t.keep_conf_copy()
+    t.create_metadata_file()
+    # t.execute()
+    
+

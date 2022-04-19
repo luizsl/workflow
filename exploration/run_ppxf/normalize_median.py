@@ -16,7 +16,7 @@ def normalize_median(flux, save = False, directory = None):
     if flux.ndim == 1:
         flux, factor = _normalize_median(flux)
     elif flux.ndim == 2 or flux.ndim == 3:
-        factor = np.nanmedian(flux, axis = 0)
+        factor = np.nanmedian(flux)
         flux = flux/factor
         
     if save is True:
