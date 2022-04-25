@@ -13,14 +13,17 @@ exploration/run_ifscube/ifscube
 exploration/run_ppxf/__pycache__/*
 exploration/run_ifscube/__pycache__/*
 exploration/run_ppxf/*.pdf
+exploration/run_ppxf/test_vonoroi.py
+exploration/run_ppxf/ppxf_test.py
 exploration/run_ppxf/*.fits
+exploration/test_conf/
 
 miscellaneous/.ipynb_checkpoints
-miscellaneous/Untitled.ipynb
-miscellaneous/masking_maps_with_kinematic_constraints.ipynb
+miscellaneous/*.ipynb
+miscellaneous/*.pdf
 
 duvidas.md
 melhorias.md
 improvements.md
 
-exploration/test_conf/
+**/*.dat

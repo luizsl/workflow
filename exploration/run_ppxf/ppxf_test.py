@@ -3,22 +3,14 @@
 """
 Created on Mon Apr 11 19:18:35 2022
 
-@author: chess-lin
-"""
-
-#!/usr/bin/env python3
-# -*- coding: utf-8 -*-
-"""
-Created on Sat Sep 25 12:54:40 2021
-
 @author: Luiz
 """
+
 from datetime import datetime
 from time import perf_counter as clock
 
 import _pickle as pickle
 import numpy as np
-import ppxf.ppxf_util as util
 from ppxf.ppxf import ppxf
 from scipy.constants import physical_constants
 
@@ -34,17 +26,8 @@ def mask_wavelength(wave, intervals =[]):
     mask = ~mask
     return mask
 
-flux = prep.obs.mmap_flux_obs[:,0:15]
-
-flux = flux.sum(axis=1)
-factor = np.nanmedian(flux)
-galaxy = flux
-#/factor
-
-flux_unc = prep.obs.mmap_flux_obs_unc[:,0:15]**2
-flux_unc = flux_unc.sum(axis=1)
-noise= np.sqrt(flux_unc)
-#/factor
+galaxy = prep.obs.flux_grid[:,0]
+noise = prep.obs.flux_grid_unc[:,0:]
 
 C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
 
@@ -60,7 +43,7 @@ velscale = np.log(frac)*C       # Velocity scale in km/s per pixel (eq.8 of Capp
 vel = C*np.log(1 + 0)   # q.(8) of Cappellari (2017)
 start = [vel, 3*velscale] # (km/s), starting guess for [V, sigma]
 
-# flux = prep.obs.mmap_flux_obs[:].sum(axis=1)
+# flux = prep.obs.mmap_flux_grid[:].sum(axis=1)
 galaxy[-1] =galaxy[-2]
 noise[-1] =noise[-2]
 
@@ -71,16 +54,6 @@ noise[-1] =noise[-2]
 
 # shape = prep.model.mmap_flux_model.shape[0]
 # star_template = prep.model.mmap_flux_model.reshape(shape, -1)
-
-shape = miles.templates.shape[0]
-star_template = miles.templates.reshape(shape, -1)
-
-# template = np.column_stack([star_template, gas_template])
-template = star_template
-# n_stars = star_template.shape[1]
-# n_gas = len(gas_names)
-# component = np.array([0]*n_stars + [1]*n_gas)
-# gas_component = np.array(component) > 0  # gas_component=True for gas templates
 
 mask_list = [
     [4000, 4770],
@@ -99,7 +72,59 @@ mask = mask_wavelength(prep.obs.meta['wave_obs'], mask_list)
 # start = [start, [0, 70]]
         
 
-import matplotlib.pyplot as plt
+#%%      TEMPLATES MINE XSL
+
+reg_dim = prep.model.flux_grid.shape[1:]
+
+shape = prep.model.flux_grid.shape[0]
+star_template = prep.model.flux_grid.reshape(shape, -1)
+
+# template = np.column_stack([star_template, gas_template])
+template = star_template
+# n_stars = star_template.shape[1]
+# n_gas = len(gas_names)
+# component = np.array([0]*n_stars + [1]*n_gas)
+# gas_component = np.array(component) > 0  # gas_component=True for gas templates
+
+
+lam_temp=prep.model.meta['wave_model']
+
+#%%      TEMPLATES MINE
+
+reg_dim = t.flux_grid.shape[1:]
+
+shape = t.flux_grid.shape[0]
+star_template = t.flux_grid.reshape(shape, -1)
+
+# template = np.column_stack([star_template, gas_template])
+template = star_template
+# n_stars = star_template.shape[1]
+# n_gas = len(gas_names)
+# component = np.array([0]*n_stars + [1]*n_gas)
+# gas_component = np.array(component) > 0  # gas_component=True for gas templates
+
+
+lam_temp=t.meta['wave_model']
+
+#%%         TEMPLATE CAPPELLARI 
+
+reg_dim = t1.templates.shape[1:]
+
+shape = t1.templates.shape[0]
+star_template = t1.templates.reshape(shape, -1)
+
+# template = np.column_stack([star_template, gas_template])
+template = star_template
+# n_stars = star_template.shape[1]
+# n_gas = len(gas_names)
+# component = np.array([0]*n_stars + [1]*n_gas)
+# gas_component = np.array(component) > 0  # gas_component=True for gas templates
+
+
+lam_temp=t1.lam_temp
+
+
+#%%
 
 pp = ppxf(
     template, 
@@ -107,15 +132,15 @@ pp = ppxf(
     noise,
     velscale, start, moments=4, degree=-1, mdegree=-1,
     clean=True,
-    reg_dim=(24,6), regul=1/0.4,
+    reg_dim=reg_dim, regul=1/0.4,
     reddening=0, 
     # goodpixels=goodpixels,
-    velscale_ratio=2,
+    # velscale_ratio=2,
     mask = mask,
     # component = component, gas_component=gas_component, gas_names=gas_names,gas_reddening=0,
     lam=prep.obs.meta['wave_obs'], 
-    # lam_temp=prep.model.meta['wave_model'],
-    lam_temp=miles.lam_temp,
+    lam_temp=lam_temp,
+    # lam_temp=miles.lam_temp,
     plot = False, quiet=False)
 
 # print("Formal errors:")
@@ -125,15 +150,15 @@ pp = ppxf(
 # print('Elapsed time in PPXF: %.2f s' % (clock() - t))
 
 
-fig, ax = plt.subplots()
-ax = pp.plot()
-# plt.plot(prep.obs.meta['wave_obs']*0.1, noise)
+# import matplotlib.pyplot as plt
+# fig, ax = plt.subplots()
+# ax = pp.plot()
 
 fig, ax = plt.subplots()
 light_weights = pp.weights
 #[~gas_component]
-light_weights = light_weights.reshape(24,6)
+light_weights = light_weights.reshape(reg_dim)
 light_weights /= light_weights.sum()
-# plt.imshow(light_weights)
+plt.imshow(light_weights)
 
-miles.plot(light_weights)
+model.plot(light_weights)
