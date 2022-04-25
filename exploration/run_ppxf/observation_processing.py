@@ -114,10 +114,6 @@ class Observation(ABC):
         x = (col - col[jm])*pixsize
         y = (row - row[jm])*pixsize
 
-        valid = (np.all(self.flux_grid > 0, axis = 0)
-                 | np.all(np.isfinite(self.flux_grid), axis = 0))
-
-        self.meta['valid'] = valid
         self.meta['x_full'] = x
         self.meta['y_full'] = y
         self.meta['x_valid'] = self.meta['x_full'][self.meta['valid']]
@@ -158,7 +154,7 @@ class Observation(ABC):
             flux_valid[:] =self.flux_grid[:,self.meta['valid']][:]
             flux_unc_valid[:] =self.flux_grid_unc[:,self.meta['valid']][:]
 
-            n_pix =self.flux_grid.shape[0]
+            n_pix = self.flux_grid.shape[0]
 
             flux_bin = np.memmap(
                 temp_flux_bin_file,
@@ -215,11 +211,11 @@ class Muse(Observation):
                 hdul['DATA'].data[-2, ...][where_nan]
             self.flux_grid = np.array(hdul['DATA'].data)
             del hdul['DATA'].data
-            flux_grid_unc = np.array(hdul['STAT'].data)
 
             # See Note 1
             hdul['STAT'].data[-1, ...][where_nan] = \
                 hdul['STAT'].data[-2, ...][where_nan]
+            flux_grid_unc = np.array(hdul['STAT'].data)
             self.flux_grid_unc = np.sqrt(flux_grid_unc)
             del hdul['STAT'].data
 
@@ -234,6 +230,11 @@ class Muse(Observation):
 
             self.meta['shape_obs'] = self.flux_grid.shape[1:]
             self.reshape()
+
+            valid = (np.all(self.flux_grid > 0, axis = 0)
+                 | np.all(np.isfinite(self.flux_grid), axis = 0))
+            self.meta['valid'] = valid
+
             self.build_coordinate()
 
 

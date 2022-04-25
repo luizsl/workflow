@@ -46,6 +46,7 @@ class DataPreprocessing:
         t = clock()
         print('''\nModel preparation\n*****************''')
         self.model.build()
+        self.model.reshape()
         self.model.convolve(self.obs.meta['limit_obs'])
         
         log_step = np.log(self.obs.meta['wave_obs'][1]/self.obs.meta['wave_obs'][0])

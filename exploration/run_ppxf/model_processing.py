@@ -96,6 +96,16 @@ class Model(ABC):
         self.meta['model_norm_factor'] = np.nanmedian(self.flux_grid[band])
         self.flux_grid = self.flux_grid/self.meta['model_norm_factor']
 
+    def reshape(self):
+        assert self.flux_grid.ndim > 2
+
+        reg_dim = self.flux_grid.shape[1:]
+
+        npix = self.flux_grid.shape[0]
+        self.flux_grid = self.flux_grid.reshape(npix, -1)
+
+        self.meta['reg_dim'] = reg_dim
+
     def convert_to_mmap(self, path='.', filename='flux_model.dat'):
         self.meta['mmap_filepath'] = os.path.join(path, filename)
         flux_grid = np.memmap(self.meta['mmap_filepath'],
@@ -435,9 +445,10 @@ if __name__ == '__main__':
     # model.remove_param('age_range', values = [10.2])
     # model.remove_param('mh_range', values = [-0.1, 0.1])
     model.build()
-    # model.convolve()
-    # model.resample(wave)
-    # model.normalize()
+    model.reshape()
+    model.convolve()
+    model.resample()
+    model.normalize()
 
     model.convert_to_mmap()
     # model.plot()

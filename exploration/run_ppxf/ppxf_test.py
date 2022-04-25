@@ -26,8 +26,8 @@ def mask_wavelength(wave, intervals =[]):
     mask = ~mask
     return mask
 
-galaxy = prep.obs.flux_grid[:,0]
-noise = prep.obs.flux_grid_unc[:,0:]
+galaxy = prep.obs.flux_grid
+noise = prep.obs.flux_grid_unc
 
 C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
 
@@ -126,39 +126,43 @@ lam_temp=t1.lam_temp
 
 #%%
 
-pp = ppxf(
-    template, 
-    galaxy,
-    noise,
-    velscale, start, moments=4, degree=-1, mdegree=-1,
-    clean=True,
-    reg_dim=reg_dim, regul=1/0.4,
-    reddening=0, 
-    # goodpixels=goodpixels,
-    # velscale_ratio=2,
-    mask = mask,
-    # component = component, gas_component=gas_component, gas_names=gas_names,gas_reddening=0,
-    lam=prep.obs.meta['wave_obs'], 
-    lam_temp=lam_temp,
-    # lam_temp=miles.lam_temp,
-    plot = False, quiet=False)
+for i in range(10,15, 2):
+    pp = ppxf(
+        template, 
+        galaxy[:, i],
+        noise[:, i],
+        velscale, start, moments=4, degree=-1, mdegree=-1,
+        clean=True,
+        reg_dim=reg_dim, regul=1/0.1,
+        reddening=0, 
+        # goodpixels=goodpixels,
+        # velscale_ratio=2,
+        mask = mask,
+        # component = component, gas_component=gas_component, gas_names=gas_names,gas_reddening=0,
+        lam=prep.obs.meta['wave_obs'], 
+        lam_temp=lam_temp,
+        # lam_temp=miles.lam_temp,
+        plot = False, quiet=False)
+    
+    # print("Formal errors:")
+    # print("     dV    dsigma   dh3      dh4")
+    # print("".join("%8.2g" % f for f in pp.error*np.sqrt(pp.chi2)))
+    
+    # print('Elapsed time in PPXF: %.2f s' % (clock() - t))
+    
+    
+    # import matplotlib.pyplot as plt
+    # fig, ax = plt.subplots()
+    # ax = pp.plot()
+    
+    # fig, ax = plt.subplots()
+    light_weights = pp.weights
+    # #[~gas_component]
+    light_weights = light_weights.reshape(reg_dim)
+    light_weights /= light_weights.sum()
+    # plt.imshow(light_weights)
 
-# print("Formal errors:")
-# print("     dV    dsigma   dh3      dh4")
-# print("".join("%8.2g" % f for f in pp.error*np.sqrt(pp.chi2)))
+    prep.model.plot(light_weights)
 
-# print('Elapsed time in PPXF: %.2f s' % (clock() - t))
-
-
-# import matplotlib.pyplot as plt
-# fig, ax = plt.subplots()
-# ax = pp.plot()
-
-fig, ax = plt.subplots()
-light_weights = pp.weights
-#[~gas_component]
-light_weights = light_weights.reshape(reg_dim)
-light_weights /= light_weights.sum()
-plt.imshow(light_weights)
-
-model.plot(light_weights)
+    plt.plot(prep.obs.flux_grid[:, 0])
+    plt.plot(prep.obs.flux_grid_unc[:, 0])
