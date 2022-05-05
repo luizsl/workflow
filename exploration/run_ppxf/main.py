@@ -5,18 +5,16 @@ Created on Tue Aug 31 17:55:58 2021
 
 @author: Luiz
 """
-import json
+
 import os
 import shutil
 import sys
-import tempfile
+import yaml
+import json
 
-import _pickle as pickle
 from astropy.utils.misc import JsonCustomEncoder
 
-from build_metadata import Meta
 from data_preprocessing import DataPreprocessing
-from post_processing import PostProcessing
 from ppxf_execution import ExecutePpxf
 
 
@@ -27,82 +25,77 @@ class Main:
     def run_all(self):
         self.read_config()
         self.create_output_folder()
-        self.create_temporary()
         self.keep_conf_copy()
-        self.create_metadata_file()
-        self.execute()
-        self.remove_temporary()
+        
+        self.data = DataPreprocessing(self.meta)
+        self.ppxf_out = ExecutePpxf(self.data, self.meta)    
+        self.ppxf_out.reconstruct_map(
+            self.data, par=self.meta['output']['to_save'])
+        
         self.meta_to_json()
 
     def read_config(self):
-        self.meta = Meta(conf_file = self.conf_file)
+        with open(self.conf_file) as f:
+            self.meta = yaml.load(f, Loader=yaml.Loader)
 
     def create_output_folder(self):
-        dir_ = os.path.join(self.meta.output_root, self.meta.output_dir)
+        dir_ = os.path.join(
+            self.meta['output']['output_root'],
+            self.meta['observation']['obs_name'])
         if os.path.isdir(dir_) is False:
             os.makedirs(dir_, exist_ok=True)
 
-        # later add a function to write a more complex _sec_dir name
-        sec_dir_ = f'{dir_}miles'
+        sec_dir_ = os.path.join(dir_, self.meta['model']['class_'])
         
         # create unique name
         if os.path.isdir(sec_dir_) is False:
-            self.meta.output_run = sec_dir_
+            self.meta['output_run'] = sec_dir_
         else:
             count = 1
-            while os.path.isdir(f'{sec_dir_}_{str(count)}') is True:
+            name = sec_dir_
+            while os.path.isdir(name) is True:
+                name = os.path.join(dir_, f'{sec_dir_}_{str(count)}')
                 count += 1
-            self.meta.output_run = f'{sec_dir_}_{str(count)}'
+            self.meta['output_run'] = name
             
-        self.meta.output_run_ppxf = \
-            os.path.join(self.meta.output_run, 'ppxf')
-        os.makedirs(self.meta.output_run_ppxf, exist_ok=True)
+        self.meta['output_run_ppxf'] = os.path.join(
+            self.meta['output_run'], 'ppxf')
+        os.makedirs(self.meta['output_run_ppxf'], exist_ok=True)
         
     def keep_conf_copy(self):
-        shutil.copy(self.conf_file, self.meta.output_run_ppxf)
-
-    def create_temporary(self):
-        self.temp_input_dir = tempfile.mkdtemp(dir = self.meta.output_root)
-        self.temp_output_dir = tempfile.mkdtemp(dir = self.meta.output_root)
-        self.meta.temp_input_dir = self.temp_input_dir
-        self.meta.temp_output_dir = self.temp_output_dir
-
-    def create_metadata_file(self):
-        self.metadata_path = f'{self.meta.output_run_ppxf}/metadata.pkl'
-        with open(self.metadata_path, 'wb') as out:
-            pickle.dump(self.meta, out)
-
-    def execute(self):
-        DataPreprocessing(self.metadata_path)
-        ExecutePpxf(self.metadata_path)
-        PostProcessing(self.metadata_path)
-
-    def remove_temporary(self):
-        shutil.rmtree(self.meta.temp_input_dir)
-        shutil.rmtree(self.meta.temp_output_dir)
-
+        shutil.copy(self.conf_file, self.meta['output_run_ppxf'])
+    
     def meta_to_json(self):
-        with open(f'{self.meta.output_run_ppxf}/metadata.pkl', 'rb') as inp:
-            meta = pickle.load(inp)
-            meta = meta.__dict__
-        with open(f'{self.meta.output_run_ppxf}/metadata.json', 'w') as out:
+        meta={}
+        meta.update({'conf' : self.meta})
+        meta.update({'obs' : self.data.obs.meta})
+        meta.update({'model' : self.data.model.meta})
+        
+        path = os.path.join(self.meta['output_run_ppxf'], 'metadata.json')
+        
+        with open(path, 'w') as out:
             json.dump(meta, fp = out, indent=4, cls = JsonCustomEncoder)
 
-#%%
+
 if __name__ == '__main__':
     # conf = sys.argv[1]
     # ppxf_control = Main(conf)
     # ppxf_control.run_all()
     
-    conf = 'test.ini'
+    conf = 'test.yaml'
     t = Main(conf)
-    t.read_config()
+    t.run_all()
     
-    t.create_output_folder()
+#%%    
+#     t.read_config()
     
-    t.create_temporary()
-    t.keep_conf_copy()
-    t.create_metadata_file()
-    # t.execute()
-    
+#     t.create_output_folder()
+#     t.keep_conf_copy()
+#     t.data = DataPreprocessing(t.meta)
 
+    # import matplotlib.pyplot as plt
+    # plt.plot(t.data.model.meta['wave_model'], t.data.model.flux_grid[:, 0])
+    # plt.plot(t.data.obs.meta['wave_obs'], t.data.obs.flux_grid[:, 0])
+    
+    # t.ppxf_out = ExecutePpxf(t.data, t.meta)    
+    # t.ppxf_out.reconstruct_map(t.data, par=t.meta['output']['to_save'])

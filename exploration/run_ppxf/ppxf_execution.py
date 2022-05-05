@@ -5,237 +5,221 @@ Created on Sat Sep 25 12:54:40 2021
 
 @author: Luiz
 """
+import os
+import tempfile
+from dataclasses import dataclass
 from datetime import datetime
 from time import perf_counter as clock
 
-import _pickle as pickle
 import numpy as np
-import ppxf.ppxf_util as util
-from ppxf.ppxf import ppxf
+from ppxf.ppxf import ppxf, robust_sigma
+from astropy.io import fits
 from scipy.constants import physical_constants
 
 
-class ExecutePpxf:
+@dataclass
+class PpxfResults:
+    pass
 
-    def __init__(self, metadata_path):
-        with open(metadata_path, 'rb') as inp:
-            self.meta = pickle.load(inp)
-            
-        self.build_output_storage()
-        self.run_all_data()
-        
-        with open(metadata_path, 'wb') as out:
-            pickle.dump(self.meta, out)
-        
+
+class ExecutePpxf:
+    C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
+    meta = {}
+
+    def __init__(self, data=None, metadata=None):
+        assert data is not None
+        print('ppxf execution started')
+        self.main_meta = metadata
+        self.run_all_data(data)
         print('ppxf execution complete')
 
-    def build_output_storage(self):
-        np.memmap(filename = f'{self.meta.temp_output_dir}/velocity.dat', dtype = float, mode='w+',
-                  shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
+    def run_all_data(self, data=None, par=[]):
+        assert data is not None
 
-        np.memmap(filename = f'{self.meta.temp_output_dir}/sigma.dat', dtype = float, mode='w+',
-                  shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-
-        np.memmap(filename = f'{self.meta.temp_output_dir}/h3.dat', dtype = float, mode='w+',
-                  shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-
-        np.memmap(filename = f'{self.meta.temp_output_dir}/h4.dat', dtype = float, mode='w+',
-                  shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-
-        np.memmap(filename = f'{self.meta.temp_output_dir}/velocity_error.dat', dtype = float, mode='w+',
-                  shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-
-        np.memmap(filename = f'{self.meta.temp_output_dir}/sigma_error.dat', dtype = float, mode='w+',
-                  shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-
-        np.memmap(filename = f'{self.meta.temp_output_dir}/h3_error.dat', dtype = float, mode='w+',
-                  shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-
-        np.memmap(filename = f'{self.meta.temp_output_dir}/h4_error.dat', dtype = float, mode='w+',
-                  shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-
-        np.memmap(filename = f'{self.meta.temp_output_dir}/bestfit.dat', dtype = float, mode='w+',
-                  shape = (self.meta.n_pixel_obs,) + (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-
-        np.memmap(filename = f'{self.meta.temp_output_dir}/chi2.dat', dtype = float, mode='w+',
-                  shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-
-        np.memmap(filename = f'{self.meta.temp_output_dir}/apoly.dat', dtype = float, mode='w+',
-                  shape = (self.meta.n_pixel_obs,) + (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-
-        np.memmap(filename = f'{self.meta.temp_output_dir}/weights.dat', dtype = float, mode='w+',
-                  shape = (self.meta.o_n_model,) + (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-
-        np.memmap(filename = f'{self.meta.temp_output_dir}/polyweights.dat', dtype = float, mode='w+',
-                  shape = (13,) + (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-
-    def store_output(self, pp, index):
-
-        velocity = np.memmap(filename = f'{self.meta.temp_output_dir}/velocity.dat', dtype = float, mode='r+',
-                             shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        if pp is None:
-            velocity[index] = np.nan
-        else:
-            velocity[index] = pp.sol[0]
-        del velocity
-
-        sigma = np.memmap(filename = f'{self.meta.temp_output_dir}/sigma.dat', dtype = float, mode='r+',
-                          shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        if pp is None:
-            sigma[index] = np.nan
-        else:
-            sigma[index] = pp.sol[1]
-        del sigma
-
-        h3 = np.memmap(filename = f'{self.meta.temp_output_dir}/h3.dat', dtype = float, mode='r+',
-                       shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        if pp is None:
-            h3[index] = np.nan
-        else:
-            h3[index] = pp.sol[2]
-        del h3
-
-        h4 = np.memmap(filename = f'{self.meta.temp_output_dir}/h4.dat', dtype = float, mode='r+',
-                       shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        if pp is None:
-            h4[index] = np.nan
-        else:
-            h4[index] = pp.sol[3]
-        del h4
-
-        velocity_error = np.memmap(filename = f'{self.meta.temp_output_dir}/velocity_error.dat', dtype = float, mode='r+',
-                                   shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        if pp is None:
-            velocity_error[index] = np.nan
-        else:
-            velocity_error[index] = pp.error[0]
-        del velocity_error
-
-        sigma_error = np.memmap(filename = f'{self.meta.temp_output_dir}/sigma_error.dat', dtype = float, mode='r+',
-                                shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        if pp is None:
-            sigma_error[index] = np.nan
-        else:
-            sigma_error[index] = pp.error[1]
-        del sigma_error
-
-        h3_error = np.memmap(filename = f'{self.meta.temp_output_dir}/h3_error.dat', dtype = float, mode='r+',
-                             shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        if pp is None:
-            h3_error[index] = np.nan
-        else:
-            h3_error[index] = pp.error[2]
-        del h3_error
-
-        h4_error = np.memmap(filename = f'{self.meta.temp_output_dir}/h4_error.dat', dtype = float, mode='r+',
-                             shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        if pp is None:
-            h4_error[index] = np.nan
-        else:
-            h4_error[index] = pp.error[3]
-        del h4_error
-
-        bestfit = np.memmap(filename = f'{self.meta.temp_output_dir}/bestfit.dat', dtype = float, mode='r+',
-                            shape = (self.meta.n_pixel_obs,) + (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        if pp is None:
-            bestfit[:, index] = np.nan
-        else:
-            bestfit[:, index] = pp.bestfit
-        del bestfit
-
-        chi2 = np.memmap(filename = f'{self.meta.temp_output_dir}/chi2.dat', dtype = float, mode='r+',
-                         shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        if pp is None:
-            chi2[index] = np.nan
-        else:
-            chi2[index] = pp.chi2
-        del chi2
-
-        apoly = np.memmap(filename = f'{self.meta.temp_output_dir}/apoly.dat', dtype = float, mode='r+',
-                          shape = (self.meta.n_pixel_obs,) + (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        if pp is None:
-            apoly[:, index] = np.nan
-        else:
-            apoly[:, index] = pp.apoly
-        del apoly
-
-        weights = np.memmap(filename = f'{self.meta.temp_output_dir}/weights.dat', dtype = float, mode='r+',
-                            shape = (self.meta.o_n_model,) + (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        if pp is None:
-            weights[:, index] = np.nan
-        else:
-            weights[:, index] = pp.weights
-        del weights
-
-        polyweights = np.memmap(filename = f'{self.meta.temp_output_dir}/polyweights.dat', dtype = float, mode='r+',
-                  shape = (13,) + (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        if pp is None:
-            polyweights[:, index] = np.nan
-        else:
-            polyweights[:, index] = pp.polyweights
-        del polyweights
-    
-    def run_all_data(self):
-        shape_obs = (self.meta.n_pixel_obs,) + (self.meta.shape_obs[0] * self.meta.shape_obs[1],)
-        shape_model = (self.meta.n_pixel_model, self.meta.o_n_model)
-
-        mmap_flux_obs = np.memmap(f'{self.meta.temp_input_dir}/flux_obs.dat',
-                                  dtype = 'float32', mode = 'r',
-                                  shape = shape_obs)
-
-        mmap_flux_obs_unc = np.memmap(f'{self.meta.temp_input_dir}/flux_obs_unc.dat',
-                                      dtype = 'float32', mode = 'r',
-                                      shape = shape_obs)
-
-        mmap_flux_model = np.memmap(f'{self.meta.temp_input_dir}/flux_model.dat',
-                                    dtype = 'float32', mode = 'r',
-                                    shape = shape_model)
         # keep start time
-        self.meta.ppxf_start_time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        
-        print('Running ppxf...', end = '\n\n')
-        for index, _ in np.ndenumerate(mmap_flux_obs[0, ...]):
-            print('\n' + str(index[0]))
-            flux_obs_slice = mmap_flux_obs[:, index[0]]
-            flux_obs_unc_slice = mmap_flux_obs_unc[:, index[0]]
-            flux_model = mmap_flux_model
+        self.meta['ppxf_start_time'] = datetime.now().strftime("%d/%m/%Y %H:%M")
 
+        par = ['gas_reddening', 'reddening', 'status', 'gas_flux', 'gas_any', 
+               'gas_flux_error', 'gas_bestfit', 'phot_npix', 'gas_any_zero', 
+               'weights', 'bestfit','mpoly', 'gas_mpoly', 'dof', 'chi2', 
+               'sol', 'error', 'polyweights', 'apoly','goodpixels']
+ 
+        storage = False
+        size = data.obs.flux_grid[0, ...].size
+        for i in range(size):
+            print(70*'*', end='\n\n')
+            print(f'{i+1}/{size}', end='\n\n')
+            
+            flux_obs_slice = data.obs.flux_grid[:, i]
+            flux_obs_unc_slice = data.obs.flux_grid_unc[:, i]
             if np.any(np.isnan(flux_obs_unc_slice) | np.isnan(flux_obs_slice)):
                 print('nan')
-                self.store_output(None, index[0])
             else:
-                pp = self.execute_ppxf(flux_obs_slice, flux_obs_unc_slice,
-                                       flux_model)
-                self.store_output(pp, index[0])
-        
+                pp = self.execute_ppxf(data.obs, data.model, i)
+                if self.main_meta['ppxf_refit']['apply'] is True:
+                    print('\n*************')
+                    print('Calling refit', end='\n\n')
+    
+                    mask_clip = self.clip_outliers(
+                        pp.galaxy, pp.bestfit, pp.goodpixels, 
+                        self.main_meta['ppxf_refit']['sigma'])
+                    pp = self.execute_ppxf(data.obs, data.model, i, mask_clip)
+                
+                if not storage:
+                    n_obj = data.obs.flux_grid.shape[-1]
+                    self.build_output_storage(par=par, out_obj=pp, n_obj=n_obj)
+                    storage = True
+                self.store_output(par=par, out_obj=pp, index=i)
+            print(70*'*', end='\n\n')
+            
         # keep end time
-        self.meta.ppxf_end_time = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        
-    def execute_ppxf(self, flux_obs, flux_obs_unc, flux_model):
-        C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
+        self.meta['ppxf_end_time'] = datetime.now().strftime("%d/%m/%Y %H:%M")
 
-        frac = self.meta.wave_obs[1]/self.meta.wave_obs[0]    # Constant lambda fraction per pixel
-        velscale = np.log(frac)*C       # Velocity scale in km/s per pixel (eq.8 of Cappellari 2017)
-        z = self.meta.z # redshift estimate
-
-        dv = C*np.log(self.meta.wave_model[0]/self.meta.wave_obs[0])    # eq.(8) of Cappellari (2017)
-        goodpixels = util.determine_goodpixels(np.log(self.meta.wave_obs),
-                                               self.meta.limit_model, z)
-
-        vel = C*np.log(1 + z)   # eq.(8) of Cappellari (2017)
-        start = [vel, 200.]  # (km/s), starting guess for [V, sigma]
+    def execute_ppxf(self, obs=None, model=None, index=None, 
+                     goodpixels=None):
+        assert obs is not None
+        assert model is not None
 
         t = clock()
-        pp = ppxf(
-            flux_model, flux_obs, flux_obs_unc, velscale, start,
-            goodpixels=goodpixels, moments=self.meta.ppxf_moments,
-            degree=self.meta.ppxf_degree, vsyst=dv, clean=self.meta.ppxf_clean,
-            lam=self.meta.wave_obs)
-        
-        print("Formal errors:")
-        print("     dV    dsigma   dh3      dh4")
-        print("".join("%8.2g" % f for f in pp.error*np.sqrt(pp.chi2)))
 
-        print('Elapsed time in PPXF: %.2f s' % (clock() - t))
+        galaxy = obs.flux_grid[:, index]
+        noise = obs.flux_grid_unc[:, index]
+
+        star_template = model.flux_grid
+        template = star_template
+
+        frac = obs.meta['wave_obs'][1]/obs.meta['wave_obs'][0]
+        velscale = np.log(frac)*self.C       # Velocity scale in km/s per pixel (eq.8 of Cappellari 2017)
+
+        start = [0., 2*velscale] # (km/s), starting guess for [V, sigma]
         
+        if goodpixels is not None:
+            mask=None
+        elif 'spectral_mask' in obs.meta:
+            mask = obs.meta['spectral_mask']
+        else:
+            mask = np.ones_like(galaxy)
+            print('Mask not available')
+        
+        # vsyst = self.C*np.log(model.meta['wave_model'][0] / obs.meta['wave_obs'][0])
+
+        pp = ppxf(
+            template, galaxy, noise, velscale, start, lam=obs.meta['wave_obs'],
+            lam_temp=model.meta['wave_model'], 
+            # vsyst = vsyst,
+            reg_dim=model.meta['reg_dim'],
+            mask = mask, goodpixels=goodpixels, **self.main_meta['ppxf'])
+        
+        print('Elapsed time in PPXF: %.2f s' % (clock() - t))
         return pp
+
+    def build_output_storage(self, par=[], out_obj=None, n_obj=None):
+        assert 'ppxf' not in dir(self)
+        assert n_obj and out_obj is not None
+
+        self.ppxf = PpxfResults()
+
+        for _p in par:
+            assert _p in dir(out_obj), f"ppxf doesn't output {_p}"
+            _obj = out_obj.__getattribute__(_p)
+
+            if _obj is None:
+                _shape = (n_obj,)
+            elif isinstance(_obj, (float, int)):
+                _shape = (n_obj,)
+            elif _p == 'goodpixels':
+            # goodpixels array has a variable size. It's trick to deal with 
+            # this kind of object so I'm implementing a special case
+                _aux = out_obj.__getattribute__('galaxy')
+                _shape = _aux.shape + (n_obj,)
+            else:
+                _shape = _obj.shape + (n_obj,)
+
+            with tempfile.NamedTemporaryFile() as temp_file:
+                arr = np.memmap(temp_file, dtype = float, shape = _shape)
+                arr.fill(np.nan)
+                arr.flush()
+                self.ppxf.__setattr__(_p, arr)
+
+    def store_output(self, par=[], out_obj=None, index=None):
+        assert 'ppxf' in dir(self), 'execute self.build_output_storage'
+        assert out_obj and index is not None
+
+        for _p in par:
+            _obj = out_obj.__getattribute__(_p)
+            try:
+                self.ppxf.__getattribute__(_p)[..., index] = _obj
+                self.ppxf.__getattribute__(_p).flush()
+            except ValueError:
+                shape = _obj.shape[0]
+                self.ppxf.__getattribute__(_p)[..., :shape, index] = _obj
+                self.ppxf.__getattribute__(_p).flush()
+    def reconstruct_map(self, data=None, par=[], save=True):
+        assert data is not None
+
+        for _p in par:
+            if self.ppxf.__getattribute__(_p).ndim < 2:
+                map_shape = data.obs.meta['bin_num'].shape
+            if self.ppxf.__getattribute__(_p).ndim >= 2:
+                map_shape = (self.ppxf.__getattribute__(_p).shape[:1] 
+                             + data.obs.meta['bin_num'].shape)
+                    
+            map_ = np.zeros(map_shape)
+
+            for i in range(self.ppxf.__getattribute__(_p).shape[-1]):
+                match = data.obs.meta['bin_num'] == i
+                map_[..., match] = self.ppxf.__getattribute__(_p)[..., i:i+1]
+
+            map_shape_full = np.array(data.obs.meta['shape_obs']).prod()
+            if self.ppxf.__getattribute__(_p).ndim >= 2:
+                map_shape_full = (
+                    self.ppxf.__getattribute__(_p).shape[:1] 
+                    + (map_shape_full,))
+ 
+            map_full = np.full(map_shape_full, fill_value=np.nan)
+            valid = data.obs.meta['valid']
+            map_full[..., valid] = map_
+
+            if map_full.ndim < 2:
+                new_shape = (data.obs.meta['shape_obs'])
+            if map_full.ndim >= 2:
+                new_shape = (-1,) + data.obs.meta['shape_obs']
+
+            map_full = map_full.reshape(new_shape)
+        
+            if save:
+                if self.main_meta:
+                    directory = self.main_meta['output_run_ppxf']
+                self.save_fits(map_full, _p, directory)
+                
+    @staticmethod
+    def clip_outliers(galaxy, bestfit, goodpixels, sigma=3):
+        """
+        Adapted from Michele Cappellari's example
+        
+        Repeat the fit after clipping bins deviants more than 3*sigma
+        in relative error until the bad bins don't change any more.
+        """
+        while True:
+            scale = galaxy[goodpixels] @ bestfit[goodpixels]/np.sum(bestfit[goodpixels]**2)
+            resid = scale*bestfit[goodpixels] - galaxy[goodpixels]
+            err = robust_sigma(resid, zero=1)
+            ok_old = goodpixels.copy()
+            goodpixels = np.flatnonzero(np.abs(bestfit - galaxy) < sigma*err)
+            if np.array_equal(goodpixels, ok_old):
+                break
+        return goodpixels    
+    
+    @staticmethod            
+    def save_fits(data_param, name, directory='.'):
+        hdu = fits.PrimaryHDU(data=data_param)
+        hdul = fits.HDUList([hdu])
+        full_path = os.path.join(directory, f'{name}.fits')
+        hdul.writeto(full_path, overwrite=True)
+        
+      
+if __name__ == '__main__':
+    t = ExecutePpxf(data)
+    # t.reconstruct_map(data, par = ['bestfit' , 'chi2', 'gas_reddening'])
+
+

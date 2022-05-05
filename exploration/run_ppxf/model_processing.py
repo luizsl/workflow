@@ -9,6 +9,7 @@ Created on Sat Mar 19 14:20:05 2022
 import glob
 import os
 import re
+import tempfile
 from abc import ABC, abstractmethod
 
 import numpy as np
@@ -21,15 +22,44 @@ import compute_muse_lsf as lsf
 from convolve import convolve
 
 
-class Model(ABC):
+class AbstractModel(ABC):
+
+    @abstractmethod    
+    def __init__(self):
+        pass
+        
+    @abstractmethod    
+    def get_model(self):
+        pass
+
+
+class Model(AbstractModel):
+
+    def __init__(self):
+        pass
+    
+    def get_model(self, name):
+        factories = {
+            "XSLAgeMh" : XSLAgeMh(),
+            "MilesAgeMh" : MilesAgeMh()
+        }
+        
+        return factories[name]
+    
+
+class AbstractFactoryModel(ABC):
     name_pattern = {}
     meta = {}
     model_resolving_power = 10_000
 
     @abstractmethod
-    def __init__(self, path_model_dir):
+    def __init__(self):
         pass
-
+    
+    @abstractmethod
+    def load(self):
+        pass
+    
     @abstractmethod
     def build_name_grid(self):
         pass
@@ -106,14 +136,15 @@ class Model(ABC):
 
         self.meta['reg_dim'] = reg_dim
 
-    def convert_to_mmap(self, path='.', filename='flux_model.dat'):
-        self.meta['mmap_filepath'] = os.path.join(path, filename)
-        flux_grid = np.memmap(self.meta['mmap_filepath'],
-                               dtype='float32', mode='w+',
-                               shape= self.flux_grid.shape)
-        flux_grid[:] = self.flux_grid[:]
-        self.flux_grid = flux_grid
-        self.flux_grid.flush()
+    def convert_to_mmap(self):
+        with tempfile.TemporaryFile() as f:
+            flux_grid = np.memmap(
+                f,
+                dtype='float32', mode='w+',
+                shape= self.flux_grid.shape)
+            flux_grid[:] = self.flux_grid[:]
+            self.flux_grid = flux_grid
+            self.flux_grid.flush()
 
     def build(self):
         self.build_name_grid()
@@ -126,15 +157,18 @@ class Model(ABC):
         self.normalize()
 
 
-class XSLAgeMh(Model):
+class XSLAgeMh(AbstractFactoryModel):
     name_pattern = 'XSL_SSP_logT{0:.1f}_MH{1:.1f}_Kroupa_PC.fits'
     parameter_pattern = 'logT[0-9]{1,2}\.[0-9]{1,2}_MH[+/-]?[0-9]{1,2}\.[0-9]{1,2}'
     fwhm_model_ang = None
 
-    def __init__(self, path_model_dir, o_sampling_type = 'log'):
+    def __init__(self):
+        pass
+    
+    def load(self, path_model_dir):
         assert os.path.isdir(path_model_dir), f'{path_model_dir} is NOT a directory'
         self.path_model_dir = path_model_dir
-        self.meta['o_sampling_type'] = o_sampling_type
+        self.meta['o_sampling_type'] = 'log'
 
         self.flux_grid = None
         self.head_grid = None
@@ -279,15 +313,18 @@ class XSLAgeMh(Model):
         setattr(self, param + '_mask', mask)
 
 
-class MilesAgeMh(Model):
+class MilesAgeMh(AbstractFactoryModel):
     name_pattern = 'Eun1.30Z{:+05.2f}T{:07.4f}_iPp0.00_baseFe_linear_FWHM_variable.fits'
     parameter_pattern = '[m/p][0-9]\.[0-9]{2}T[0-9]{2}\.[0-9]{4}'
     fwhm_model_ang = 2.51
 
-    def __init__(self, path_model_dir, o_sampling_type = 'linear'):
+    def __init__(self):
+        pass
+    
+    def load(self, path_model_dir):
         assert os.path.isdir(path_model_dir), f'{path_model_dir} is NOT a directory'
         self.path_model_dir = path_model_dir
-        self.meta['o_sampling_type'] = o_sampling_type
+        self.meta['o_sampling_type'] = 'linear'
 
         self.flux_grid = None
         self.head_grid = None
@@ -343,16 +380,22 @@ class MilesAgeMh(Model):
 
     def build_name_grid(self):
         with np.nditer([self.age_range, self.mh_range, None],
-                       flags = ['buffered'],
-                       op_axes = [[0, -1], [-1, 0], None],
-                       op_dtypes = [None, None, 'U256']) as it:
+                   flags = ['buffered'],
+                   op_axes = [[0, -1], [-1, 0], None],
+                   op_dtypes = [None, None, 'U256']) as it:
             for _age, _mh, z in it:
-                name = self.name_pattern.format(_mh, _age)
-                name = name.replace('Z-', 'Zm')
-                name = name.replace('Z+', 'Zp')
+                a = self.parameter_pattern.replace(
+                    'T[0-9]{2}\\.[0-9]{4}', f'T{_age:07.4f}')
+                a = a.replace('[m/p][0-9]\\.[0-9]{2}', f'{_mh:+0.2f}')
+                a = a.replace('+', 'p')
+                a = a.replace('-', 'm')
+                
+                b = glob.glob(os.path.join(self.path_model_dir, '*') + a + '*')
+                assert len(b) == 1
+                name = os.path.split(b[0])[-1]
                 z[...] = name
             self.name_grid = it.operands[-1]
-
+        
     def build_flux_grid(self):
         out_shape = self.read_model(
             self.path_model_dir, self.name_grid[0,0]).shape + self.name_grid.shape
@@ -434,37 +477,50 @@ class MilesAgeMh(Model):
 
 #%%
 if __name__ == '__main__':
-
-    log_step = np.log(prep.obs.meta['wave_obs'][1]/prep.obs.meta['wave_obs'][0])
-    wave = np.exp(np.arange(
-        np.log(t.meta['o_wave_model'][0]),
-        np.log(t.meta['o_wave_model'][-1]),
-        log_step))
-
-    model = XSLAgeMh('../../data/models/XSL_SSP_PC_Kroupa/Kroupa')
-    # model.remove_param('age_range', values = [10.2])
-    # model.remove_param('mh_range', values = [-0.1, 0.1])
-    model.build()
+    
+    model = MilesAgeMh()
+    # model.load('../../data/models/tmpWzZ2t1')
+    model.load('../../data/models/miles_Padova00_UN_baseFe_v10.0')
+    # model.build()
+    model.build_name_grid()
+    model.build_flux_grid()
+    model.build_head_grid()
     model.reshape()
     model.convolve()
     model.resample()
     model.normalize()
+    
 
-    model.convert_to_mmap()
-    # model.plot()
+    # log_step = np.log(prep.obs.meta['wave_obs'][1]/prep.obs.meta['wave_obs'][0])
+    # wave = np.exp(np.arange(
+    #     np.log(t.meta['o_wave_model'][0]),
+    #     np.log(t.meta['o_wave_model'][-1]),
+    #     log_step))
 
-    t = MilesAgeMh('/home/chess-lin/miniforge3/lib/python3.9/site-packages/ppxf/miles_models')
-    # t.remove_param('age_range', values = [15.8489])
-    t.build()
-    t.convolve()
+    # model = XSLAgeMh('../../data/models/XSL_SSP_PC_Kroupa/Kroupa')
+    # # model.remove_param('age_range', values = [10.2])
+    # # model.remove_param('mh_range', values = [-0.1, 0.1])
+    # model.build()
+    # model.reshape()
+    # model.convolve()
+    # model.resample()
+    # model.normalize()
+
+    # model.convert_to_mmap()
+    # # model.plot()
+
+    # t = MilesAgeMh('/home/chess-lin/miniforge3/lib/python3.9/site-packages/ppxf/miles_models')
+    # # t.remove_param('age_range', values = [15.8489])
+    # t.build()
+    # t.convolve()
 
 
 
-    t.resample(wave)
-    t.normalize()
+    # t.resample(wave)
+    # t.normalize()
 
-    import ppxf.miles_util as lib
-    t1 = lib.miles('/home/chess-lin/miniforge3/lib/python3.9/site-packages/ppxf/miles_models/*.fits',
-                    velscale = 55.16655145380999,
-                    FWHM_gal=2.7
-                    )
+    # import ppxf.miles_util as lib
+    # t1 = lib.miles('/home/chess-lin/miniforge3/lib/python3.9/site-packages/ppxf/miles_models/*.fits',
+    #                 velscale = 55.16655145380999,
+    #                 FWHM_gal=2.7
+    #                 )

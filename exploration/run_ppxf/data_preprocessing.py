@@ -4,43 +4,44 @@ Created on Tue Aug 31 16:52:36 2021
 @author: Luiz
 """
 
+import os
 from time import perf_counter as clock
 
-import _pickle as pickle
 import numpy as np
 
-from model_processing import XSLAgeMh
+from model_processing import Model
 from observation_processing import Muse
 
 
 class DataPreprocessing:
-    def __init__(self, metadata_path):
+    def __init__(self, metadata={}):
+        assert metadata
         print('\nStarting\n--------\n')
-
-        with open(metadata_path, 'rb') as inp:
-            self.meta = pickle.load(inp)
-
+        self.main_meta = metadata
         self.pre_prepare()
         self.prepare_observation()
         self.prepare_model()
-
-        # with open(metadata_path, 'wb') as out:
-        #     pickle.dump(self.meta, out)
-
-        print('\nFinished\n--------')
+        print('\nFinished\n--------\n')
 
     def pre_prepare(self):
         print('''Gathering Information\n*********************''')
 
         # Reading a single model to gather information
         print('Reading model data')
-        self.model = XSLAgeMh(self.meta.model_path)
-        self.model.remove_param('age_range', values = [10.2])
-        self.model.remove_param('mh_range', values = [-0.1, 0.1])
+        factory = Model()
+        self.model = factory.get_model(self.main_meta['model']['class_'])
+        print(f"--{self.main_meta['model']['class_']}")
+        self.model.load(self.main_meta['resources']['model'])
+        
+        for key, value in self.main_meta['model']['remove'].items():
+            self.model.remove_param(key, value)
         
         # Reading observations to gather information
         print('Reading observations data')
-        self.obs = Muse(self.meta.obs_path, 0.004951)
+        self.obs = Muse(
+            os.path.join(self.main_meta['resources']['observation'],
+                         self.main_meta['observation']['obs_name']) + '.fits',
+            self.main_meta['observation']['redshift'])
 
     def prepare_model(self):
         t = clock()
@@ -49,11 +50,13 @@ class DataPreprocessing:
         self.model.reshape()
         self.model.convolve(self.obs.meta['limit_obs'])
         
-        log_step = np.log(self.obs.meta['wave_obs'][1]/self.obs.meta['wave_obs'][0])
+        oversample = self.main_meta['ppxf']['velscale_ratio']
+        log_step = np.log(
+            self.obs.meta['wave_obs'][1]/self.obs.meta['wave_obs'][0])
         wave = np.exp(np.arange(
             np.log(self.model.meta['o_wave_model'][0]),
             np.log(self.model.meta['o_wave_model'][-1]),
-            log_step))
+            log_step/oversample))
 
         self.model.resample(wave)
         self.model.normalize()
@@ -64,12 +67,27 @@ class DataPreprocessing:
         t = clock()
         print('''\nObservation preparation\n***********************''')
         self.obs.build_grid()
+
+        if (self.model.meta['o_limit_model'][0] > self.obs.meta['limit_obs'][0] - 100
+            or self.model.meta['o_limit_model'][1] < self.obs.meta['limit_obs'][1] + 100):
+            print("--Observation's spectral axis needs to be trimmed")
+            lower, upper = self.model.meta['o_limit_model']
+            lower+=100
+            upper-=100
+            self.obs.trim_spectral_axis(lower, upper)
+            
         self.obs.resample()
-        self.obs.vorbin(target_sn=20)
+        if self.main_meta['vorbin']['apply'] is True:
+            self.obs.vorbin(target_sn=self.main_meta['vorbin']['sn'])
         self.obs.normalize()
         self.obs.convert_to_mmap()
+        mask_list = self.main_meta['observation']['spectral_mask']
+        self.obs.mask_spectral_axis(mask_list)
         print(f'{round(clock()-t,2)} s')
 
         
 if __name__ == '__main__':
-    prep = DataPreprocessing('../../data_products/toy_10x10/miles/ppxf/metadata.pkl')
+    data = DataPreprocessing(t.meta)
+    
+    # plt.plot(data.model.meta['wave_model'], data.model.flux_grid[:, 0])
+    # plt.plot(data.obs.meta['wave_obs'], data.obs.flux_grid[:, 0])

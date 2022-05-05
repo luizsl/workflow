@@ -47,7 +47,8 @@ class Meta:
         self.ppxf_clean = configur.getboolean('ppxf', 'clean')
             
 
-
+if __name__ == '__main__':
+    Meta()
 
 # class MyParser(ConfigParser):
 
