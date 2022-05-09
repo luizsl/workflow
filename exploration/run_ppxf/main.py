@@ -26,12 +26,12 @@ class Main:
         self.read_config()
         self.create_output_folder()
         self.keep_conf_copy()
-        
+
         self.data = DataPreprocessing(self.meta)
-        self.ppxf_out = ExecutePpxf(self.data, self.meta)    
+        self.ppxf_out = ExecutePpxf(self.data, self.meta)
         self.ppxf_out.reconstruct_map(
             self.data, par=self.meta['output']['to_save'])
-        
+
         self.meta_to_json()
 
     def read_config(self):
@@ -46,7 +46,7 @@ class Main:
             os.makedirs(dir_, exist_ok=True)
 
         sec_dir_ = os.path.join(dir_, self.meta['model']['class_'])
-        
+
         # create unique name
         if os.path.isdir(sec_dir_) is False:
             self.meta['output_run'] = sec_dir_
@@ -54,48 +54,31 @@ class Main:
             count = 1
             name = sec_dir_
             while os.path.isdir(name) is True:
-                name = os.path.join(dir_, f'{sec_dir_}_{str(count)}')
+                name = os.path.join(dir_, f"{sec_dir_}_{count}")
                 count += 1
             self.meta['output_run'] = name
-            
+
         self.meta['output_run_ppxf'] = os.path.join(
             self.meta['output_run'], 'ppxf')
         os.makedirs(self.meta['output_run_ppxf'], exist_ok=True)
-        
+
     def keep_conf_copy(self):
         shutil.copy(self.conf_file, self.meta['output_run_ppxf'])
-    
+
     def meta_to_json(self):
         meta={}
         meta.update({'conf' : self.meta})
         meta.update({'obs' : self.data.obs.meta})
         meta.update({'model' : self.data.model.meta})
-        
+
         path = os.path.join(self.meta['output_run_ppxf'], 'metadata.json')
-        
+
         with open(path, 'w') as out:
             json.dump(meta, fp = out, indent=4, cls = JsonCustomEncoder)
 
 
 if __name__ == '__main__':
-    # conf = sys.argv[1]
-    # ppxf_control = Main(conf)
-    # ppxf_control.run_all()
-    
-    conf = 'test.yaml'
-    t = Main(conf)
-    t.run_all()
-    
-#%%    
-#     t.read_config()
-    
-#     t.create_output_folder()
-#     t.keep_conf_copy()
-#     t.data = DataPreprocessing(t.meta)
-
-    # import matplotlib.pyplot as plt
-    # plt.plot(t.data.model.meta['wave_model'], t.data.model.flux_grid[:, 0])
-    # plt.plot(t.data.obs.meta['wave_obs'], t.data.obs.flux_grid[:, 0])
-    
-    # t.ppxf_out = ExecutePpxf(t.data, t.meta)    
-    # t.ppxf_out.reconstruct_map(t.data, par=t.meta['output']['to_save'])
+    conf = sys.argv[1]
+    # conf = 'test.yaml'
+    ppxf_control = Main(conf)
+    ppxf_control.run_all()

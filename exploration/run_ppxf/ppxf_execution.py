@@ -100,19 +100,33 @@ class ExecutePpxf:
         else:
             mask = np.ones_like(galaxy)
             print('Mask not available')
-        
-        # vsyst = self.C*np.log(model.meta['wave_model'][0] / obs.meta['wave_obs'][0])
 
         pp = ppxf(
             template, galaxy, noise, velscale, start, lam=obs.meta['wave_obs'],
-            lam_temp=model.meta['wave_model'], 
-            # vsyst = vsyst,
-            reg_dim=model.meta['reg_dim'],
+            lam_temp=model.meta['wave_model'], reg_dim=model.meta['reg_dim'],
             mask = mask, goodpixels=goodpixels, **self.main_meta['ppxf'])
         
         print('Elapsed time in PPXF: %.2f s' % (clock() - t))
         return pp
-
+    
+    @staticmethod
+    def clip_outliers(galaxy, bestfit, goodpixels, sigma=3):
+        """
+        Adapted from Michele Cappellari's example
+        
+        Repeat the fit after clipping bins deviants more than 3*sigma
+        in relative error until the bad bins don't change any more.
+        """
+        while True:
+            scale = galaxy[goodpixels] @ bestfit[goodpixels]/np.sum(bestfit[goodpixels]**2)
+            resid = scale*bestfit[goodpixels] - galaxy[goodpixels]
+            err = robust_sigma(resid, zero=1)
+            ok_old = goodpixels.copy()
+            goodpixels = np.flatnonzero(np.abs(bestfit - galaxy) < sigma*err)
+            if np.array_equal(goodpixels, ok_old):
+                break
+        return goodpixels   
+    
     def build_output_storage(self, par=[], out_obj=None, n_obj=None):
         assert 'ppxf' not in dir(self)
         assert n_obj and out_obj is not None
@@ -154,31 +168,48 @@ class ExecutePpxf:
                 shape = _obj.shape[0]
                 self.ppxf.__getattribute__(_p)[..., :shape, index] = _obj
                 self.ppxf.__getattribute__(_p).flush()
+                
     def reconstruct_map(self, data=None, par=[], save=True):
         assert data is not None
 
         for _p in par:
-            if self.ppxf.__getattribute__(_p).ndim < 2:
-                map_shape = data.obs.meta['bin_num'].shape
-            if self.ppxf.__getattribute__(_p).ndim >= 2:
-                map_shape = (self.ppxf.__getattribute__(_p).shape[:1] 
-                             + data.obs.meta['bin_num'].shape)
+            if self.main_meta['vorbin']['apply']:            
+                if self.ppxf.__getattribute__(_p).ndim < 2:
+                    map_shape = data.obs.meta['bin_num'].shape
+                if self.ppxf.__getattribute__(_p).ndim >= 2:
+                    map_shape = (self.ppxf.__getattribute__(_p).shape[:1] 
+                                 + data.obs.meta['bin_num'].shape)
+                map_ = np.zeros(map_shape)
+                for i in range(self.ppxf.__getattribute__(_p).shape[-1]):
+                    match = data.obs.meta['bin_num'] == i
+                    map_[..., match] = self.ppxf.__getattribute__(_p)[..., i:i+1]
                     
-            map_ = np.zeros(map_shape)
-
-            for i in range(self.ppxf.__getattribute__(_p).shape[-1]):
-                match = data.obs.meta['bin_num'] == i
-                map_[..., match] = self.ppxf.__getattribute__(_p)[..., i:i+1]
-
-            map_shape_full = np.array(data.obs.meta['shape_obs']).prod()
-            if self.ppxf.__getattribute__(_p).ndim >= 2:
-                map_shape_full = (
-                    self.ppxf.__getattribute__(_p).shape[:1] 
-                    + (map_shape_full,))
+                map_shape_full = np.array(data.obs.meta['shape_obs']).prod()
+                if self.ppxf.__getattribute__(_p).ndim >= 2:
+                    map_shape_full = (
+                        self.ppxf.__getattribute__(_p).shape[:1] 
+                        + (map_shape_full,))
+     
+                map_full = np.full(map_shape_full, fill_value=np.nan)
+                valid = data.obs.meta['valid']
+                map_full[..., valid] = map_
+                    
+            else:
+                if self.ppxf.__getattribute__(_p).ndim < 2:
+                    map_shape = data.obs.flux_grid.shape[1:]
+                if self.ppxf.__getattribute__(_p).ndim >= 2:
+                    map_shape = (self.ppxf.__getattribute__(_p).shape[:1] 
+                                 + data.obs.flux_grid.shape[1:])
+                map_ = np.zeros(map_shape)
+                
+                map_shape_full = np.array(data.obs.meta['shape_obs']).prod()
+                if self.ppxf.__getattribute__(_p).ndim >= 2:
+                    map_shape_full = (
+                        self.ppxf.__getattribute__(_p).shape[:1] 
+                        + (map_shape_full,))
  
-            map_full = np.full(map_shape_full, fill_value=np.nan)
-            valid = data.obs.meta['valid']
-            map_full[..., valid] = map_
+                map_full = np.full(map_shape_full, fill_value=np.nan)
+                map_full = map_
 
             if map_full.ndim < 2:
                 new_shape = (data.obs.meta['shape_obs'])
@@ -191,24 +222,6 @@ class ExecutePpxf:
                 if self.main_meta:
                     directory = self.main_meta['output_run_ppxf']
                 self.save_fits(map_full, _p, directory)
-                
-    @staticmethod
-    def clip_outliers(galaxy, bestfit, goodpixels, sigma=3):
-        """
-        Adapted from Michele Cappellari's example
-        
-        Repeat the fit after clipping bins deviants more than 3*sigma
-        in relative error until the bad bins don't change any more.
-        """
-        while True:
-            scale = galaxy[goodpixels] @ bestfit[goodpixels]/np.sum(bestfit[goodpixels]**2)
-            resid = scale*bestfit[goodpixels] - galaxy[goodpixels]
-            err = robust_sigma(resid, zero=1)
-            ok_old = goodpixels.copy()
-            goodpixels = np.flatnonzero(np.abs(bestfit - galaxy) < sigma*err)
-            if np.array_equal(goodpixels, ok_old):
-                break
-        return goodpixels    
     
     @staticmethod            
     def save_fits(data_param, name, directory='.'):
@@ -217,9 +230,7 @@ class ExecutePpxf:
         full_path = os.path.join(directory, f'{name}.fits')
         hdul.writeto(full_path, overwrite=True)
         
-      
+        
 if __name__ == '__main__':
-    t = ExecutePpxf(data)
-    # t.reconstruct_map(data, par = ['bestfit' , 'chi2', 'gas_reddening'])
-
-
+    t = ExecutePpxf(ppxf_control.data, ppxf_control.data.main_meta)
+    t.reconstruct_map(ppxf_control.data, par = ['bestfit' , 'chi2'])

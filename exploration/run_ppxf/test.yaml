@@ -1,13 +1,14 @@
 ---
 resources:
     # model: ../../data/models/tmpWzZ2t1
-    model: ../../data/models/XSL_SSP_PC_Kroupa/Kroupa
-    # model: ../../data/models/miles_Padova00_UN_baseFe_v10.0
+    # model: ../../data/models/XSL_SSP_PC_Kroupa/Kroupa
+    model: ../../data/models/miles_Padova00_UN_baseFe_v10.0
     observation: ../../data/
 
 observation:
     class: Muse
-    obs_name: fov_sample_1_5     # should not include .fits extension in the name
+#    obs_name: fov_sample_1_5     # should not include .fits extension in the name
+    obs_name: toy_10x10     # should not include .fits extension in the name
     redshift: 0.004951
     sampling: linear
     spectral_mask : [
@@ -24,33 +25,31 @@ observation:
         [9000, 9500]]
         
 model:
-    class_: XSLAgeMh
-    # class_: MilesAgeMh
-    # model_name: miles
-    # model_name: xsl
-    # remove leading and trailing zeros (in angstrom)
-    # wave_trim: 0 1.5
-    # lsf: 2.51
+    # class_: XSLAgeMh
+    class_: MilesAgeMh
+    remove:
+        age_range: [10.2]          # Must be a list
+        mh_range: [-0.1 0.1]
     resolving_power: 10000
     sampling: log
-    remove:
-        age_range: [10.2]         # Must be a list
-        mh_range: [-0.1 0.1]    
+#    remove:
+#        age_range: [10.2]         # Must be a list
+#        mh_range: [-0.1 0.1]    
 
 ppxf:
     moments : 4
     degree : -1 
     mdegree : -1
     clean : False
-    regul : 2.5              # 1/Delta
+    regul : 0        # 1/Delta
     reg_ord : 2
     reddening : 0
-    velscale_ratio : 1
+    velscale_ratio : 2
     quiet : False
 
 ppxf_refit:
     apply : True
-    sigma : 3
+    sigma : 2.3
     
 output:
     output_root : ../../data_products/
