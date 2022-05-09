@@ -8,7 +8,7 @@ resources:
 observation:
     class: Muse
 #    obs_name: fov_sample_1_5     # should not include .fits extension in the name
-    obs_name: toy_10x10     # should not include .fits extension in the name
+    obs_name: toy_3x3     # should not include .fits extension in the name
     redshift: 0.004951
     sampling: linear
     spectral_mask : [

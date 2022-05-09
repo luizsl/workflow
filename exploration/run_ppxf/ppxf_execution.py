@@ -195,28 +195,29 @@ class ExecutePpxf:
                 map_full[..., valid] = map_
                     
             else:
-                if self.ppxf.__getattribute__(_p).ndim < 2:
-                    map_shape = data.obs.flux_grid.shape[1:]
-                if self.ppxf.__getattribute__(_p).ndim >= 2:
-                    map_shape = (self.ppxf.__getattribute__(_p).shape[:1] 
-                                 + data.obs.flux_grid.shape[1:])
-                map_ = np.zeros(map_shape)
+                # if self.ppxf.__getattribute__(_p).ndim < 2:
+                #     map_shape = data.obs.flux_grid.shape[1:]
+                # if self.ppxf.__getattribute__(_p).ndim >= 2:
+                #     map_shape = (self.ppxf.__getattribute__(_p).shape[:1] 
+                #                  + data.obs.flux_grid.shape[1:])
+                # map_ = np.zeros(map_shape)
                 
-                map_shape_full = np.array(data.obs.meta['shape_obs']).prod()
+                map_shape_full = data.obs.meta['shape_obs']
                 if self.ppxf.__getattribute__(_p).ndim >= 2:
                     map_shape_full = (
                         self.ppxf.__getattribute__(_p).shape[:1] 
-                        + (map_shape_full,))
+                        + map_shape_full)
  
-                map_full = np.full(map_shape_full, fill_value=np.nan)
-                map_full = map_
+                # map_full = np.full(map_shape_full, fill_value=np.nan)
+                # map_full = map_
 
-            if map_full.ndim < 2:
-                new_shape = (data.obs.meta['shape_obs'])
-            if map_full.ndim >= 2:
-                new_shape = (-1,) + data.obs.meta['shape_obs']
-
-            map_full = map_full.reshape(new_shape)
+                # if map_full.ndim < 2:
+                #     new_shape = (data.obs.meta['shape_obs'])
+                # if map_full.ndim >= 2:
+                #     new_shape = (-1,) + data.obs.meta['shape_obs']
+    
+                # map_full = map_full.reshape(new_shape)
+                map_full = self.ppxf.__getattribute__(_p).reshape(map_shape_full)
         
             if save:
                 if self.main_meta:
@@ -234,3 +235,13 @@ class ExecutePpxf:
 if __name__ == '__main__':
     t = ExecutePpxf(ppxf_control.data, ppxf_control.data.main_meta)
     t.reconstruct_map(ppxf_control.data, par = ['bestfit' , 'chi2'])
+
+
+                # map_shape_full = ppxf_control.data.obs.meta['shape_obs']
+                # if t.ppxf.__getattribute__('bestfit').ndim >= 2:
+                #     map_shape_full = (
+                #         t.ppxf.__getattribute__('bestfit').shape[:1] 
+                #         + map_shape_full)
+
+                # map_full = self.ppxf.__getattribute__(_p).reshape(map_shape_full)
+        
