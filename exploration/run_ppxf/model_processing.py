@@ -395,6 +395,8 @@ class MilesAgeMh(AbstractFactoryModel):
                 name = os.path.split(b[0])[-1]
                 z[...] = name
             self.name_grid = it.operands[-1]
+        self.meta['age_range'] = self.age_range 
+        self.meta['mh_range'] = self.mh_range
         
     def build_flux_grid(self):
         out_shape = self.read_model(
