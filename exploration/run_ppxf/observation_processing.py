@@ -80,8 +80,8 @@ class Observation(ABC):
         return new_wave
 
     def convert_to_mmap(self):
-        with (tempfile.TemporaryFile() as f_flux,
-              tempfile.TemporaryFile() as f_flux_unc):
+        with tempfile.TemporaryFile() as f_flux, \
+            tempfile.TemporaryFile() as f_flux_unc:
             
             mmap_flux_grid = np.memmap(
                 f_flux,
@@ -144,12 +144,10 @@ class Observation(ABC):
         self.meta['nPixels'] = nPixels 
         self.meta['scale'] = scale
         
-        with (
-            tempfile.TemporaryFile(suffix='.dat') as temp_flux_file,
-            tempfile.TemporaryFile(suffix='.dat') as temp_flux_unc_file,
-            tempfile.TemporaryFile(suffix='.dat') as temp_flux_bin_file,
-            tempfile.TemporaryFile(suffix='.dat') as temp_flux_unc_bin_file
-            ):
+        with tempfile.TemporaryFile(suffix='.dat') as temp_flux_file, \
+            tempfile.TemporaryFile(suffix='.dat') as temp_flux_unc_file, \
+            tempfile.TemporaryFile(suffix='.dat') as temp_flux_bin_file, \
+            tempfile.TemporaryFile(suffix='.dat') as temp_flux_unc_bin_file:
 
             flux_valid = np.memmap(
                 temp_flux_file,
