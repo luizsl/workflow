@@ -40,8 +40,7 @@ ppxf:
     degree : -1 
     mdegree : -1
     clean : False
-    regul : 3.3        # 1/Delta
-    reg_ord : 2
+    regul : 5  # 1/Delta
     reddening : 0
     velscale_ratio : 2
     quiet : False

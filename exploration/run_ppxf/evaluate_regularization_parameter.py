@@ -5,11 +5,12 @@ Created on Fri May  6 08:17:19 2022
 
 @author: Luiz
 """
-
+import json
 from abc import ABC, abstractmethod
 
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 from astropy.io import fits
 
 
@@ -40,9 +41,12 @@ class FactoryChi2Map(ABC):
 
 
 class Chi2Map(FactoryChi2Map):
-    def __init__(self, filepath_reduced_chi2, filepath_dof):
+    def __init__(self, filepath_reduced_chi2, filepath_dof, filepath_grid,
+                 filepath_meta):
         self.filepath_reduced_chi2 = filepath_reduced_chi2
+        self.filepath_meta = filepath_meta
         self.filepath_dof = filepath_dof
+        self.filepath_grid = filepath_grid
         self.reduced_chi2 = self.read_reduced_chi2()
         self.dof = self.read_dof()
     
@@ -58,6 +62,14 @@ class Chi2Map(FactoryChi2Map):
             data = data.count(axis = 0)
             return data
         
+    def read_grid(self):
+        with (fits.open(self.filepath_grid) as hdul,
+              open(self.filepath_meta) as f):
+            data = hdul[0].data
+            meta = json.load(f)
+            
+            return data, meta
+    
     @property
     def chi2(self):
         return self.reduced_chi2 * self.dof
@@ -67,6 +79,11 @@ class Chi2Map(FactoryChi2Map):
         target_chi2 = self.chi2 + np.sqrt(2 * self.dof)
         return target_chi2
     
+    def weights(self, i, j):
+        data, meta = self.read_grid()
+        weights = data[:, i, j].reshape(meta['model']['reg_dim'])
+        return weights
+
 
 class Chi2Comparison():
     def __init__(self, reg: FactoryChi2Map, unreg: FactoryChi2Map):
@@ -152,28 +169,40 @@ if __name__ == "__main__":
     
     unreg_filepath_reduced_chi2 = '../../data_products/regularization_parameter/MilesAgeMh_unreg_sigma2d3/ppxf/chi2.fits'
     unreg_filepath_dof = '../../data_products/regularization_parameter/MilesAgeMh_unreg_sigma2d3/ppxf/goodpixels.fits'
+    unreg_filepath_grid = '../../data_products/regularization_parameter/MilesAgeMh_unreg_sigma2d3/ppxf/weights.fits'
+    unreg_filepath_meta = '../../data_products/regularization_parameter/MilesAgeMh_unreg_sigma2d3/ppxf/metadata.json'
     
-    reg0d1_filepath_reduced_chi2 = '../../data_products/fov_sample_1_5/MilesAgeMh_4/ppxf/chi2.fits'
-    reg0d1_filepath_dof = '../../data_products/fov_sample_1_5/MilesAgeMh_4/ppxf/goodpixels.fits'
+    reg0d1_filepath_reduced_chi2 = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d1/ppxf/chi2.fits'
+    reg0d1_filepath_dof = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d1/ppxf/goodpixels.fits'
+    reg0d1_filepath_grid = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d1/ppxf/weights.fits'
+    reg0d1_filepath_meta = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d1/ppxf/metadata.json'
     
-    reg0d2_filepath_reduced_chi2 = '../../data_products/fov_sample_1_5/MilesAgeMh_3/ppxf/chi2.fits'
-    reg0d2_filepath_dof = '../../data_products/fov_sample_1_5/MilesAgeMh_3/ppxf/goodpixels.fits'
+    reg0d2_filepath_reduced_chi2 = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d2/ppxf/chi2.fits'
+    reg0d2_filepath_dof = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d2/ppxf/goodpixels.fits'
+    reg0d2_filepath_grid = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d2/ppxf/weights.fits'
+    reg0d2_filepath_meta = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d2/ppxf/metadata.json'
     
-    reg0d3_filepath_reduced_chi2 = '../../data_products/fov_sample_1_5/MilesAgeMh_2/ppxf/chi2.fits'
-    reg0d3_filepath_dof = '../../data_products/fov_sample_1_5/MilesAgeMh_2/ppxf/goodpixels.fits'
+    reg0d3_filepath_reduced_chi2 = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d3/ppxf/chi2.fits'
+    reg0d3_filepath_dof = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d3/ppxf/goodpixels.fits'
+    reg0d3_filepath_grid = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d3/ppxf/weights.fits'
+    reg0d3_filepath_meta = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d3/ppxf/metadata.json'
     
-    reg0d4_filepath_reduced_chi2 = '../../data_products/fov_sample_1_5/MilesAgeMh_1/ppxf/chi2.fits'
-    reg0d4_filepath_dof = '../../data_products/fov_sample_1_5/MilesAgeMh_1/ppxf/goodpixels.fits'
+    reg0d4_filepath_reduced_chi2 = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d4/ppxf/chi2.fits'
+    reg0d4_filepath_dof = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d4/ppxf/goodpixels.fits'
+    reg0d4_filepath_grid = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d4/ppxf/weights.fits'
+    reg0d4_filepath_meta = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d4/ppxf/metadata.json'
     
-    reg0d5_filepath_reduced_chi2 = '../../data_products/fov_sample_1_5/MilesAgeMh/ppxf/chi2.fits'
-    reg0d5_filepath_dof = '../../data_products/fov_sample_1_5/MilesAgeMh/ppxf/goodpixels.fits'
+    reg0d5_filepath_reduced_chi2 = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d5/ppxf/chi2.fits'
+    reg0d5_filepath_dof = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d5/ppxf/goodpixels.fits'
+    reg0d5_filepath_grid = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d5/ppxf/weights.fits'
+    reg0d5_filepath_meta = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d5/ppxf/metadata.json'
     
-    unreg = Chi2Map(unreg_filepath_reduced_chi2, unreg_filepath_dof)
-    reg0d1 = Chi2Map(reg0d1_filepath_reduced_chi2, reg0d1_filepath_dof)
-    reg0d2 = Chi2Map(reg0d2_filepath_reduced_chi2, reg0d2_filepath_dof)
-    reg0d3 = Chi2Map(reg0d3_filepath_reduced_chi2, reg0d3_filepath_dof)
-    reg0d4 = Chi2Map(reg0d4_filepath_reduced_chi2, reg0d4_filepath_dof)
-    reg0d5 = Chi2Map(reg0d5_filepath_reduced_chi2, reg0d5_filepath_dof)
+    unreg = Chi2Map(unreg_filepath_reduced_chi2, unreg_filepath_dof, unreg_filepath_dof, unreg_filepath_dof)
+    reg0d1 = Chi2Map(reg0d1_filepath_reduced_chi2, reg0d1_filepath_dof, reg0d1_filepath_grid, reg0d1_filepath_meta)
+    reg0d2 = Chi2Map(reg0d2_filepath_reduced_chi2, reg0d2_filepath_dof, reg0d2_filepath_grid, reg0d2_filepath_meta)
+    reg0d3 = Chi2Map(reg0d3_filepath_reduced_chi2, reg0d3_filepath_dof, reg0d3_filepath_grid, reg0d3_filepath_meta)
+    reg0d4 = Chi2Map(reg0d4_filepath_reduced_chi2, reg0d4_filepath_dof, reg0d4_filepath_grid, reg0d4_filepath_meta)
+    reg0d5 = Chi2Map(reg0d5_filepath_reduced_chi2, reg0d5_filepath_dof, reg0d5_filepath_grid, reg0d5_filepath_meta)
     
     comp0d1 = Chi2Comparison(reg = reg0d1, unreg = unreg)
     comp0d2 = Chi2Comparison(reg = reg0d2, unreg = unreg)
@@ -186,7 +215,7 @@ if __name__ == "__main__":
     def plot_percentage(maps:list, list_reg:list=None):
         with plt.style.context('science'):
             n_col = len(maps)
-            fig, ax = plt.subplots(1,n_col, figsize=(12,3), constrained_layout=True)
+            fig, ax = plt.subplots(1, n_col, figsize=(12,2.5), constrained_layout=True)
             for i in range(n_col):
                 im = ax[i].imshow(maps[i], cmap='seismic',
                                   vmin = 1 - .05, vmax = 1 + .05,
@@ -199,7 +228,7 @@ if __name__ == "__main__":
                             horizontalalignment='left',
                             verticalalignment='top',
                             transform=ax[i].transAxes)
-            cbar = fig.colorbar(im, ax = ax[:])
+            cbar = fig.colorbar(im, ax = ax[:], use_gridspec=True,  pad = 0.01)
             cbar.set_label(r'$ \dfrac{\chi^{2}_{\rm r}}{\chi^{2}_{\rm u} + \Delta \chi^{2}}$')
             
     plot_percentage(maps = [comp0d5.data, comp0d4.data, comp0d3.data,
@@ -207,13 +236,32 @@ if __name__ == "__main__":
                     list_reg=[0.5, 0.4, 0.3, 0.2, 0.1])
     
  
-    # def plot_red_chi2_hist(maps: list, unreg):
-    #     n_col = len(maps)
-    #     fig, ax = plt.subplots(2,n_col)
-    #     for i in range(n_col):
-    #         ax[0, i].hist(maps[i].ravel())
-    #         ax[0, i].hist(unreg.reduced_chi2.ravel(), range = (0.95, 1.5))
-            # fig.colorbar(im, ax = ax[:])
+    def plot_grid_param(maps: list, x, y):
+        with plt.style.context('science'):
+            n_col = len(maps)
+            fig, ax = plt.subplots(1, n_col, figsize=(12,2.5), constrained_layout=True, sharex=True, sharey=True)
+            for i in range(n_col):
+                _, meta = maps[i].read_grid()
+                weights = maps[i].weights(i=x, j=y)
+                x_age, y_mh = np.meshgrid(np.log10(np.array(meta['model']['age_range'])*1e9).round(2),
+                                          meta['model']['mh_range'])
+
+                grid = ax[i].pcolormesh(x_age, y_mh, weights.T, vmin=0, vmax=0.25)
+                points = ax[i].scatter(x_age, y_mh, marker='.', color='white', s=1)
+                # ax[i].set(aspect = 0.618)
+                ax[i].xaxis.set_major_locator(ticker.MultipleLocator(0.2))
+                ax[i].tick_params(axis='x', rotation=90)
+                ax[i].yaxis.set_major_locator(ticker.MultipleLocator(0.2))
+                
+            cbar = fig.colorbar(grid, ax = ax[:], use_gridspec=True,  pad = 0.01)
+            cbar.set_label(r'weights')
+            fig.supxlabel('$\log_{10}$ Age (yr)')
+            ax[0].set_ylabel('[Fe/H]')
+    
+    plot_grid_param(maps = [reg0d5, reg0d4, reg0d3, reg0d2, reg0d1],
+                    x=15, y=15)
+    
+    
 
 #%%
     def plot_red_chi2_map(maps: list, unreg, list_reg=None):

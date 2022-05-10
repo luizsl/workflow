@@ -193,30 +193,19 @@ class ExecutePpxf:
                 map_full = np.full(map_shape_full, fill_value=np.nan)
                 valid = data.obs.meta['valid']
                 map_full[..., valid] = map_
-                    
-            else:
-                # if self.ppxf.__getattribute__(_p).ndim < 2:
-                #     map_shape = data.obs.flux_grid.shape[1:]
-                # if self.ppxf.__getattribute__(_p).ndim >= 2:
-                #     map_shape = (self.ppxf.__getattribute__(_p).shape[:1] 
-                #                  + data.obs.flux_grid.shape[1:])
-                # map_ = np.zeros(map_shape)
                 
+                if map_full.ndim < 2:
+                    new_shape = (data.obs.meta['shape_obs'])
+                elif map_full.ndim >= 2:
+                    new_shape = (-1,) + data.obs.meta['shape_obs']
+                map_full = map_full.reshape(new_shape)
+                
+            else:           
                 map_shape_full = data.obs.meta['shape_obs']
                 if self.ppxf.__getattribute__(_p).ndim >= 2:
                     map_shape_full = (
                         self.ppxf.__getattribute__(_p).shape[:1] 
                         + map_shape_full)
- 
-                # map_full = np.full(map_shape_full, fill_value=np.nan)
-                # map_full = map_
-
-                # if map_full.ndim < 2:
-                #     new_shape = (data.obs.meta['shape_obs'])
-                # if map_full.ndim >= 2:
-                #     new_shape = (-1,) + data.obs.meta['shape_obs']
-    
-                # map_full = map_full.reshape(new_shape)
                 map_full = self.ppxf.__getattribute__(_p).reshape(map_shape_full)
         
             if save:
