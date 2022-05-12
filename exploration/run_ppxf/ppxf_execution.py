@@ -63,7 +63,7 @@ class ExecutePpxf:
                     mask_clip = self.clip_outliers(
                         pp.galaxy, pp.bestfit, pp.goodpixels, 
                         self.main_meta['ppxf_refit']['sigma'])
-                    pp = self.execute_ppxf(data.obs, data.model, i, mask_clip)
+                    pp = self.execute_ppxf(data.obs, data.model, i, mask_clip, pp)
                 
                 if not storage:
                     n_obj = data.obs.flux_grid.shape[-1]
@@ -76,7 +76,7 @@ class ExecutePpxf:
         self.meta['ppxf_end_time'] = datetime.now().strftime("%d/%m/%Y %H:%M")
 
     def execute_ppxf(self, obs=None, model=None, index=None, 
-                     goodpixels=None):
+                     goodpixels=None, pp=None):
         assert obs is not None
         assert model is not None
 
@@ -91,8 +91,11 @@ class ExecutePpxf:
         frac = obs.meta['wave_obs'][1]/obs.meta['wave_obs'][0]
         velscale = np.log(frac)*self.C       # Velocity scale in km/s per pixel (eq.8 of Cappellari 2017)
 
-        start = [0., 2*velscale] # (km/s), starting guess for [V, sigma]
-        
+        if pp is None:
+            start = [0., 2*velscale] # (km/s), starting guess for [V, sigma]
+        else:
+            start = [pp.sol[0], pp.sol[1]]
+            
         if goodpixels is not None:
             mask=None
         elif 'spectral_mask' in obs.meta:
