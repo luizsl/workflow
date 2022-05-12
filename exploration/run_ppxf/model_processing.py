@@ -12,11 +12,11 @@ import re
 import tempfile
 from abc import ABC, abstractmethod
 
+import matplotlib.pyplot as plt
+import matplotlib.ticker as ticker
 import numpy as np
 import spectcube as sc
 from astropy.io import fits
-import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 
 import compute_muse_lsf as lsf
 from convolve import convolve

@@ -6,12 +6,12 @@ Created on Tue Aug 31 17:55:58 2021
 @author: Luiz
 """
 
+import json
 import os
 import shutil
 import sys
-import yaml
-import json
 
+import yaml
 from astropy.utils.misc import JsonCustomEncoder
 
 from data_preprocessing import DataPreprocessing

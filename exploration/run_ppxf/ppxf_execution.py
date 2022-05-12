@@ -12,8 +12,8 @@ from datetime import datetime
 from time import perf_counter as clock
 
 import numpy as np
-from ppxf.ppxf import ppxf, robust_sigma
 from astropy.io import fits
+from ppxf.ppxf import ppxf, robust_sigma
 from scipy.constants import physical_constants
 
 

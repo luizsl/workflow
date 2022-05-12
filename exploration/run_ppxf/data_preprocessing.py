@@ -4,6 +4,7 @@ Created on Tue Aug 31 16:52:36 2021
 @author: Luiz
 """
 
+import glob
 import os
 from time import perf_counter as clock
 
@@ -38,9 +39,14 @@ class DataPreprocessing:
         
         # Reading observations to gather information
         print('Reading observations data')
+        path = os.path.join(self.main_meta['resources']['observation'],
+                            self.main_meta['observation']['obs_name'])
+        files = glob.glob(path + '*')
+        print('--', files[0], sep='')
+        assert len(files) == 1, "Multiple files match the observation name"
+        
         self.obs = Muse(
-            os.path.join(self.main_meta['resources']['observation'],
-                         self.main_meta['observation']['obs_name']) + '.fits',
+            files[0],
             self.main_meta['observation']['redshift'])
 
     def prepare_model(self):

@@ -8,9 +8,9 @@ Created on Fri May  6 08:17:19 2022
 import json
 from abc import ABC, abstractmethod
 
-import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.ticker as ticker
+import numpy as np
 from astropy.io import fits
 
 
