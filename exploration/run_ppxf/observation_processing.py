@@ -128,10 +128,11 @@ class Observation(ABC):
         signal = np.nanmean(self.flux_grid[:,self.meta['valid']], axis = 0)
         noise = np.nanmean((self.flux_grid_unc**2)[:,self.meta['valid']], axis = 0)
         noise = np.sqrt(noise)
-        
+        pixelsize = self.header[1]['CD1_1']*3600
+            
         out = voronoi_2d_binning(
            self.meta['x_valid'],self.meta['y_valid'],
-           signal, noise,
+           signal, noise, pixelsize=pixelsize,
            target_sn=target_sn, plot=0)
         bin_num, x_gen, y_gen, xbin, ybin, sn, nPixels, scale = out
 
@@ -198,7 +199,6 @@ class Observation(ABC):
 
     def trim_spectral_axis(self, lower=None, upper=None):
         mask = np.ma.masked_outside(self.meta['wave_obs'], lower, upper)
-        # print(mask.mask)
         if mask.mask.size == 1:
             pass
         else:
