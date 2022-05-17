@@ -18,6 +18,10 @@ exploration/run_ppxf/ppxf_test.py
 exploration/run_ppxf/*.fits
 exploration/test_conf/
 
+exploration/run_inla/.Rhistory
+exploration/run_inla/*.txt
+exploration/run_inla/*.json
+
 miscellaneous/.ipynb_checkpoints
 miscellaneous/*.ipynb
 miscellaneous/*.pdf

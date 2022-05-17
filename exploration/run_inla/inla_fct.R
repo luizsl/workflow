@@ -113,7 +113,8 @@ else if(shape=='ellipse') {
     #caculate result model
     res <- inla(par ~ 0 + m +ellipse +ellipse_2 +f(i, model=spde),
                 data=inla.stack.data(stk_ell),
-                control.predictor=list(A=inla.stack.A(stk_ell)),scale=epar)
+                control.predictor=list(A=inla.stack.A(stk_ell)), scale=epar,
+                verbose = TRUE)
 
     #print restuls
     #print(res_rad$summary.fix)

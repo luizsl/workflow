@@ -43,8 +43,8 @@ class Map(Data):
         else:
             data = np.array(hdul_data[0].data[self.unit])
     
-        y = np.arange(data.shape[0])
-        x = np.arange(data.shape[1])
+        y = np.arange(data.shape[0]) + 0.11
+        x = np.arange(data.shape[1]) + 0.11
         x_coor, y_coor = np.meshgrid(x, y)
 
         return data, x_coor, y_coor
@@ -122,7 +122,7 @@ class InlaInput:
         return data
         
     def to_file(self, path):
-        np.savetxt(path, self.input, fmt='%3d %3d %10.2f %10.2f', delimiter='\t')
+        np.savetxt(path, self.input, fmt='%6.2f %6.2f %10.2f %10.2f', delimiter='\t')
 
 
 class InlaExecution:
@@ -156,6 +156,7 @@ class InlaExecution:
             output = json.load(f)
         return output
 
+#%%
 ############## velocity ################
 dt = {'data_path': '../Git/workflow/data_products/fov_sample_1_3/MilesAgeMh/ppxf/sol.fits',
       'chi2_path': '../Git/workflow/data_products/fov_sample_1_3/MilesAgeMh/ppxf/chi2.fits',
@@ -218,7 +219,138 @@ ax[1].imshow(old_im, cmap='jet', origin='lower')
 # main.build()
 # main.run()
 # d = main.retrieve()
+#%%
 
+
+
+dt = {'data_path': '../../data_products/fov_sample_1_3/MilesAgeMh/ppxf/sol.fits',
+      'chi2_path': '../../data_products/fov_sample_1_3/MilesAgeMh/ppxf/chi2.fits',
+      'filters': {'nan':True, 'null':True,},
+      'data_extension': 0,
+      'input_inla': 'input_inla.txt',
+      'output_inla': 'output_inla'}
+
+main = InlaExecution(dt)    
+main.build()
+main.run()
+a = main.retrieve()
+
+# im = np.array(a['out']).T
+
+# # old_im = np.array(a['image']).T
+# im[np.where(im == 'NA')] = 'nan'
+# im = np.array(im, dtype=float)
+
+# # fig, ax = plt.subplots(1,2)
+# ax[0,0].imshow(im, cmap='jet', origin='lower')
+# # ax[1].imshow(old_im, cmap='jet', origin='lower')
+
+dt = {'data_path': '../../data_products/fov_sample_1_3/MilesAgeMh/ppxf/sol.fits',
+      'chi2_path': '../../data_products/fov_sample_1_3/MilesAgeMh/ppxf/chi2.fits',
+      'filters': {'nan':True, 'null':True,},
+      'data_extension': 1,
+      'input_inla': 'input_inla.txt',
+      'output_inla': 'output_inla'}
+
+main = InlaExecution(dt)    
+main.build()
+main.run()
+b = main.retrieve()
+
+
+dt = {'data_path': '../../data_products/fov_sample_1_3/MilesAgeMh/ppxf/sol.fits',
+      'chi2_path': '../../data_products/fov_sample_1_3/MilesAgeMh/ppxf/chi2.fits',
+      'filters': {'nan':True, 'null':True,},
+      'data_extension': 2,
+      'input_inla': 'input_inla.txt',
+      'output_inla': 'output_inla'}
+
+main = InlaExecution(dt)    
+main.build()
+main.run()
+c = main.retrieve()
+
+
+dt = {'data_path': '../../data_products/fov_sample_1_3/MilesAgeMh/ppxf/sol.fits',
+      'chi2_path': '../../data_products/fov_sample_1_3/MilesAgeMh/ppxf/chi2.fits',
+      'filters': {'nan':True, 'null':True,},
+      'data_extension': 3,
+      'input_inla': 'input_inla.txt',
+      'output_inla': 'output_inla'}
+
+main = InlaExecution(dt)    
+main.build()
+main.run()
+d = main.retrieve()
+
+#%%
+plt.style.use('science')
+fig, ax = plt.subplots(2,2, figsize=(6,5))
+
+im = np.array(a['out']).T
+# im[np.where(im == 'NA')] = 'nan'
+im = np.array(im, dtype=float)
+i = ax[0,0].imshow(im, cmap='jet', origin='lower', vmin = -120, vmax=120)
+plt.colorbar(i, ax=ax[0,0])
+ax[0,0].set_title(r'$V_{*}$')
+
+im = np.array(b['out']).T
+# im[np.where(im == 'NA')] = 'nan'
+im = np.array(im, dtype=float)
+i = ax[0,1].imshow(im, cmap='jet', origin='lower', vmin = 60, vmax=120)
+plt.colorbar(i, ax=ax[0,1])
+ax[0,1].set_title(r'$\sigma_{*}$')
+
+im = np.array(c['out']).T
+# im[np.where(im == 'NA')] = 'nan'
+im = np.array(im, dtype=float)
+i = ax[1,0].imshow(im, cmap='jet', origin='lower', vmin = -0.13, vmax=0.13)
+plt.colorbar(i, ax=ax[1,0])
+ax[1,0].set_title(r'$h_{3}$')
+
+im = np.array(d['out']).T
+# im[np.where(im == 'NA')] = 'nan'
+im = np.array(im, dtype=float)
+i = ax[1,1].imshow(im, cmap='jet', origin='lower', vmin = -0.05, vmax=0.15)
+plt.colorbar(i, ax=ax[1,1])
+ax[1,1].set_title(r'$h_{4}$')
+
+# fig.tight_layout()
+plt.savefig('kinematics_with_INLA.pdf', bbox_inches='tight', format='pdf')
+plt.close()
+#%%
+path = '../../data_products/fov_sample_1_3/MilesAgeMh/ppxf/sol.fits'
+hdul = fits.open(path)
+
+plt.style.use('science')
+fig, ax = plt.subplots(2,2, figsize=(6,5))
+
+im = hdul[0].data[0, ...]
+im = np.array(im, dtype=float)
+i = ax[0,0].imshow(im, cmap='jet', origin='lower', vmin = -120, vmax=120)
+plt.colorbar(i, ax=ax[0,0])
+ax[0,0].set_title(r'$V_{*}$')
+
+im = hdul[0].data[1, ...]
+im = np.array(im, dtype=float)
+i = ax[0,1].imshow(im, cmap='jet', origin='lower',  vmin = 60, vmax=120)
+plt.colorbar(i, ax=ax[0,1])
+ax[0,1].set_title(r'$\sigma_{*}$')
+
+im = hdul[0].data[2, ...]
+im = np.array(im, dtype=float)
+i = ax[1,0].imshow(im, cmap='jet', origin='lower', vmin = -0.13, vmax=0.13)
+plt.colorbar(i, ax=ax[1,0])
+ax[1,0].set_title(r'$h_{3}$')
+
+im = hdul[0].data[3, ...]
+im = np.array(im, dtype=float)
+i = ax[1,1].imshow(im, cmap='jet', origin='lower', vmin = -0.05, vmax=0.15)
+plt.colorbar(i, ax=ax[1,1])
+ax[1,1].set_title(r'$h_{4}$')
+
+plt.savefig('kinematics_without_INLA.pdf', bbox_inches='tight', format='pdf')
+plt.close()
 #%%
 
 class PostInla:

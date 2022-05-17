@@ -19,7 +19,7 @@ data <- read.table(meta$input_inla, quote="\"")
 data_inla <- stationary_inla(data$V2, data$V1, data$V3,
                              xsize=meta$data_dim[[2]], ysize=meta$data_dim[[1]],
                              xfin=meta$data_dim[[2]], yfin=meta$data_dim[[1]],
-                             weight=data$V4,
+                             weight=1/data$V4,
                              shape='ellipse', cutoff=1,
                              )
 
