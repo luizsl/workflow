@@ -273,10 +273,10 @@ class Muse(Observation):
 #%%
 if __name__ == '__main__':
     # obs = Muse('../../data/NGC613/Muse/NGC0613_DATACUBE_FINAL_clean.fits.gz', 0.004951)
-    obs = Muse('../../data/fov_sample_1_2.fits', 0.004951)
+    obs = Muse('../../data/fov_sample_1_3.fits', 0.004951)
     obs.build_grid()
     # obs.resample()
-    obs.vorbin(target_sn=20)
+    obs.vorbin(target_sn=50)
     # obs.normalize()
     # obs.convert_to_mmap()
     

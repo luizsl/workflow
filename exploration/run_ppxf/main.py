@@ -78,26 +78,16 @@ class Main:
 
 #%%
 if __name__ == '__main__':
-    # conf = sys.argv[1]
+    conf = sys.argv[1]
     # # conf = 'test.yaml'
-    # ppxf_control = Main(conf)
-    # ppxf_control.run_all()
+    ppxf_control = Main(conf)
+    ppxf_control.run_all()
     
 
-    conf = 'test.yaml'
+    # conf = 'test.yaml'
     
-    ppxf_prep = Main(conf)
-    ppxf_prep.read_config()
+    # ppxf_prep = Main(conf)
+    # ppxf_prep.read_config()
 
-    ppxf_prep.data = DataPreprocessing(ppxf_prep.meta)
+    # ppxf_prep.data = DataPreprocessing(ppxf_prep.meta)
     
-    self.read_config()
-    self.create_output_folder()
-    self.keep_conf_copy()
-
-    self.data = DataPreprocessing(self.meta)
-    self.ppxf_out = ExecutePpxf(self.data, self.meta)
-    self.ppxf_out.reconstruct_map(
-        self.data, par=self.meta['output']['to_save'])
-
-    self.meta_to_json()
