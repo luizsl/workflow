@@ -11,10 +11,28 @@ from time import perf_counter as clock
 
 import _pickle as pickle
 import numpy as np
-from ppxf.ppxf import ppxf
+from ppxf.ppxf import ppxf,  robust_sigma
 from scipy.constants import physical_constants
 
+prep = ppxf_prep.data
 
+def clip_outliers(galaxy, bestfit, goodpixels, sigma=3):
+    """
+    Adapted from Michele Cappellari's example
+    
+    Repeat the fit after clipping bins deviants more than 3*sigma
+    in relative error until the bad bins don't change any more.
+    """
+    while True:
+        scale = galaxy[goodpixels] @ bestfit[goodpixels]/np.sum(bestfit[goodpixels]**2)
+        resid = scale*bestfit[goodpixels] - galaxy[goodpixels]
+        err = robust_sigma(resid, zero=1)
+        ok_old = goodpixels.copy()
+        goodpixels = np.flatnonzero(np.abs(bestfit - galaxy) < sigma*err)
+        if np.array_equal(goodpixels, ok_old):
+            break
+    return goodpixels   
+    
 def mask_wavelength(wave, intervals =[]):
     mask = np.full_like(wave, False, dtype = bool)
     
@@ -26,8 +44,11 @@ def mask_wavelength(wave, intervals =[]):
     mask = ~mask
     return mask
 
-galaxy = prep.obs.flux_grid
-noise = prep.obs.flux_grid_unc
+
+galaxy = np.nansum(prep.obs.flux_grid[:, 1800:1820], axis = 1)
+noise = prep.obs.flux_grid_unc**2
+noise = np.nansum(noise[:, 1800:1820], axis = 1)
+noise = np.sqrt(noise)
 
 C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
 
@@ -44,8 +65,8 @@ vel = C*np.log(1 + 0)   # q.(8) of Cappellari (2017)
 start = [vel, 3*velscale] # (km/s), starting guess for [V, sigma]
 
 # flux = prep.obs.mmap_flux_grid[:].sum(axis=1)
-galaxy[-1] =galaxy[-2]
-noise[-1] =noise[-2]
+# galaxy[-1] =galaxy[-2]
+# noise[-1] =noise[-2]
 
 # lam_range_gal = [np.min(prep.obs.meta['wave_obs']), np.max(prep.obs.meta['wave_obs'])]
 # gas_template, gas_names,gas_names = util.emission_lines(
@@ -60,7 +81,9 @@ mask_list = [
     [4850, 4880],
     [4950, 4970], 
     [4990, 5025],
+    [5524, 5574],
     [5190, 5210],
+    [5831, 5975],
     [6250, 6380],
     [6530, 6600],
     [6700, 6750],
@@ -91,10 +114,10 @@ lam_temp=prep.model.meta['wave_model']
 
 #%%      TEMPLATES MINE
 
-reg_dim = t.flux_grid.shape[1:]
+reg_dim = prep.model.meta['reg_dim']
 
-shape = t.flux_grid.shape[0]
-star_template = t.flux_grid.reshape(shape, -1)
+# shape = prep.model.flux_grid.shape[0]
+# star_template = prep.model.flux_grid.reshape(shape, -1)
 
 # template = np.column_stack([star_template, gas_template])
 template = star_template
@@ -104,7 +127,7 @@ template = star_template
 # gas_component = np.array(component) > 0  # gas_component=True for gas templates
 
 
-lam_temp=t.meta['wave_model']
+lam_temp=prep.model.meta['wave_model']
 
 #%%         TEMPLATE CAPPELLARI 
 
@@ -126,43 +149,67 @@ lam_temp=t1.lam_temp
 
 #%%
 
-for i in range(10,15, 2):
-    pp = ppxf(
-        template, 
-        galaxy[:, i],
-        noise[:, i],
-        velscale, start, moments=4, degree=-1, mdegree=-1,
-        clean=True,
-        reg_dim=reg_dim, regul=1/0.1,
-        reddening=0, 
-        # goodpixels=goodpixels,
-        # velscale_ratio=2,
-        mask = mask,
-        # component = component, gas_component=gas_component, gas_names=gas_names,gas_reddening=0,
-        lam=prep.obs.meta['wave_obs'], 
-        lam_temp=lam_temp,
-        # lam_temp=miles.lam_temp,
-        plot = False, quiet=False)
-    
-    # print("Formal errors:")
-    # print("     dV    dsigma   dh3      dh4")
-    # print("".join("%8.2g" % f for f in pp.error*np.sqrt(pp.chi2)))
-    
-    # print('Elapsed time in PPXF: %.2f s' % (clock() - t))
-    
-    
-    # import matplotlib.pyplot as plt
-    # fig, ax = plt.subplots()
-    # ax = pp.plot()
-    
-    # fig, ax = plt.subplots()
-    light_weights = pp.weights
-    # #[~gas_component]
-    light_weights = light_weights.reshape(reg_dim)
-    light_weights /= light_weights.sum()
-    # plt.imshow(light_weights)
+degree = 8
 
-    prep.model.plot(light_weights)
+pp = ppxf(
+    template, 
+    galaxy,
+    noise,
+    velscale, start, moments=2, degree=-1, mdegree=degree,
+    clean=False,
+    # reg_dim=reg_dim, regul=1/0.01,
+    reddening=0, 
+    # goodpixels=goodpixels,
+    velscale_ratio=2,
+    mask = mask,
+    # component = component, gas_component=gas_component, gas_names=gas_names,gas_reddening=0,
+    lam=prep.obs.meta['wave_obs'], 
+    lam_temp=lam_temp,
+    # lam_temp=miles.lam_temp,
+    plot = False, quiet=False)
 
-    plt.plot(prep.obs.flux_grid[:, 0])
-    plt.plot(prep.obs.flux_grid_unc[:, 0])
+# import matplotlib.pyplot as plt
+# fig, ax = plt.subplots()
+# ax = pp.plot()
+
+good = clip_outliers(pp.galaxy, pp.bestfit, pp.goodpixels, sigma = 2.5)
+
+pp = ppxf(
+    template, 
+    galaxy,
+    noise,
+    velscale, start, moments=2, degree=-1, mdegree=degree,
+    clean=False,
+    # reg_dim=reg_dim, regul=1/0.01,
+    reddening=0, 
+    goodpixels=good,
+    velscale_ratio=2,
+    # mask = mask,
+    # component = component, gas_component=gas_component, gas_names=gas_names,gas_reddening=0,
+    lam=prep.obs.meta['wave_obs'], 
+    lam_temp=lam_temp,
+    # lam_temp=miles.lam_temp,
+    plot = False, quiet=False)
+# print("Formal errors:")
+# print("     dV    dsigma   dh3      dh4")
+# print("".join("%8.2g" % f for f in pp.error*np.sqrt(pp.chi2)))
+
+# print('Elapsed time in PPXF: %.2f s' % (clock() - t))
+
+
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots()
+ax = pp.plot()
+
+#%%    
+fig, ax = plt.subplots()
+light_weights = pp.weights
+#[~gas_component]
+light_weights = light_weights.reshape(reg_dim)
+light_weights /= light_weights.sum()
+plt.imshow(light_weights)
+
+    # prep.model.plot(light_weights)
+
+    # plt.plot(prep.obs.flux_grid[:, 0])
+    # plt.plot(prep.obs.flux_grid_unc[:, 0])

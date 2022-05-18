@@ -128,12 +128,12 @@ class Observation(ABC):
         signal = np.nanmean(self.flux_grid[:,self.meta['valid']], axis = 0)
         noise = np.nanmean((self.flux_grid_unc**2)[:,self.meta['valid']], axis = 0)
         noise = np.sqrt(noise)
-        pixelsize = self.header[1]['CD1_1']*3600
+        pixelsize = abs(self.header[1]['CD1_1'])*3600
             
         out = voronoi_2d_binning(
            self.meta['x_valid'],self.meta['y_valid'],
            signal, noise, pixelsize=pixelsize,
-           target_sn=target_sn, plot=0)
+           target_sn=target_sn, plot=1)
         bin_num, x_gen, y_gen, xbin, ybin, sn, nPixels, scale = out
 
         self.meta['bin_num'] = bin_num
@@ -272,24 +272,25 @@ class Muse(Observation):
 
 #%%
 if __name__ == '__main__':
-    obs = Muse('../../data/fov_sample_1_5.fits', 0.004951)
+    # obs = Muse('../../data/NGC613/Muse/NGC0613_DATACUBE_FINAL_clean.fits.gz', 0.004951)
+    obs = Muse('../../data/fov_sample_1_2.fits', 0.004951)
     obs.build_grid()
-    obs.resample()
-    obs.vorbin(target_sn=50)
-    obs.normalize()
-    obs.convert_to_mmap()
+    # obs.resample()
+    obs.vorbin(target_sn=20)
+    # obs.normalize()
+    # obs.convert_to_mmap()
     
-    mask_list = [
-        [4000, 4770],
-        [4850, 4880],
-        [4950, 4970], 
-        [4990, 5025],
-        [5190, 5210],
-        [6250, 6380],
-        [6530, 6600],
-        [6700, 6750],
-        [7560, 7610],
-        [8710, 8725],
-        [9000, 9500]]
+    # mask_list = [
+    #     [4000, 4770],
+    #     [4850, 4880],
+    #     [4950, 4970], 
+    #     [4990, 5025],
+    #     [5190, 5210],
+    #     [6250, 6380],
+    #     [6530, 6600],
+    #     [6700, 6750],
+    #     [7560, 7610],
+    #     [8710, 8725],
+    #     [9000, 9500]]
 
-    obs.mask_spectral_axis(mask_list)
+    # obs.mask_spectral_axis(mask_list)

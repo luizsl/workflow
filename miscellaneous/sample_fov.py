@@ -38,6 +38,11 @@ ax[2].contour(ds5, colors = 'blue', levels=levels, alpha=alpha, linewidths=linew
 with fits.open(cube_path) as hdul:
     hdul['data'].data = hdul['data'].data[:, ::3, ::3]
     hdul['stat'].data = hdul['stat'].data[:, ::3, ::3]
+    hdul.writeto('../data/fov_sample_1_2.fits', overwrite = True)
+    
+with fits.open(cube_path) as hdul:
+    hdul['data'].data = hdul['data'].data[:, ::3, ::3]
+    hdul['stat'].data = hdul['stat'].data[:, ::3, ::3]
     hdul.writeto('../data/fov_sample_1_3.fits', overwrite = True)
 
 with fits.open(cube_path) as hdul:

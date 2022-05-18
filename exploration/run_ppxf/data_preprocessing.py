@@ -93,7 +93,7 @@ class DataPreprocessing:
 
         
 if __name__ == '__main__':
-    data = DataPreprocessing(t.meta)
+    data = DataPreprocessing(meta)
     
     # plt.plot(data.model.meta['wave_model'], data.model.flux_grid[:, 0])
     # plt.plot(data.obs.meta['wave_obs'], data.obs.flux_grid[:, 0])
