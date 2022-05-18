@@ -133,7 +133,7 @@ class Observation(ABC):
         out = voronoi_2d_binning(
            self.meta['x_valid'],self.meta['y_valid'],
            signal, noise, pixelsize=pixelsize,
-           target_sn=target_sn, plot=1)
+           target_sn=target_sn, plot=0)
         bin_num, x_gen, y_gen, xbin, ybin, sn, nPixels, scale = out
 
         self.meta['bin_num'] = bin_num
