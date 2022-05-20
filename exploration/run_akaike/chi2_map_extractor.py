@@ -30,5 +30,5 @@ if __name__ == '__main__':
     path_3comp = '../../data_products/NGC613/miles/ifscube_6'
 
     pathlist = [path_1comp, path_2comp, path_3comp]
-    main()
+    main(pathlist)
     
