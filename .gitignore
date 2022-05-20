@@ -16,6 +16,7 @@ exploration/run_ppxf/*.pdf
 exploration/run_ppxf/test_vonoroi.py
 exploration/run_ppxf/ppxf_test.py
 exploration/run_ppxf/*.fits
+exploration/run_ppxf/*.ymal
 exploration/test_conf/
 
 miscellaneous/.ipynb_checkpoints
