@@ -14,7 +14,7 @@ import numpy as np
 from astropy.io import fits
 
 
-class Map:
+class PopMeanPropertie:
     def __init__(self, datapath, metadatapath):
         self.datapath = datapath
         self.metadatapath = metadatapath
@@ -60,20 +60,22 @@ class Map:
         name = os.path.join(output_path, f'{param}.fits')
         hdul.writeto(name, overwrite=True)
 
-# datapath = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d5/ppxf/weights.fits'
-# metadatapath = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d4/ppxf/metadata.json'
 
-datapath = '../../data_products/ngc613/regul_50_sn_100/weights.fits'
-metadatapath = '../../data_products/ngc613/regul_50_sn_100/metadata.json'
-
-# datapath = '../../data_products/toy_100x100/MilesAgeMh_3/ppxf/weights.fits'
-# metadatapath = '../../data_products/toy_100x100/MilesAgeMh_3/ppxf/metadata.json'
-
-t = Map(datapath, metadatapath)
-fig, ax = plt.subplots(1,2)
-ax[0].imshow(10**(t.age - 9), origin='lower', cmap='jet', vmin=3, vmax=7)
-ax[1].imshow(t.mh, origin='lower', cmap='jet', vmin=0, vmax=0.18)
-t.save(t.mh, 'mean_mh',  '../../data_products/ngc613/regul_50_sn_100/')
-t.save(t.age, 'mean_log_age',  '../../data_products/ngc613/regul_50_sn_100/')
-
-plt.imshow(t.data[:, 169, 155].reshape((24, 6)))
+if __name__ == '__main__':
+    # datapath = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d5/ppxf/weights.fits'
+    # metadatapath = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d4/ppxf/metadata.json'
+    
+    datapath = '../../data_products/ngc613/regul_50_sn_100/weights.fits'
+    metadatapath = '../../data_products/ngc613/regul_50_sn_100/metadata.json'
+    
+    # datapath = '../../data_products/toy_100x100/MilesAgeMh_3/ppxf/weights.fits'
+    # metadatapath = '../../data_products/toy_100x100/MilesAgeMh_3/ppxf/metadata.json'
+    
+    t = PopMeanPropertie(datapath, metadatapath)
+    fig, ax = plt.subplots(1,2)
+    ax[0].imshow(10**(t.age - 9), origin='lower', cmap='jet', vmin=3, vmax=7)
+    ax[1].imshow(t.mh, origin='lower', cmap='jet', vmin=0, vmax=0.18)
+    t.save(t.mh, 'mean_mh',  '../../data_products/ngc613/regul_50_sn_100/')
+    t.save(t.age, 'mean_log_age',  '../../data_products/ngc613/regul_50_sn_100/')
+    
+    plt.imshow(t.data[:, 169, 155].reshape((24, 6)))

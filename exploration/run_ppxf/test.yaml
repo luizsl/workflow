@@ -40,13 +40,13 @@ ppxf:
     degree : -1 
     mdegree : -1
     clean : False
-    regul : 5  # 1/Delta
+    regul : 0  # 1/Delta
     reddening : 0
     velscale_ratio : 2
     quiet : False
 
 ppxf_refit:
-    apply : True
+    apply : False
     sigma : 2.3
     
 output:
@@ -55,6 +55,7 @@ output:
         'weights', 'goodpixels']
 
 vorbin:
-    apply: False
-    sn: 50
+    apply: True
+    sn: 100
+    min: 4
 

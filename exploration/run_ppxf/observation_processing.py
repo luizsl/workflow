@@ -177,9 +177,9 @@ class Observation(ABC):
 
             for j in range(sn.size):
                 w = bin_num == j
-                flux_bin[:, j] = flux_valid[:, w].sum(axis=1)
+                flux_bin[:, j] = np.nansum(flux_valid[:, w], axis=1)
                 flux_unc_bin[:, j] = np.sqrt(
-                    (flux_unc_valid[:, w]**2).sum(axis=1))
+                    np.nansum(flux_unc_valid[:, w]**2, axis=1))
 
             self.flux_grid = flux_bin
             self.flux_grid_unc = flux_unc_bin
@@ -273,10 +273,10 @@ class Muse(Observation):
 #%%
 if __name__ == '__main__':
     # obs = Muse('../../data/NGC613/Muse/NGC0613_DATACUBE_FINAL_clean.fits.gz', 0.004951)
-    obs = Muse('../../data/fov_sample_1_3.fits', 0.004951)
+    obs = Muse('../../data/fov_sample_1_5.fits', 0.004951)
     obs.build_grid()
-    # obs.resample()
-    obs.vorbin(target_sn=50)
+    obs.resample()
+    obs.vorbin(target_sn=100)
     # obs.normalize()
     # obs.convert_to_mmap()
     
@@ -294,3 +294,6 @@ if __name__ == '__main__':
     #     [9000, 9500]]
 
     # obs.mask_spectral_axis(mask_list)
+
+    # rng = (obs.meta['wave_obs'] < 5550) & (obs.meta['wave_obs'] > 5450)
+    # obs.flux_grid[]
