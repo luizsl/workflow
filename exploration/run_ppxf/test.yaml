@@ -11,24 +11,25 @@ observation:
     redshift: 0.004951
     sampling: linear
     spectral_mask : [
-        [4000, 4770],
-        [4850, 4880],
-        [4950, 4970], 
-        [4990, 5025],
-        [5190, 5210],
-        [6250, 6380],
-        [6530, 6600],
-        [6700, 6750],
-        [7560, 7610],
-        [8710, 8725],
-        [9000, 9500]]
+#        [4000, 4770],
+#        [4850, 4880],
+#        [4950, 4970], 
+#        [4990, 5025],
+#        [5190, 5210],
+#        [6250, 6380],
+#        [6530, 6600],
+#        [6700, 6750],
+#        [7560, 7610],
+#        [8710, 8725],
+#        [9000, 9500]
+]
         
 model:
     # class_: XSLAgeMh
     class_: MilesAgeMh
     remove:
-        age_range: [10.2]          # Must be a list
-        mh_range: [-0.1 0.1]
+        age_range: []          # Must be a list
+        mh_range: []
     resolving_power: 10000
     sampling: log
 #    remove:
@@ -38,15 +39,15 @@ model:
 ppxf:
     moments : 4
     degree : -1 
-    mdegree : -1
+    mdegree : 8
     clean : False
-    regul : 5  # 1/Delta
-    reddening : 0
+    regul : 0  # 1/Delta
+#    reddening : 0
     velscale_ratio : 2
     quiet : False
 
 ppxf_refit:
-    apply : True
+    apply : False
     sigma : 2.3
     
 output:

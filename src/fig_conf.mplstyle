@@ -1,16 +1,16 @@
-text.latex.preamble : \usepackage{amsmath} \usepackage{physunits}
+text.latex.preamble : \usepackage{amsmath} \usepackage{physunits} \usepackage{amssymb}
 text.usetex : True
 
-font.family : sans-serif
-font.serif: Times
+font.family: serif
+#font.serif: Times
 
-font.size : 12
+font.size : 10
 
-figure.autolayout : True
+#figure.autolayout : True
 
 xtick.minor.visible : True
 xtick.direction : in
 ytick.minor.visible : True
 ytick.direction : in
 
-savefig.bbox : tight
+#savefig.bbox : tight
