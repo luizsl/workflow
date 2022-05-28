@@ -21,15 +21,22 @@ class SnrMap:
             tempfile.TemporaryFile() as flux_unc_file:
             
             self.wcs = WCS(hdul[1].header)
-                
+            
+            where_nan = ~np.isfinite(hdul['DATA'].data[-1, ...])
+
             self.flux = np.memmap(
                 flux_file, dtype='float32', mode='w+',
                 shape=hdul['DATA'].data.shape)
+            
+            hdul['DATA'].data[-1, ...][where_nan] = \
+                hdul['DATA'].data[-2, ...][where_nan]
             self.flux[:] = hdul['DATA'].data[:]
             
             self.flux_unc = np.memmap(
                 flux_unc_file, dtype='float32', mode='w+',
                 shape=hdul['STAT'].data.shape)
+            hdul['STAT'].data[-1, ...][where_nan] = \
+                hdul['STAT'].data[-2, ...][where_nan]
             self.flux_unc[:] = hdul['STAT'].data[:]
             
             self.first = hdul['data'].header['CRVAL3']
@@ -42,16 +49,16 @@ class SnrMap:
                 self.wave = self.wave / (1+z)
                 
     def full_axis(self):
-        signal = np.nansum(self.flux, axis=0)
-        noise = np.nansum(self.flux_unc, axis=0)
+        signal = np.sum(self.flux, axis=0)
+        noise = np.sum(self.flux_unc, axis=0)
         snr = signal / (np.sqrt(noise * self.n_pix))
         return snr
         
     def range_axis(self, rng:list):
         assert len(rng) == 2
         w = (self.wave > rng[0]) & (self.wave < rng[1])
-        signal = np.nansum(self.flux[w], axis=0)
-        noise = np.nansum(self.flux_unc[w], axis=0)
+        signal = np.sum(self.flux[w], axis=0)
+        noise = np.sum(self.flux_unc[w], axis=0)
         snr = signal / (np.sqrt(noise * w.sum()))
         return snr
     
@@ -84,7 +91,7 @@ if __name__ == '__main__':
     
     im0 = ax[0].imshow(t.full_axis(), origin='lower',
                        vmin=3, vmax= 80, extent=extent)
-    
+
     ker_0 = gaussian_filter(t.full_axis(), 4)
     cont_0 = ax[0].contour(ker_0, levels=[10, 15, 20, 30, 40, 60],
                            colors='k', linewidths=0.8, linestyles='dashdot',
