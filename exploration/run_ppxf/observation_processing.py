@@ -183,7 +183,15 @@ class Observation(ABC):
 
             self.flux_grid = flux_bin
             self.flux_grid_unc = flux_unc_bin
-                
+    
+    def compute_snr(self, spectral_range:list=[-np.inf, np.inf]):        
+        w = ((self.meta['wave_obs'] > spectral_range[0]) 
+             & (self.meta['wave_obs'] < spectral_range[1]))
+        signal = np.sum(self.flux_grid[w], axis=0)
+        noise = np.sum(self.flux_grid_unc[w], axis=0)
+        snr = signal / (np.sqrt(noise * w.sum()))
+        return snr
+    
     def mask_spectral_axis(self, intervals =[]):
         wave = self.meta['wave_obs']
         mask = np.full_like(wave, False, dtype = bool)
@@ -275,8 +283,9 @@ if __name__ == '__main__':
     # obs = Muse('../../data/NGC613/Muse/NGC0613_DATACUBE_FINAL_clean.fits.gz', 0.004951)
     obs = Muse('../../data/fov_sample_1_5.fits', 0.004951)
     obs.build_grid()
-    obs.resample()
-    obs.vorbin(target_sn=100)
+    obs.compute_snr()
+    # obs.resample()
+    # obs.vorbin(target_sn=100)
     # obs.normalize()
     # obs.convert_to_mmap()
     
