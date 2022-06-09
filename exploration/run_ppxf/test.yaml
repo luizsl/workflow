@@ -22,6 +22,9 @@ observation:
         [7560, 7610],
         [8710, 8725],
         [9000, 9500]]
+   snr:
+       window: [0, 1e3]
+       min: 3       
         
 model:
     # class_: XSLAgeMh
@@ -31,9 +34,6 @@ model:
         mh_range: [-0.1 0.1]
     resolving_power: 10000
     sampling: log
-#    remove:
-#        age_range: [10.2]         # Must be a list
-#        mh_range: [-0.1 0.1]    
 
 ppxf:
     moments : 4
@@ -47,7 +47,7 @@ ppxf:
 
 ppxf_refit:
     apply : False
-    sigma : 2.3
+    sigma : 2.5
     
 output:
     output_root : ../../data_products/
@@ -57,5 +57,4 @@ output:
 vorbin:
     apply: True
     sn: 100
-    min: 4
-
+    

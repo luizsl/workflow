@@ -123,17 +123,23 @@ class Observation(ABC):
         self.meta['col'] = col + 1   # start counting from 1
         self.meta['row'] = row + 1
 
-    def vorbin(self, target_sn = None):
+    def vorbin(self, target_sn=None):
         assert target_sn is not None
-        signal = np.nanmean(self.flux_grid[:,self.meta['valid']], axis = 0)
-        noise = np.nanmean((self.flux_grid_unc**2)[:,self.meta['valid']], axis = 0)
-        noise = np.sqrt(noise)
+        
+        # signal = np.nanmean(self.flux_grid[:,self.meta['valid']], axis = 0)
+        # noise = np.nanmean((self.flux_grid_unc**2)[:,self.meta['valid']], axis = 0)
+        # noise = np.sqrt(noise)
+        
+        signal = self.original_signal
+        noise = self.original_noise
+        
         pixelsize = abs(self.header[1]['CD1_1'])*3600
             
         out = voronoi_2d_binning(
            self.meta['x_valid'],self.meta['y_valid'],
-           signal, noise, pixelsize=pixelsize,
-           target_sn=target_sn, plot=0)
+            signal[self.meta['valid']], noise[self.meta['valid']],
+           # signal, noise,
+           pixelsize=pixelsize, target_sn=target_sn, plot=1)
         bin_num, x_gen, y_gen, xbin, ybin, sn, nPixels, scale = out
 
         self.meta['bin_num'] = bin_num
@@ -184,15 +190,17 @@ class Observation(ABC):
             self.flux_grid = flux_bin
             self.flux_grid_unc = flux_unc_bin
     
-    def compute_snr(self, spectral_range:list=[-np.inf, np.inf]):        
-        w = ((self.meta['wave_obs'] > spectral_range[0]) 
-             & (self.meta['wave_obs'] < spectral_range[1]))
-        signal = np.sum(self.flux_grid[w], axis=0)
-        noise = np.sum(self.flux_grid_unc[w], axis=0)
-        snr = signal / (np.sqrt(noise * w.sum()))
-        return snr
+    def compute_snr(self, snr_window:list=[-np.inf, np.inf]):        
+        w = ((self.meta['wave_obs'] > snr_window[0]) 
+             & (self.meta['wave_obs'] < snr_window[1]))
+        signal = np.nanmean(self.flux_grid[w], axis=0)
+        noise = np.nanmean(self.flux_grid_unc[w]**2, axis=0)
+        noise= np.sqrt(noise)
+        # snr = signal / (np.sqrt(w.sum()) * noise)
+        snr = signal / noise
+        return snr, signal, noise
     
-    def mask_spectral_axis(self, intervals =[]):
+    def mask_spectral_axis(self, intervals=[-np.inf, np.inf]):
         wave = self.meta['wave_obs']
         mask = np.full_like(wave, False, dtype = bool)
         
@@ -215,7 +223,14 @@ class Observation(ABC):
             self.flux_grid_unc = self.flux_grid_unc[~mask.mask, ...]
             self.meta['limit_obs'] = self.meta['wave_obs'][[0, -1]]
 
-
+    def validate_spaxels(self, min_sn=3):
+        sn_trigger = self.original_snr > min_sn
+        non_null = np.all(self.flux_grid > 0, axis = 0)
+        finite = np.all(np.isfinite(self.flux_grid), axis = 0)
+        valid = (sn_trigger & non_null & finite)
+        self.meta['valid'] = valid
+            
+        
 class Muse(Observation):
     def __init__(self, path_obs, z=None):
         assert os.path.isfile(path_obs), f'{path_obs} is NOT a file'
@@ -240,7 +255,7 @@ class Muse(Observation):
             self.meta['o_obs_sampling_type'] = 'log'
         self.meta['limit_obs'] = self.meta['wave_obs'][[0, -1]]
         
-    def build_grid(self):
+    def build_grid(self, min_valid_sn=3, snr_window=[5450, 5550]):
         with fits.open(self.meta['path_obs'], memmap = True,
                        lazy_load_hdus = True, cache = False) as hdul:
             # Note 1
@@ -272,37 +287,22 @@ class Muse(Observation):
             self.meta['shape_obs'] = self.flux_grid.shape[1:]
             self.reshape()
             
-            valid = (np.all(self.flux_grid > 0, axis = 0)
-                 | np.all(np.isfinite(self.flux_grid), axis = 0))
-            self.meta['valid'] = valid
+            self.original_snr, self.original_signal ,self.original_noise, = \
+                self.compute_snr(snr_window=snr_window)
             
+            self.validate_spaxels(min_sn=min_valid_sn)
             self.build_coordinate()
+
 
 #%%
 if __name__ == '__main__':
     # obs = Muse('../../data/NGC613/Muse/NGC0613_DATACUBE_FINAL_clean.fits.gz', 0.004951)
-    obs = Muse('../../data/fov_sample_1_5.fits', 0.004951)
+    obs = Muse('../../data/fov_sample_1_3.fits', 0.004951)
     obs.build_grid()
-    obs.compute_snr()
-    # obs.resample()
-    # obs.vorbin(target_sn=100)
-    # obs.normalize()
-    # obs.convert_to_mmap()
-    
-    # mask_list = [
-    #     [4000, 4770],
-    #     [4850, 4880],
-    #     [4950, 4970], 
-    #     [4990, 5025],
-    #     [5190, 5210],
-    #     [6250, 6380],
-    #     [6530, 6600],
-    #     [6700, 6750],
-    #     [7560, 7610],
-    #     [8710, 8725],
-    #     [9000, 9500]]
+    obs.resample()
+    obs.vorbin(target_sn=40)
+    obs.normalize()
+    obs.convert_to_mmap()
 
-    # obs.mask_spectral_axis(mask_list)
 
-    # rng = (obs.meta['wave_obs'] < 5550) & (obs.meta['wave_obs'] > 5450)
-    # obs.flux_grid[]
+        
