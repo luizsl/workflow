@@ -49,22 +49,23 @@ class SnrMap:
                 self.wave = self.wave / (1+z)
                 
     def full_axis(self):
-        signal = np.sum(self.flux, axis=0)
-        noise = np.sum(self.flux_unc, axis=0)
-        snr = signal / (np.sqrt(noise * self.n_pix))
+        # noise is the variance
+        signal = np.mean(self.flux, axis=0)
+        noise = np.mean(self.flux_unc, axis=0)
+        snr = signal / np.sqrt(noise)
         return snr
         
     def range_axis(self, rng:list):
+        # noise is the variance
         assert len(rng) == 2
         w = (self.wave > rng[0]) & (self.wave < rng[1])
-        signal = np.sum(self.flux[w], axis=0)
-        noise = np.sum(self.flux_unc[w], axis=0)
-        snr = signal / (np.sqrt(noise * w.sum()))
+        signal = np.mean(self.flux[w], axis=0)
+        noise = np.mean(self.flux_unc[w], axis=0)
+        snr = signal / np.sqrt(noise)
         return snr
     
     
 if __name__ == '__main__':
-    
     # Read the file with the MUSE datacube. The redshift can be included when 
     # instantiating the object. That is useful when computing the 
     # signal-to-noise (S/N) within a interval of wavelength
