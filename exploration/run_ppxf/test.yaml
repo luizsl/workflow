@@ -7,7 +7,7 @@ resources:
 
 observation:
     class: Muse
-    obs_name: fov_sample_1_3     # should not include .fits extension in the name
+    obs_name: fov_sample_1_5     # should not include .fits extension in the name
     redshift: 0.004951
     sampling: linear
     spectral_mask : [
@@ -30,25 +30,36 @@ model:
     # class_: XSLAgeMh
     class_: MilesAgeMh
     remove:
-        age_range: [10.2]          # Must be a list
-        mh_range: [-0.1 0.1]
+        age_range: []          # Must be a list
+        mh_range: []
     resolving_power: 10000
     sampling: log
 
 ppxf:
     moments : 4
-    degree : -1 
-    mdegree : -1
-    clean : False
+    degree : 8
     regul : 0  # 1/Delta
+    velscale_ratio : 2
+
+ppxf_dynamical_mask:
+    moments : 4
+    degree : -1 
+    mdegree : 8
+    velscale_ratio : 2
+
+ppxf_fixed_kinematics:
+    moments : 4
+    degree : -1 
+    mdegree : 8
+    regul : 2.5  # 1/Delta
     reddening : 0
     velscale_ratio : 2
-    quiet : False
-
+    fixed: [1,1,1,1]   # See *fixed* keyword in the pPXF documentation
+        
 ppxf_refit:
-    apply : False
-    sigma : 2.5
-    
+    mask:
+        sigma : 2.5
+
 output:
     output_root : ../../data_products/
     to_save : ['bestfit', 'chi2', 'error', 'reddening', 'sol',

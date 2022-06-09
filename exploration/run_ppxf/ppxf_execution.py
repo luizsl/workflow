@@ -28,10 +28,10 @@ class ExecutePpxf:
 
     def __init__(self, data=None, metadata=None):
         assert data is not None
-        print('ppxf execution started')
+        print('pPXF execution started')
         self.main_meta = metadata
         self.run_all_data(data)
-        print('ppxf execution complete')
+        print('pPXF execution completed')
 
     def run_all_data(self, data=None, par=[]):
         assert data is not None
@@ -55,16 +55,29 @@ class ExecutePpxf:
             if np.any(np.isnan(flux_obs_unc_slice) | np.isnan(flux_obs_slice)):
                 print('nan')
             else:
-                pp = self.execute_ppxf(data.obs, data.model, i)
-                if self.main_meta['ppxf_refit']['apply'] is True:
-                    print('\n*************')
-                    print('Calling refit', end='\n\n')
-    
-                    mask_clip = self.clip_outliers(
-                        pp.galaxy, pp.bestfit, pp.goodpixels, 
-                        self.main_meta['ppxf_refit']['sigma'])
-                    pp = self.execute_ppxf(data.obs, data.model, i, mask_clip, pp)
+                goodpixels = None
+                pp = None
                 
+                pp = self.execute_ppxf(data.obs, data.model, i, goodpixels,
+                                       conf=self.main_meta['ppxf'])
+                
+                if 'ppxf_dynamical_mask' in self.main_meta:
+                    print('\n*************')
+                    print('Calling refit with new spectral mask', end='\n\n')
+                    goodpixels = self.clip_outliers(
+                        pp.galaxy, pp.bestfit, pp.goodpixels,
+                        **self.main_meta['ppxf_refit']['mask'])
+                    pp = self.execute_ppxf(
+                        data.obs, data.model, i, goodpixels, pp, 
+                        conf=self.main_meta['ppxf_dynamical_mask'])
+                    
+                if 'ppxf_fixed_kinematics' in self.main_meta:
+                    print('\n*************')
+                    print('Calling refit with fixed kinematics', end='\n\n')
+                    pp = self.execute_ppxf(
+                        data.obs, data.model, i, goodpixels, pp,
+                        conf=self.main_meta['ppxf_fixed_kinematics'])
+                    
                 if not storage:
                     n_obj = data.obs.flux_grid.shape[-1]
                     self.build_output_storage(par=par, out_obj=pp, n_obj=n_obj)
@@ -76,7 +89,8 @@ class ExecutePpxf:
         self.meta['ppxf_end_time'] = datetime.now().strftime("%d/%m/%Y %H:%M")
 
     def execute_ppxf(self, obs=None, model=None, index=None, 
-                     goodpixels=None, pp=None):
+                     goodpixels=None, pp=None, conf=None):
+        assert conf is not None
         assert obs is not None
         assert model is not None
 
@@ -94,7 +108,7 @@ class ExecutePpxf:
         if pp is None:
             start = [0., 2*velscale] # (km/s), starting guess for [V, sigma]
         else:
-            start = [pp.sol[0], pp.sol[1]]
+            start = pp.sol
             
         if goodpixels is not None:
             mask=None
@@ -107,7 +121,7 @@ class ExecutePpxf:
         pp = ppxf(
             template, galaxy, noise, velscale, start, lam=obs.meta['wave_obs'],
             lam_temp=model.meta['wave_model'], reg_dim=model.meta['reg_dim'],
-            mask = mask, goodpixels=goodpixels, **self.main_meta['ppxf'])
+            mask = mask, goodpixels=goodpixels, **conf)
         
         print('Elapsed time in PPXF: %.2f s' % (clock() - t))
         return pp

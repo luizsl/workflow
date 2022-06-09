@@ -76,18 +76,18 @@ class Main:
         with open(path, 'w') as out:
             json.dump(meta, fp = out, indent=4, cls = JsonCustomEncoder)
 
-#%%
+
 if __name__ == '__main__':
     conf = sys.argv[1]
     # conf = 'test.yaml'
     ppxf_control = Main(conf)
     ppxf_control.run_all()
     
-#%%
-    conf = 'test.yaml'
+#%% Debug
+    # conf = 'test.yaml'
     
-    ppxf_prep = Main(conf)
-    ppxf_prep.read_config()
+    # ppxf_prep = Main(conf)
+    # ppxf_prep.read_config()
 
     # ppxf_prep.data = DataPreprocessing(ppxf_prep.meta)
     
