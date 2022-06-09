@@ -72,7 +72,9 @@ class DataPreprocessing:
     def prepare_observation(self):
         t = clock()
         print('''\nObservation preparation\n***********************''')
-        self.obs.build_grid()
+        self.obs.build_grid(
+            min_valid_sn=self.main_meta['observation']['snr']['min'], 
+            snr_window=self.main_meta['observation']['snr']['window'])
 
         if (self.model.meta['o_limit_model'][0] > self.obs.meta['limit_obs'][0] - 100
             or self.model.meta['o_limit_model'][1] < self.obs.meta['limit_obs'][1] + 100):
@@ -84,7 +86,9 @@ class DataPreprocessing:
             
         self.obs.resample()
         if self.main_meta['vorbin']['apply'] is True:
-            self.obs.vorbin(target_sn=self.main_meta['vorbin']['sn'])
+            target_sn=self.main_meta['vorbin']['target_sn']
+            print('--Voronoi binning with target SNR:{}'.format(target_sn))
+            self.obs.vorbin(target_sn=target_sn)
         self.obs.normalize()
         self.obs.convert_to_mmap()
         mask_list = self.main_meta['observation']['spectral_mask']
@@ -93,7 +97,7 @@ class DataPreprocessing:
 
         
 if __name__ == '__main__':
-    data = DataPreprocessing(meta)
+    data = DataPreprocessing(ppxf_prep.meta)
     
     # plt.plot(data.model.meta['wave_model'], data.model.flux_grid[:, 0])
     # plt.plot(data.obs.meta['wave_obs'], data.obs.flux_grid[:, 0])

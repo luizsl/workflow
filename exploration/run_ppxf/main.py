@@ -84,10 +84,10 @@ if __name__ == '__main__':
     ppxf_control.run_all()
     
 #%%
-    # conf = 'test.yaml'
+    conf = 'test.yaml'
     
-    # ppxf_prep = Main(conf)
-    # ppxf_prep.read_config()
+    ppxf_prep = Main(conf)
+    ppxf_prep.read_config()
 
     # ppxf_prep.data = DataPreprocessing(ppxf_prep.meta)
     

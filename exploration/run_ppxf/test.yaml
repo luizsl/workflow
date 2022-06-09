@@ -7,7 +7,7 @@ resources:
 
 observation:
     class: Muse
-    obs_name: fov_sample_1_5     # should not include .fits extension in the name
+    obs_name: fov_sample_1_3     # should not include .fits extension in the name
     redshift: 0.004951
     sampling: linear
     spectral_mask : [
@@ -22,9 +22,9 @@ observation:
         [7560, 7610],
         [8710, 8725],
         [9000, 9500]]
-   snr:
-       window: [0, 1e3]
-       min: 3       
+    snr:
+        window: [5450, 5550]
+        min: 3
         
 model:
     # class_: XSLAgeMh
@@ -56,5 +56,5 @@ output:
 
 vorbin:
     apply: True
-    sn: 100
+    target_sn: 100
     
