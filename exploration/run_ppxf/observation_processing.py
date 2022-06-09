@@ -136,7 +136,7 @@ class Observation(ABC):
         pixelsize = abs(self.header[1]['CD1_1'])*3600
             
         out = voronoi_2d_binning(
-           self.meta['x_valid'],self.meta['y_valid'],
+           self.meta['x_valid'], self.meta['y_valid'],
             signal[self.meta['valid']], noise[self.meta['valid']],
            # signal, noise,
            pixelsize=pixelsize, target_sn=target_sn, plot=1)
@@ -223,11 +223,11 @@ class Observation(ABC):
             self.flux_grid_unc = self.flux_grid_unc[~mask.mask, ...]
             self.meta['limit_obs'] = self.meta['wave_obs'][[0, -1]]
 
-    def validate_spaxels(self, min_sn=3):
+    def validate_spaxels(self, min_sn=None):
         sn_trigger = self.original_snr > min_sn
-        non_null = np.all(self.flux_grid > 0, axis = 0)
+        # non_null = np.all(self.flux_grid > 0, axis = 0)
         finite = np.all(np.isfinite(self.flux_grid), axis = 0)
-        valid = (sn_trigger & non_null & finite)
+        valid = (sn_trigger & finite)
         self.meta['valid'] = valid
             
         
@@ -299,10 +299,13 @@ if __name__ == '__main__':
     # obs = Muse('../../data/NGC613/Muse/NGC0613_DATACUBE_FINAL_clean.fits.gz', 0.004951)
     obs = Muse('../../data/fov_sample_1_3.fits', 0.004951)
     obs.build_grid()
-    obs.resample()
+    # obs.resample()
     obs.vorbin(target_sn=40)
-    obs.normalize()
-    obs.convert_to_mmap()
+    # obs.normalize()
+    # obs.convert_to_mmap()
+    
+    # import matplotlib.pyplot as plt
+    # plt.imshow(obs.meta['valid'].reshape(106,110), origin='lower')
 
 
         
