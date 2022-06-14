@@ -231,23 +231,13 @@ class ExecutePpxf:
                 self.save_fits(map_full, _p, directory)
     
     @staticmethod            
-    def save_fits(data_param, name, directory='.'):
+    def save_fits(data_param, name, directory='.', overwrite=True):
         hdu = fits.PrimaryHDU(data=data_param)
         hdul = fits.HDUList([hdu])
         full_path = os.path.join(directory, f'{name}.fits')
-        hdul.writeto(full_path, overwrite=True)
+        hdul.writeto(full_path, overwrite=overwrite)
         
         
 if __name__ == '__main__':
-    t = ExecutePpxf(ppxf_control.data, ppxf_control.data.main_meta)
-    t.reconstruct_map(ppxf_control.data, par = ['bestfit' , 'chi2'])
-
-
-                # map_shape_full = ppxf_control.data.obs.meta['shape_obs']
-                # if t.ppxf.__getattribute__('bestfit').ndim >= 2:
-                #     map_shape_full = (
-                #         t.ppxf.__getattribute__('bestfit').shape[:1] 
-                #         + map_shape_full)
-
-                # map_full = self.ppxf.__getattribute__(_p).reshape(map_shape_full)
-        
+    t = ExecutePpxf(ppxf_prep.data, ppxf_prep.data.main_meta)
+    t.reconstruct_map(ppxf_prep.data, par = ['bestfit' , 'chi2'])

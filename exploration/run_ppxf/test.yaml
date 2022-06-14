@@ -7,7 +7,7 @@ resources:
 
 observation:
     class: Muse
-    obs_name: fov_sample_1_5     # should not include .fits extension in the name
+    obs_name: fov_sample_1_3     # should not include extensions in the name
     redshift: 0.004951
     sampling: linear
     spectral_mask : [
@@ -25,36 +25,36 @@ observation:
     snr:
         window: [5450, 5550]
         min: 3
+    normalization: []
         
 model:
     # class_: XSLAgeMh
     class_: MilesAgeMh
     remove:
-        age_range: []          # Must be a list
-        mh_range: []
-    resolving_power: 10000
-    sampling: log
+        age_range: [15.8489]         # Must be a list, can be empty
+        mh_range: []          # Must be a list, can be empty
+#    resolving_power: 10000
+#    sampling: log
 
-ppxf:
+ppxf:                         # This execution is mandatory 
     moments : 4
-    degree : 8
-    regul : 0  # 1/Delta
-    velscale_ratio : 2
+    mdegree : 8
+    velscale_ratio : 2        # Must keep this parameter in additional iterations, with the same value
 
-ppxf_dynamical_mask:
+ppxf_dynamical_mask:          # This execution is optional (the block can be commented or deleted)
     moments : 4
     degree : -1 
     mdegree : 8
     velscale_ratio : 2
 
-ppxf_fixed_kinematics:
+ppxf_fixed_kinematics:       # This execution is optional (the block can be commented or deleted)
     moments : 4
     degree : -1 
     mdegree : 8
-    regul : 2.5  # 1/Delta
+    regul : 50         # 1/Delta
     reddening : 0
-    velscale_ratio : 2
-    fixed: [1,1,1,1]   # See *fixed* keyword in the pPXF documentation
+    velscale_ratio : 2       # Must keep this parameter in additional iterations, with the same value
+    fixed: [1,1,1,1]         # See *fixed* keyword in the pPXF documentation
         
 ppxf_refit:
     mask:
@@ -64,6 +64,7 @@ output:
     output_root : ../../data_products/
     to_save : ['bestfit', 'chi2', 'error', 'reddening', 'sol',
         'weights', 'goodpixels']
+    secondary : mean_log_age, mean_mh   
 
 vorbin:
     apply: True
