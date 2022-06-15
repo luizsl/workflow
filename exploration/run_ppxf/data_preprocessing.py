@@ -34,8 +34,9 @@ class DataPreprocessing:
         print(f"--{self.main_meta['model']['class_']}")
         self.model.load(self.main_meta['resources']['model'])
         
-        for key, value in self.main_meta['model']['remove'].items():
-            self.model.remove_param(key, value)
+        if 'remove' in self.main_meta['model']:
+            for key, value in self.main_meta['model']['remove'].items():
+                self.model.remove_param(key, value)
         
         # Reading observations to gather information
         print('Reading observations data')
@@ -63,9 +64,12 @@ class DataPreprocessing:
             np.log(self.model.meta['o_wave_model'][0]),
             np.log(self.model.meta['o_wave_model'][-1]),
             log_step/oversample))
-
         self.model.resample(wave)
-        self.model.normalize()
+        
+        if 'normalization' in self.main_meta['common']:
+            limits = self.main_meta['common']['normalization']
+        self.model.normalize(limits=limits)
+        
         self.model.convert_to_mmap()
         print(f'{round(clock()-t,2)} s')
         
@@ -89,7 +93,11 @@ class DataPreprocessing:
             target_sn=self.main_meta['vorbin']['target_sn']
             print('--Voronoi binning with target SNR:{}'.format(target_sn))
             self.obs.vorbin(target_sn=target_sn)
-        self.obs.normalize()
+            
+        if 'normalization' in self.main_meta['common']:
+            limits = self.main_meta['common']['normalization']
+        self.obs.normalize(limits=limits)
+        
         self.obs.convert_to_mmap()
         mask_list = self.main_meta['observation']['spectral_mask']
         self.obs.mask_spectral_axis(mask_list)

@@ -5,6 +5,9 @@ resources:
     model: ../../data/models/miles_Padova00_UN_baseFe_v10.0
     observation: ../../data/
 
+common:
+    normalization: [5450, 5550]
+
 observation:
     class: Muse
     obs_name: fov_sample_1_3     # should not include extensions in the name
@@ -25,16 +28,13 @@ observation:
     snr:
         window: [5450, 5550]
         min: 3
-    normalization: []
-        
+          
 model:
     # class_: XSLAgeMh
     class_: MilesAgeMh
     remove:
         age_range: [15.8489]         # Must be a list, can be empty
         mh_range: []          # Must be a list, can be empty
-#    resolving_power: 10000
-#    sampling: log
 
 ppxf:                         # This execution is mandatory 
     moments : 4
@@ -51,8 +51,8 @@ ppxf_fixed_kinematics:       # This execution is optional (the block can be comm
     moments : 4
     degree : -1 
     mdegree : 8
-    regul : 50         # 1/Delta
-    reddening : 0
+    regul : 100         # 1/Delta
+#    reddening : 0
     velscale_ratio : 2       # Must keep this parameter in additional iterations, with the same value
     fixed: [1,1,1,1]         # See *fixed* keyword in the pPXF documentation
         

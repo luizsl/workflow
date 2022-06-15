@@ -15,6 +15,7 @@ import numpy as np
 import spectcube as sc
 from astropy.io import fits
 from vorbin.voronoi_2d_binning import voronoi_2d_binning
+from normalize_median import normalize_band
 
 
 class Observation(ABC):
@@ -52,19 +53,16 @@ class Observation(ABC):
         self.meta['limit_obs'] = self.meta['wave_obs'][[0,-1]]
         self.meta['n_pixel_obs'] = len(self.meta['wave_obs'])
 
-    def normalize(self, limits=None):
+    def normalize(self, **kwargs):
         if 'wave_obs' in self.meta:
             wave = self.meta['wave_obs']
         else:
             raise Exception
+        assert len(wave) == self.flux_grid.shape[0]    
 
-        if limits is not None:
-            band = (limits[0] < wave) & (wave < limits[-1])
-        else:
-            band = self.flux_grid > 0
+        self.flux_grid, self.meta['obs_norm_factor'] = normalize_band(
+            self.flux_grid, wave, **kwargs)
 
-        self.meta['obs_norm_factor'] = np.nanmedian(self.flux_grid[band])
-        self.flux_grid = self.flux_grid/self.meta['obs_norm_factor']
         self.flux_grid_unc = self.flux_grid_unc/self.meta['obs_norm_factor']
 
     def reshape(self):
@@ -293,10 +291,9 @@ class Muse(Observation):
 #%%
 if __name__ == '__main__':
     # obs = Muse('../../data/NGC613/Muse/NGC0613_DATACUBE_FINAL_clean.fits.gz', 0.004951)
-    obs = Muse('../../data/fov_sample_1_3.fits', 0.004951)
+    obs = Muse('../../data/fov_sample_1_5.fits', 0.004951)
     obs.build_grid(min_valid_sn=3, snr_window=[5450, 5550])
     obs.resample()
     obs.vorbin(target_sn=100)
-    obs.normalize()
+    obs.normalize(limits=[5450, 5550])
     obs.convert_to_mmap()
-
