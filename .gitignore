@@ -18,12 +18,15 @@ exploration/run_ppxf/ppxf_test.py
 exploration/run_ppxf/*.fits
 exploration/run_ppxf/*.yaml
 exploration/test_conf/
+exploration/run_ppxf/test_voronoi.py
 
 miscellaneous/.ipynb_checkpoints
 miscellaneous/*.ipynb
 miscellaneous/*.pdf
 
-duvidas.md
+plots/*pdf
+
+dporuvidas.md
 melhorias.md
 improvements.md
 

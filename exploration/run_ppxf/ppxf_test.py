@@ -11,7 +11,7 @@ from time import perf_counter as clock
 
 import _pickle as pickle
 import numpy as np
-from ppxf.ppxf import ppxf,  robust_sigma
+from ppxf.ppxf import ppxf, robust_sigma
 from scipy.constants import physical_constants
 
 prep = ppxf_prep.data
@@ -198,6 +198,7 @@ pp = ppxf(
 
 
 import matplotlib.pyplot as plt
+
 fig, ax = plt.subplots()
 ax = pp.plot()
 

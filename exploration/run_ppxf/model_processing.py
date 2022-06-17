@@ -20,6 +20,7 @@ from astropy.io import fits
 
 import compute_muse_lsf as lsf
 from convolve import convolve
+from normalize_median import normalize_band
 
 
 class AbstractModel(ABC):
@@ -72,10 +73,11 @@ class AbstractFactoryModel(ABC):
     def build_head_grid(self):
         pass
 
-    def convolve(self, bound = [4600, 9400]):
+    def convolve(self, bound = [4600, 9400], z=None):
         fwhm_obs_ang = lsf.equation_lsf(self.meta['o_wave_model'],
                                         bound[0],
-                                        bound[1])
+                                        bound[1],
+                                        z=z)
 
         if self.fwhm_model_ang is None:
             self.fwhm_model_ang = self.meta['o_wave_model'] / self.model_resolving_power
@@ -110,7 +112,7 @@ class AbstractFactoryModel(ABC):
         self.meta['n_pixel_model'] = self.flux_grid.shape[0]
         self.meta['limit_model'] = self.meta['wave_model'][[0,-1]]
 
-    def normalize(self, limits=None):
+    def normalize(self, **kwargs):
         if 'wave_model' in self.meta:
             wave = self.meta['wave_model']
         elif 'o_wave_model' in self.meta:
@@ -118,13 +120,8 @@ class AbstractFactoryModel(ABC):
         else:
             raise Exception
 
-        if limits is not None:
-            band = (limits[0] < wave) & (wave < limits[-1])
-        else:
-            band = self.flux_grid > 0
-
-        self.meta['model_norm_factor'] = np.nanmedian(self.flux_grid[band])
-        self.flux_grid = self.flux_grid/self.meta['model_norm_factor']
+        self.flux_grid, self.meta['model_norm_factor'] = normalize_band(
+            self.flux_grid, wave, **kwargs)
 
     def reshape(self):
         assert self.flux_grid.ndim > 2
@@ -483,46 +480,11 @@ if __name__ == '__main__':
     model = MilesAgeMh()
     # model.load('../../data/models/tmpWzZ2t1')
     model.load('../../data/models/miles_Padova00_UN_baseFe_v10.0')
-    # model.build()
     model.build_name_grid()
     model.build_flux_grid()
     model.build_head_grid()
     model.reshape()
     model.convolve()
     model.resample()
-    model.normalize()
+    model.normalize(limits=[5450, 5550])
     
-
-    # log_step = np.log(prep.obs.meta['wave_obs'][1]/prep.obs.meta['wave_obs'][0])
-    # wave = np.exp(np.arange(
-    #     np.log(t.meta['o_wave_model'][0]),
-    #     np.log(t.meta['o_wave_model'][-1]),
-    #     log_step))
-
-    # model = XSLAgeMh('../../data/models/XSL_SSP_PC_Kroupa/Kroupa')
-    # # model.remove_param('age_range', values = [10.2])
-    # # model.remove_param('mh_range', values = [-0.1, 0.1])
-    # model.build()
-    # model.reshape()
-    # model.convolve()
-    # model.resample()
-    # model.normalize()
-
-    # model.convert_to_mmap()
-    # # model.plot()
-
-    # t = MilesAgeMh('/home/chess-lin/miniforge3/lib/python3.9/site-packages/ppxf/miles_models')
-    # # t.remove_param('age_range', values = [15.8489])
-    # t.build()
-    # t.convolve()
-
-
-
-    # t.resample(wave)
-    # t.normalize()
-
-    # import ppxf.miles_util as lib
-    # t1 = lib.miles('/home/chess-lin/miniforge3/lib/python3.9/site-packages/ppxf/miles_models/*.fits',
-    #                 velscale = 55.16655145380999,
-    #                 FWHM_gal=2.7
-    #                 )
