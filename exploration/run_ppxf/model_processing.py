@@ -73,10 +73,11 @@ class AbstractFactoryModel(ABC):
     def build_head_grid(self):
         pass
 
-    def convolve(self, bound = [4600, 9400]):
+    def convolve(self, bound = [4600, 9400], z=None):
         fwhm_obs_ang = lsf.equation_lsf(self.meta['o_wave_model'],
                                         bound[0],
-                                        bound[1])
+                                        bound[1],
+                                        z=z)
 
         if self.fwhm_model_ang is None:
             self.fwhm_model_ang = self.meta['o_wave_model'] / self.model_resolving_power

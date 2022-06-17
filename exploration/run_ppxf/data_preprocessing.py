@@ -55,7 +55,15 @@ class DataPreprocessing:
         print('''\nModel preparation\n*****************''')
         self.model.build()
         self.model.reshape()
-        self.model.convolve(self.obs.meta['limit_obs'])
+        
+        try:
+            if self.main_meta['model']['convolve'] is True:
+                z = self.main_meta['observation']['redshift']
+                self.model.convolve(self.obs.meta['limit_obs'], z=z)
+            else:
+                print('--Not broadening templates')
+        except:
+            print('--Not broadening templates, keyword not found')
         
         oversample = self.main_meta['ppxf']['velscale_ratio']
         log_step = np.log(

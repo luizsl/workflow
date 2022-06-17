@@ -10,9 +10,8 @@ common:
 
 observation:
     class: Muse
-    obs_name: fov_sample_1_3     # should not include extensions in the name
+    obs_name: fov_sample_1_5     # should not include extensions in the name
     redshift: 0.004951
-    sampling: linear
     spectral_mask : [
         [4000, 4770],
         [4850, 4880],
@@ -34,27 +33,29 @@ model:
     class_: MilesAgeMh
     remove:
         age_range: [15.8489]         # Must be a list, can be empty
-        mh_range: []          # Must be a list, can be empty
-
+        mh_range: []                 # Must be a list, can be empty
+    convolve: True
+    
 ppxf:                         # This execution is mandatory 
     moments : 4
+    degree : -1
     mdegree : 8
     velscale_ratio : 2        # Must keep this parameter in additional iterations, with the same value
 
 ppxf_dynamical_mask:          # This execution is optional (the block can be commented or deleted)
     moments : 4
-    degree : -1 
+    degree : -1
     mdegree : 8
     velscale_ratio : 2
 
-ppxf_fixed_kinematics:       # This execution is optional (the block can be commented or deleted)
+ppxf_fixed_kinematics:        # This execution is optional (the block can be commented or deleted)
     moments : 4
-    degree : -1 
+    degree : -1
     mdegree : 8
-    regul : 100         # 1/Delta
-#    reddening : 0
-    velscale_ratio : 2       # Must keep this parameter in additional iterations, with the same value
-    fixed: [1,1,1,1]         # See *fixed* keyword in the pPXF documentation
+    regul : 100               # 1/Delta
+    reddening : 0
+    velscale_ratio : 2        # Must keep this parameter in additional iterations, with the same value
+    fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
         
 ppxf_refit:
     mask:
