@@ -38,25 +38,25 @@ model:
     
 ppxf:                         # This execution is mandatory 
     moments : 4
-    degree : -1
-    mdegree : 8
+    degree : 0
+    mdegree : -1
     velscale_ratio : 2        # Must keep this parameter in additional iterations, with the same value
 
-ppxf_dynamical_mask:          # This execution is optional (the block can be commented or deleted)
-    moments : 4
-    degree : -1
-    mdegree : 8
-    velscale_ratio : 2
+#ppxf_dynamical_mask:          # This execution is optional (the block can be commented or deleted)
+#    moments : 4
+#    degree : -1
+#    mdegree : 8
+#    velscale_ratio : 2
 
-ppxf_fixed_kinematics:        # This execution is optional (the block can be commented or deleted)
-    moments : 4
-    degree : -1
-    mdegree : 8
-    regul : 100               # 1/Delta
-    reddening : 0
-    velscale_ratio : 2        # Must keep this parameter in additional iterations, with the same value
-    fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
-        
+#ppxf_fixed_kinematics:        # This execution is optional (the block can be commented or deleted)
+#    moments : 4
+#    degree : -1
+#    mdegree : 8
+#    regul : 100               # 1/Delta
+#    reddening : 0
+#    velscale_ratio : 2        # Must keep this parameter in additional iterations, with the same value
+#    fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
+#        
 ppxf_refit:
     mask:
         sigma : 2.5

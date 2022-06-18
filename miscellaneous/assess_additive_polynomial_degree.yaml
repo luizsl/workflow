@@ -1,0 +1,72 @@
+common:
+  normalization:
+  - 5450
+  - 5550
+model:
+  class_: MilesAgeMh
+  convolve: true
+  remove:
+    age_range:
+    - 15.8489
+    mh_range: []
+observation:
+  class: Muse
+  obs_name: fov_sample_1_3
+  redshift: 0.004951
+  snr:
+    min: 3
+    window:
+    - 5450
+    - 5550
+  spectral_mask:
+  - - 4000
+    - 4770
+  - - 4850
+    - 4880
+  - - 4950
+    - 4970
+  - - 4990
+    - 5025
+  - - 5190
+    - 5210
+  - - 6250
+    - 6380
+  - - 6530
+    - 6600
+  - - 6700
+    - 6750
+  - - 7560
+    - 7610
+  - - 8710
+    - 8725
+  - - 9000
+    - 9500
+output:
+  output_root: ../data_products/additive_polinomial
+  secondary: mean_log_age, mean_mh
+  to_save:
+  - chi2
+  - error
+  - reddening
+  - sol
+  - weights
+  - goodpixels
+ppxf:
+  degree: 20
+  mdegree: 0
+  moments: 4
+  velscale_ratio: 2
+ppxf_dynamical_mask:
+  degree: 20
+  mdegree: 0
+  moments: 4
+  velscale_ratio: 2
+ppxf_refit:
+  mask:
+    sigma: 2.5
+resources:
+  model: ../data/models/miles_Padova00_UN_baseFe_v10.0
+  observation: ../data/
+vorbin:
+  apply: true
+  target_sn: 100
