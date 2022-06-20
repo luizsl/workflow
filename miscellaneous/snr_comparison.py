@@ -7,11 +7,11 @@ Created on Wed May 25 17:47:10 2022
 """
 import tempfile
 
-import numpy as np
 import matplotlib.pyplot as plt
-from scipy.ndimage import gaussian_filter
+import numpy as np
 from astropy.io import fits
 from astropy.wcs import WCS
+from scipy.ndimage import gaussian_filter
 
 
 class SnrMap:

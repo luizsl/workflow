@@ -42,30 +42,26 @@ observation:
   - - 9000
     - 9500
 output:
-  output_root: ../data_products/multiplicative_polinomial
-  secondary: mean_log_age, mean_mh
+  output_root: ../data_products/miles/additive_polynomial
   to_save:
   - chi2
   - error
-  - reddening
   - sol
-  - weights
-  - goodpixels
 ppxf:
-  degree: -1
-  mdegree: 18
+  degree: 8
+  mdegree: 0
   moments: 4
   velscale_ratio: 2
 ppxf_dynamical_mask:
-  degree: -1
-  mdegree: 18
+  degree: 19
+  mdegree: 0
   moments: 4
   velscale_ratio: 2
 ppxf_refit:
   mask:
     sigma: 2.5
 resources:
-  model: ../data/models/miles_Padova00_UN_baseFe_v10.0
+  model: ../data/models/tmpWzZ2t1
   observation: ../data/
 vorbin:
   apply: true
