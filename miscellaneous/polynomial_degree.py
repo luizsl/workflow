@@ -77,15 +77,14 @@ class TestDegree:
             raise Exception
 
 
-if __name__ == "__main__":
+def ifu_data(degree_range, mdegree_range):
+    '''Testing the effects of polynomial degree on pPXF for IFU data''' 
+    
     script_dir = '../exploration/run_ppxf'
     
-    degree_range = np.arange(-1, 21, 1)
-    mdegree_range = np.arange(0, 21, 1)
-    
     # E-MILES
-    config_file_add_emiles = 'assess_add_pol_degree_emiles.yaml'
-    config_file_mlt_emiles = 'assess_mlt_pol_degree_emiles.yaml'
+    config_file_add_emiles = 'polynomial_degree_conf/assess_add_pol_degree_emiles.yaml'
+    config_file_mlt_emiles = 'polynomial_degree_conf/assess_mlt_pol_degree_emiles.yaml'
     
     
     # Run for a range of additive Legendre polynomial degree
@@ -99,8 +98,8 @@ if __name__ == "__main__":
                fixed_degree=-1, fixed_mdegree=8)
     
     # MILES
-    config_file_add_miles = 'assess_add_pol_degree_miles.yaml'
-    config_file_mlt_miles = 'assess_mlt_pol_degree_miles.yaml'
+    config_file_add_miles = 'polynomial_degree_conf/assess_add_pol_degree_miles.yaml'
+    config_file_mlt_miles = 'polynomial_degree_conf/assess_mlt_pol_degree_miles.yaml'
     
     
     # Run for a range of additive Legendre polynomial degree
@@ -114,8 +113,8 @@ if __name__ == "__main__":
                fixed_degree=-1, fixed_mdegree=8)
     
     # XSL
-    config_file_add_xsl = 'assess_add_pol_degree_xsl.yaml'
-    config_file_mlt_xsl = 'assess_mlt_pol_degree_xsl.yaml'
+    config_file_add_xsl = 'polynomial_degree_conf/assess_add_pol_degree_xsl.yaml'
+    config_file_mlt_xsl = 'polynomial_degree_conf/assess_mlt_pol_degree_xsl.yaml'
     
     
     # Run for a range of additive Legendre polynomial degree
@@ -127,3 +126,64 @@ if __name__ == "__main__":
     TestDegree(config_file=config_file_mlt_xsl, 
                mdegree_range=mdegree_range, script_dir=script_dir,
                fixed_degree=-1, fixed_mdegree=8)
+
+def integrated_spectrum(degree_range, mdegree_range):
+    '''Testing the effects of polynomial degree on pPXF for IFU data 
+    collapsed into a single spectrum'''
+    
+    script_dir = '../exploration/run_ppxf'
+    
+    # E-MILES
+    config_file_add_emiles = 'polynomial_degree_conf/assess_add_pol_degree_emiles_single.yaml'
+    config_file_mlt_emiles = 'polynomial_degree_conf/assess_mlt_pol_degree_emiles_single.yaml'
+    
+    
+    # Run for a range of additive Legendre polynomial degree
+    TestDegree(config_file=config_file_add_emiles, degree_range=degree_range, 
+               script_dir=script_dir,
+               fixed_degree=8, fixed_mdegree=0)
+    
+    # Run for a range of multiplicative Legendre polynomial degree
+    TestDegree(config_file=config_file_mlt_emiles, 
+               mdegree_range=mdegree_range, script_dir=script_dir,
+               fixed_degree=-1, fixed_mdegree=8)
+    
+    # MILES
+    config_file_add_miles = 'polynomial_degree_conf/assess_add_pol_degree_miles_single.yaml'
+    config_file_mlt_miles = 'polynomial_degree_conf/assess_mlt_pol_degree_miles_single.yaml'
+    
+    
+    # Run for a range of additive Legendre polynomial degree
+    TestDegree(config_file=config_file_add_miles, degree_range=degree_range, 
+               script_dir=script_dir,
+               fixed_degree=8, fixed_mdegree=0)
+    
+    # Run for a range of multiplicative Legendre polynomial degree
+    TestDegree(config_file=config_file_mlt_miles, 
+               mdegree_range=mdegree_range, script_dir=script_dir,
+               fixed_degree=-1, fixed_mdegree=8)
+    
+    # XSL
+    config_file_add_xsl = 'polynomial_degree_conf/assess_add_pol_degree_xsl_single.yaml'
+    config_file_mlt_xsl = 'polynomial_degree_conf/assess_mlt_pol_degree_xsl_single.yaml'
+    
+    
+    # Run for a range of additive Legendre polynomial degree
+    TestDegree(config_file=config_file_add_xsl, degree_range=degree_range, 
+               script_dir=script_dir,
+               fixed_degree=8, fixed_mdegree=0)
+    
+    # Run for a range of multiplicative Legendre polynomial degree
+    TestDegree(config_file=config_file_mlt_xsl, 
+               mdegree_range=mdegree_range, script_dir=script_dir,
+               fixed_degree=-1, fixed_mdegree=8)
+    
+if __name__ == "__main__":
+    degree_range = np.arange(-1, 21, 15)
+    mdegree_range = np.arange(0, 21, 15)
+    
+    # ifu_data(degree_range, mdegree_range)
+    
+    # os.system("nohup python stack_on_a_single_spectrum.py")
+    integrated_spectrum(degree_range, mdegree_range)
+    

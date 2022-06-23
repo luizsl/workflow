@@ -42,19 +42,19 @@ observation:
   - - 9000
     - 9500
 output:
-  output_root: ../data_products/emiles/multiplicative_polynomial
+  output_root: ../data_products/polynomial/emiles/additive_polynomial
   to_save:
   - chi2
   - error
   - sol
 ppxf:
-  degree: -1
-  mdegree: 8
+  degree: 8
+  mdegree: 0
   moments: 4
   velscale_ratio: 2
 ppxf_dynamical_mask:
-  degree: -1
-  mdegree: 20
+  degree: 17
+  mdegree: 0
   moments: 4
   velscale_ratio: 2
 ppxf_refit:
@@ -64,5 +64,5 @@ resources:
   model: ../data/models/miles_Padova00_UN_baseFe_v10.0
   observation: ../data/
 vorbin:
-  apply: true
+  apply: false
   target_sn: 100

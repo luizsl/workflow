@@ -11,7 +11,7 @@ model:
     mh_range: []
 observation:
   class: Muse
-  obs_name: fov_sample_1_3
+  obs_name: NGC0613_full_stacked_spectrum
   redshift: 0.004951
   snr:
     min: 3
@@ -42,27 +42,28 @@ observation:
   - - 9000
     - 9500
 output:
-  output_root: ../data_products/miles/additive_polynomial
+  output_root: ../data_products/polynomial/emiles/multiplicative_polynomial
   to_save:
   - chi2
   - error
   - sol
+  - bestfit
 ppxf:
-  degree: 8
-  mdegree: 0
+  degree: -1
+  mdegree: 8
   moments: 4
   velscale_ratio: 2
 ppxf_dynamical_mask:
-  degree: 19
-  mdegree: 0
+  degree: -1
+  mdegree: 15
   moments: 4
   velscale_ratio: 2
 ppxf_refit:
   mask:
     sigma: 2.5
 resources:
-  model: ../data/models/tmpWzZ2t1
+  model: ../data/models/miles_Padova00_UN_baseFe_v10.0
   observation: ../data/
 vorbin:
-  apply: true
+  apply: false
   target_sn: 100
