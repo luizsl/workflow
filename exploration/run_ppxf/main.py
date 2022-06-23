@@ -79,7 +79,7 @@ class Main:
         path = os.path.join(self.meta['output_run_ppxf'], 'metadata.json')
 
         with open(path, 'w') as out:
-            json.dump(meta, fp = out, indent=4, cls = JsonCustomEncoder)
+            json.dump(meta, fp=out, indent=4, cls=JsonCustomEncoder)
     
     def compute_secondary(self):     
         global age, mh
@@ -105,23 +105,19 @@ if __name__ == '__main__':
     
 # #%% Debug
 
-#     import matplotlib.pyplot as plt
+    # import matplotlib.pyplot as plt
     
-#     conf = 'test.yaml'
+    # conf = 'test.yaml'
     
-#     ppxf_prep = Main(conf)
+    # ppxf_prep = Main(conf)
     
-#     ppxf_prep.run_all()
+    # ppxf_prep.run_all()
     
-#     fig, ax = plt.subplots(1, 3)
-#     ax[0].imshow(10**(age-9), origin='lower')
-#     ax[1].imshow(mh, origin='lower')
+    # fig, ax = plt.subplots(1, 3)
+    # ax[0].imshow(10**(age-9), origin='lower')
+    # ax[1].imshow(mh, origin='lower')
+
     
-#     w = ppxf_prep.ppxf_out.ppxf.weights
-#     ax[2].imshow(w[:, 70].reshape(24,6))
-# #%%    
-#     ppxf_prep.read_config()
-#     ppxf_prep.create_output_folder()
-#     ppxf_prep.keep_conf_copy()
-#     ppxf_prep.data = DataPreprocessing(ppxf_prep.meta)
-    
+    # w = ppxf_prep.ppxf_out.ppxf.weights
+    # ax[2].imshow(w[:, 0].reshape(24,6))
+

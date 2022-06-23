@@ -27,6 +27,9 @@ class PopMeanProperties:
     def read_data(self):
         with fits.open(self.datapath) as hdul:
             self.data = hdul[0].data
+            
+        if self.data.ndim==1:
+            self.data = np.expand_dims(self.data, axis=(1,2))
         
     def read_metadata(self):
         with open(self.metadatapath) as f:
@@ -35,7 +38,8 @@ class PopMeanProperties:
     @property
     def mh(self):
         reg_dim = self.meta['model']['reg_dim']
-        out = np.full(self.data.shape[1:], fill_value=np.nan)
+        shape_out = self.data.shape[1:]
+        out = np.full(shape_out, fill_value=np.nan)
         mh, age = np.meshgrid(self.meta['model']['mh_range'],
                               np.log10(self.meta['model']['age_range']) + 9
                               )
@@ -46,9 +50,9 @@ class PopMeanProperties:
     
     @property
     def age(self):
-        global mh, age
         reg_dim = self.meta['model']['reg_dim']
-        out = np.full(self.data.shape[1:], fill_value=np.nan)
+        shape_out = self.data.shape[1:]
+        out = np.full(shape_out, fill_value=np.nan)
         mh, age = np.meshgrid(self.meta['model']['mh_range'],
                               np.log10(self.meta['model']['age_range']) + 9,
                               )
@@ -65,14 +69,13 @@ class PopMeanProperties:
 
 
 if __name__ == '__main__':
-    # datapath = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d5/ppxf/weights.fits'
-    # metadatapath = '../../data_products/regularization_parameter/MilesAgeMh_reg_0d4/ppxf/metadata.json'
+
     
-    # datapath = '../../data_products/ngc613/regul_50_sn_100/weights.fits'
-    # metadatapath = '../../data_products/ngc613/regul_50_sn_100/metadata.json'
+    datapath = '../../data_products/NGC0613_full_stacked_spectrum/MilesAgeMh_31/ppxf/weights.fits'
+    metadatapath = '../../data_products/NGC0613_full_stacked_spectrum/MilesAgeMh_31/ppxf/metadata.json'
     
-    # datapath = '../../data_products/toy_100x100/MilesAgeMh_3/ppxf/weights.fits'
-    # metadatapath = '../../data_products/toy_100x100/MilesAgeMh_3/ppxf/metadata.json'
+    # datapath = '../../data_products/fov_sample_1_5/MilesAgeMh_3/ppxf/weights.fits'
+    # metadatapath = '../../data_products/fov_sample_1_5/MilesAgeMh_3/ppxf/metadata.json'
     
     t = PopMeanProperties(datapath, metadatapath)
     fig, ax = plt.subplots(1,2)
@@ -81,4 +84,4 @@ if __name__ == '__main__':
     # t.save(t.mh, 'mean_mh',  '../../data_products/ngc613/regul_50_sn_100/')
     # t.save(t.age, 'mean_log_age',  '../../data_products/ngc613/regul_50_sn_100/')
     
-    plt.imshow(t.data[:, 169, 155].reshape((24, 6)))
+    # plt.imshow(t.data[:, 169, 155].reshape((24, 6)))

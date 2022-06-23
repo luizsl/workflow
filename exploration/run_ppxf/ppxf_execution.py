@@ -46,6 +46,13 @@ class ExecutePpxf:
  
         storage = False
         size = data.obs.flux_grid[0, ...].size
+        
+        if data.obs.flux_grid.ndim==1:
+            #     # NOBUG: Adding an exception to deal with a single spectrum
+            #     # not neat but shoul work. <>
+            data.obs.flux_grid = np.expand_dims(data.obs.flux_grid, axis=1)
+            data.obs.flux_grid_unc = np.expand_dims(data.obs.flux_grid_unc, axis=1)
+            
         for i in range(size):
             print(70*'*', end='\n\n')
             print(f'{i+1}/{size}', end='\n\n')
