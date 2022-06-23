@@ -222,7 +222,7 @@ class Observation(ABC):
         sn_trigger = self.original_snr > min_sn
         finite = np.all(np.isfinite(self.flux_grid), axis = 0)
         valid = (sn_trigger & finite)
-        self.meta['valid'] = valid
+        self.meta['valid'] = np.asarray(valid, dtype=bool)
 
 
 class Muse(Observation):
@@ -230,10 +230,14 @@ class Muse(Observation):
         assert os.path.isfile(path_obs), f'{path_obs} is NOT a file'
         self.meta['path_obs'] = path_obs
 
-        with fits.open(self.meta['path_obs'], lazy_load_hdus=True) as hdu:
-            self.meta['o_first_wave_obs'] = np.double(hdu['DATA'].header['CRVAL3'])
-            self.meta['o_step_wave_obs'] = np.double(hdu['DATA'].header['CD3_3'])
-            self.meta['o_n_pixel_obs'] = hdu['DATA'].header['NAXIS3']
+        with fits.open(self.meta['path_obs'], lazy_load_hdus=True) as hdul:
+            self.meta['o_first_wave_obs'] = np.double(hdul['DATA'].header['CRVAL3'])
+            self.meta['o_step_wave_obs'] = np.double(hdul['DATA'].header['CD3_3'])
+            try:
+                self.meta['o_n_pixel_obs'] = hdul['DATA'].header['NAXIS3']
+            except:
+                if hdul['DATA'].header['NAXIS'] == 1:
+                    self.meta['o_n_pixel_obs'] = hdul['DATA'].header['NAXIS1']
 
         self.meta['o_obs_sampling_type'] = 'linear'
 
@@ -252,17 +256,17 @@ class Muse(Observation):
     def build_grid(self, min_valid_sn=0, snr_window=[-np.inf, np.inf]):
         with fits.open(self.meta['path_obs'], memmap = True,
                        lazy_load_hdus = True, cache = False) as hdul:
-            # Note 1
-            # A considerable number of the spaxel has a NaN at the last pixel.
-            # To avoid further issues, when that occurs I'm assigning to the
-            # last pixel the same value of the nearest one.
+            # NOTE: A considerable number of the spaxel has a NaN at the last
+            # pixel. To avoid further issues, when that occurs I'm assigning 
+            # to the last pixel the same value of the nearest one. <>
             where_nan = ~np.isfinite(hdul['DATA'].data[-1, ...])
             hdul['DATA'].data[-1, ...][where_nan] = \
                 hdul['DATA'].data[-2, ...][where_nan]
             self.flux_grid = np.array(hdul['DATA'].data)
             del hdul['DATA'].data
 
-            # See Note 1
+            # NOTE: See previous note above
+            # (A note that points to a note) <>
             hdul['STAT'].data[-1, ...][where_nan] = \
                 hdul['STAT'].data[-2, ...][where_nan]
             flux_grid_unc = np.array(hdul['STAT'].data)
@@ -279,13 +283,17 @@ class Muse(Observation):
             self.header = header
 
             self.meta['shape_obs'] = self.flux_grid.shape[1:]
-            self.reshape()
-
+            
+            if hdul['DATA'].header['NAXIS'] == 3:
+                self.reshape()
+                
             self.original_snr, self.original_signal ,self.original_noise, = \
                 self.compute_snr(snr_window=snr_window)
 
             self.validate_spaxels(min_sn=min_valid_sn)
-            self.build_coordinate()
+            
+            if hdul['DATA'].header['NAXIS'] == 3:
+                self.build_coordinate()
 
 
 #%%

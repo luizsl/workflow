@@ -16,7 +16,6 @@ exploration/run_ppxf/*.pdf
 exploration/run_ppxf/test_vonoroi.py
 exploration/run_ppxf/ppxf_test.py
 exploration/run_ppxf/*.fits
-exploration/run_ppxf/*.yaml
 exploration/test_conf/
 exploration/run_ppxf/test_voronoi.py
 
