@@ -43,6 +43,10 @@ class ExecutePpxf:
                'gas_flux_error', 'gas_bestfit', 'phot_npix', 'gas_any_zero', 
                'weights', 'bestfit','mpoly', 'gas_mpoly', 'dof', 'chi2', 
                'sol', 'error', 'polyweights', 'apoly','goodpixels']
+        
+        # NOTE: Saving output unforeseen
+        new_par = self.main_meta['output']['to_save']
+        par = list(set(par) | set(new_par))
  
         storage = False
         size = data.obs.flux_grid[0, ...].size
