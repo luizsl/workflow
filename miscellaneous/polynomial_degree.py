@@ -179,8 +179,8 @@ def integrated_spectrum(degree_range, mdegree_range):
                fixed_degree=-1, fixed_mdegree=8)
 
 if __name__ == "__main__":
-    degree_range = np.arange(-1, 21, 1)
-    mdegree_range = np.arange(0, 21, 1)
+    degree_range = np.arange(-1, 21, 18)
+    mdegree_range = np.arange(0, 21, 18)
 
     # ifu_data(degree_range, mdegree_range)
 

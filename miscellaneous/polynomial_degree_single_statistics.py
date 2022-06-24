@@ -20,7 +20,7 @@ def read_data(directory, file, ext=0):
         data = hdul[ext].data
         return data
     
-def bestfit(order_range=None, directory=None, lib=None):
+def build_bestfit(order_range=None, directory=None, lib=None):
     assert order_range is not None
     assert directory is not None
     assert lib is not None
@@ -50,10 +50,40 @@ def bestfit(order_range=None, directory=None, lib=None):
     # Convert to numpy arrays for sake of simplicity
     out = np.asarray(out).T
     return out
+
 if __name__ == '__main__':
     degree_range = np.arange(-1, 21, 1)
     mdegree_range = np.arange(0, 21, 1)
     
-    a = bestfit(order_range=degree_range, 
-            directory='../data_products/polynomial_single/emiles/additive_polynomial/NGC0613_full_stacked_spectrum/',
-            lib='MilesAgeMh')
+    # Read bestfit
+    # Additive
+    bestfit_add_emiles = build_bestfit(
+        order_range=degree_range, 
+        directory='../data_products/polynomial_single/emiles/additive_polynomial/NGC0613_full_stacked_spectrum/',
+        lib='MilesAgeMh')
+    
+    bestfit_add_miles = build_bestfit(
+        order_range=degree_range, 
+        directory='../data_products/polynomial_single/miles/additive_polynomial/NGC0613_full_stacked_spectrum/',
+        lib='MilesAgeMh')
+    
+    bestfit_add_xsl = build_bestfit(
+        order_range=degree_range, 
+        directory='../data_products/polynomial_single/xsl/additive_polynomial/NGC0613_full_stacked_spectrum/',
+        lib='XSLAgeMh')
+    
+    # Multiplicative
+    bestfit_mlt_emiles = build_bestfit(
+        order_range=mdegree_range, 
+        directory='../data_products/polynomial_single/emiles/multiplicative_polynomial/NGC0613_full_stacked_spectrum/',
+        lib='MilesAgeMh')
+    
+    bestfit_mlt_miles = build_bestfit(
+        order_range=mdegree_range, 
+        directory='../data_products/polynomial_single/miles/multiplicative_polynomial/NGC0613_full_stacked_spectrum/',
+        lib='MilesAgeMh')
+    
+    bestfit_mlt_xsl = build_bestfit(
+        order_range=mdegree_range, 
+        directory='../data_products/polynomial_single/xsl/multiplicative_polynomial/NGC0613_full_stacked_spectrum/',
+        lib='XSLAgeMh')
