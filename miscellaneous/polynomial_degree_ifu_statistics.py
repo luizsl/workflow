@@ -144,7 +144,7 @@ if __name__ == '__main__':
         directory = '../data_products/polynomial_ifu/xsl/multiplicative_polynomial/fov_sample_1_3/',
         lib='XSLAgeMh')
     
-    # Reduced Chi-squared
+    # Read reduced Chi-squared data
     
     # Additive polynomial
     chi2_add_miles = extract_maps(

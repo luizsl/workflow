@@ -48,6 +48,7 @@ output:
   - error
   - sol
   - bestfit
+  - galaxy
 ppxf:
   degree: 8
   mdegree: 0
