@@ -42,7 +42,7 @@ observation:
   - - 9000
     - 9500
 output:
-  output_root: ../data_products/polynomial/miles/multiplicative_polynomial
+  output_root: ../data_products/polynomial_single/miles/multiplicative_polynomial
   to_save:
   - chi2
   - error

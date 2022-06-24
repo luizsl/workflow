@@ -42,7 +42,7 @@ observation:
   - - 9000
     - 9500
 output:
-  output_root: ../data_products/polynomial/xsl/additive_polynomial
+  output_root: ../data_products/polynomial_single/xsl/additive_polynomial
   to_save:
   - chi2
   - error

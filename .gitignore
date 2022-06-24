@@ -24,8 +24,9 @@ miscellaneous/*.ipynb
 miscellaneous/*.pdf
 
 plots/*pdf
+plots/polynomial_degree/*pdf
 
-dporuvidas.md
+duvidas.md
 melhorias.md
 improvements.md
 

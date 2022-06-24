@@ -99,11 +99,11 @@ def mean_plot(ax, data=None, norm=None, color=None, order_range=None, **kwargs):
     data = np.nanmean(data, axis=(1,2)) / norm
     lp = ax.plot(order_range, data, color=color, **kwargs)
     return lp
-
+#%%
 if __name__ == '__main__':
     
-    degree_range = np.arange(-1, 21, 1)
-    mdegree_range = np.arange(0, 21, 1)
+    degree_range = np.arange(-1, 20, 1)
+    mdegree_range = np.arange(0, 20, 1)
     
     # NOTE: Create output directory <>
     results_dir = '../plots/polynomial_degree/'
@@ -115,33 +115,33 @@ if __name__ == '__main__':
     # Additive polynomial
     h1_add_emiles, h2_add_emiles, h3_add_emiles, h4_add_emiles = extract_maps(
         prop='sol', length=4, order_range=degree_range,
-        directory = '../data_products/emiles/additive_polynomial/fov_sample_1_5/',
+        directory = '../data_products/polynomial_ifu/emiles/additive_polynomial/fov_sample_1_3/',
         lib='MilesAgeMh')
     
     h1_add_miles, h2_add_miles, h3_add_miles, h4_add_miles = extract_maps(
         prop='sol', length=4, order_range=degree_range,
-        directory = '../data_products/miles/additive_polynomial/fov_sample_1_5/',
+        directory = '../data_products/polynomial_ifu/miles/additive_polynomial/fov_sample_1_3/',
         lib='MilesAgeMh')
     
     h1_add_xsl, h2_add_xsl, h3_add_xsl, h4_add_xsl = extract_maps(
         prop='sol', length=4, order_range=degree_range,
-        directory = '../data_products/xsl/additive_polynomial/fov_sample_1_5/',
+        directory = '../data_products/polynomial_ifu/xsl/additive_polynomial/fov_sample_1_3/',
         lib='XSLAgeMh')
 
     # Multiplicative polynomial
     h1_mlt_emiles, h2_mlt_emiles, h3_mlt_emiles, h4_mlt_emiles = extract_maps(
         prop='sol', length=4, order_range=mdegree_range,
-        directory = '../data_products/emiles/multiplicative_polynomial/fov_sample_1_5/',
+        directory = '../data_products/polynomial_ifu/emiles/multiplicative_polynomial/fov_sample_1_3/',
         lib='MilesAgeMh')
 
     h1_mlt_miles, h2_mlt_miles, h3_mlt_miles, h4_mlt_miles = extract_maps(
         prop='sol', length=4, order_range=mdegree_range,
-        directory = '../data_products/miles/multiplicative_polynomial/fov_sample_1_5/',
+        directory = '../data_products/polynomial_ifu/miles/multiplicative_polynomial/fov_sample_1_3/',
         lib='MilesAgeMh')
     
     h1_mlt_xsl, h2_mlt_xsl, h3_mlt_xsl, h4_mlt_xsl = extract_maps(
-        prop='sol', length=4, order_range=degree_range,
-        directory = '../data_products/xsl/multiplicative_polynomial/fov_sample_1_5/',
+        prop='sol', length=4, order_range=mdegree_range,
+        directory = '../data_products/polynomial_ifu/xsl/multiplicative_polynomial/fov_sample_1_3/',
         lib='XSLAgeMh')
     
     # Reduced Chi-squared
@@ -149,33 +149,33 @@ if __name__ == '__main__':
     # Additive polynomial
     chi2_add_miles = extract_maps(
         prop='chi2', length=1, order_range=degree_range,
-        directory = '../data_products/miles/additive_polynomial/fov_sample_1_5/',
+        directory = '../data_products/polynomial_ifu/miles/additive_polynomial/fov_sample_1_3/',
         lib='MilesAgeMh')
     
     chi2_add_emiles = extract_maps(
         prop='chi2', length=1, order_range=degree_range,
-        directory = '../data_products/emiles/additive_polynomial/fov_sample_1_5/',
+        directory = '../data_products/polynomial_ifu/emiles/additive_polynomial/fov_sample_1_3/',
         lib='MilesAgeMh')
     
     chi2_add_xsl = extract_maps(
         prop='chi2', length=1, order_range=degree_range,
-        directory = '../data_products/xsl/additive_polynomial/fov_sample_1_5/',
+        directory = '../data_products/polynomial_ifu/xsl/additive_polynomial/fov_sample_1_3/',
         lib='XSLAgeMh')
     
     # Multiplicative polynomial
     chi2_mlt_miles = extract_maps(
-        prop='chi2', length=1, order_range=degree_range,
-        directory = '../data_products/miles/multiplicative_polynomial/fov_sample_1_5/',
+        prop='chi2', length=1, order_range=mdegree_range,
+        directory = '../data_products/polynomial_ifu/miles/multiplicative_polynomial/fov_sample_1_3/',
         lib='MilesAgeMh')
     
     chi2_mlt_emiles = extract_maps(
-        prop='chi2', length=1, order_range=degree_range,
-        directory = '../data_products/emiles/multiplicative_polynomial/fov_sample_1_5/',
+        prop='chi2', length=1, order_range=mdegree_range,
+        directory = '../data_products/polynomial_ifu/emiles/multiplicative_polynomial/fov_sample_1_3/',
         lib='MilesAgeMh')
     
     chi2_mlt_xsl = extract_maps(
-        prop='chi2', length=1, order_range=degree_range,
-        directory = '../data_products/xsl/multiplicative_polynomial/fov_sample_1_5/',
+        prop='chi2', length=1, order_range=mdegree_range,
+        directory = '../data_products/polynomial_ifu/xsl/multiplicative_polynomial/fov_sample_1_3/',
         lib='XSLAgeMh')
 
     # Sigma
