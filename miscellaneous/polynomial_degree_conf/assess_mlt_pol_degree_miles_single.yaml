@@ -65,5 +65,5 @@ resources:
   model: ../data/models/tmpWzZ2t1
   observation: ../data/
 vorbin:
-  apply: False
+  apply: false
   target_sn: 100

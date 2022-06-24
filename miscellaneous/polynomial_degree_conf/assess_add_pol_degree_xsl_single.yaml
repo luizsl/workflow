@@ -54,7 +54,7 @@ ppxf:
   moments: 4
   velscale_ratio: 2
 ppxf_dynamical_mask:
-  degree: 19
+  degree: 20
   mdegree: 0
   moments: 4
   velscale_ratio: 2
@@ -65,5 +65,5 @@ resources:
   model: ../data/models/XSL_SSP_PC_Kroupa/Kroupa
   observation: ../data/
 vorbin:
-  apply: False
+  apply: false
   target_sn: 100

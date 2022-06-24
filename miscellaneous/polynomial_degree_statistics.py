@@ -102,8 +102,8 @@ def mean_plot(ax, data=None, norm=None, color=None, order_range=None, **kwargs):
 #%%
 if __name__ == '__main__':
     
-    degree_range = np.arange(-1, 20, 1)
-    mdegree_range = np.arange(0, 20, 1)
+    degree_range = np.arange(-1, 21, 1)
+    mdegree_range = np.arange(0, 21, 1)
     
     # NOTE: Create output directory <>
     results_dir = '../plots/polynomial_degree/'
@@ -335,8 +335,8 @@ if __name__ == '__main__':
     ax[1].set_xticklabels(degree_range)
     
     ax[1].set_xlabel('Polynomial degree (n)')
-    ax[0].set_ylabel(r'h$_3$')
-    ax[1].set_ylabel(r'h$_4$')
+    ax[0].set_ylabel(r'Average h$_{3, \rm{med}}$')
+    ax[1].set_ylabel(r'Average h$_{4, \rm{med}}$')
     ax[0].set_title('Additive Legendre polynomial')
     ax[1].xaxis.set_major_formatter(plt.matplotlib.ticker.FormatStrFormatter('%i'))
     ax[1].legend(
@@ -398,8 +398,8 @@ if __name__ == '__main__':
     ax[1].set_xticklabels(mdegree_range )
     
     ax[1].set_xlabel('Polynomial degree (n)')
-    ax[0].set_ylabel(r'Average h$_3$')
-    ax[1].set_ylabel(r'Average h$_4$')
+    ax[0].set_ylabel(r'Average h$_{3, \rm{med}}$')
+    ax[1].set_ylabel(r'Average h$_{4, \rm{med}}$')
     ax[0].set_title('Multiplicative Legendre polynomial')
     ax[1].xaxis.set_major_formatter(plt.matplotlib.ticker.FormatStrFormatter('%i'))
     ax[1].legend(

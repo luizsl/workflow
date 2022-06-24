@@ -184,5 +184,5 @@ if __name__ == "__main__":
 
     # ifu_data(degree_range, mdegree_range)
 
-    os.system("nohup python stack_on_a_single_spectrum.py")
+    # os.system("nohup python stack_on_a_single_spectrum.py")
     integrated_spectrum(degree_range, mdegree_range)
