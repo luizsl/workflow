@@ -55,7 +55,7 @@ ppxf:
   velscale_ratio: 2
 ppxf_dynamical_mask:
   degree: -1
-  mdegree: 15
+  mdegree: 18
   moments: 4
   velscale_ratio: 2
 ppxf_refit:
