@@ -49,6 +49,7 @@ output:
   - sol
   - bestfit
   - galaxy
+  - goodpixels
 ppxf:
   degree: -1
   mdegree: 8
