@@ -195,7 +195,9 @@ class Observation(ABC):
             snr = signal / noise
             return snr, signal, noise
 
-    def mask_spectral_axis(self, intervals=[-np.inf, np.inf]):
+    def mask_spectral_axis(self, intervals=[-np.inf, np.inf], kind=None):
+        assert kind in ['guess', 'fixed']
+        kind = f'{kind}_goodpixels'
         wave = self.meta['wave_obs']
         mask = np.full_like(wave, False, dtype = bool)
 
@@ -205,9 +207,12 @@ class Observation(ABC):
 
         # Invert mask to include in the fit
         mask = ~mask
+        
+        # Convert to goodpixels index
+        goodpixels = np.arange(mask.size)[mask]
 
-        self.meta['spectral_mask'] = mask
-
+        self.meta[kind] = goodpixels
+        
     def trim_spectral_axis(self, lower=None, upper=None):
         mask = np.ma.masked_outside(self.meta['wave_obs'], lower, upper)
         if mask.mask.size == 1:

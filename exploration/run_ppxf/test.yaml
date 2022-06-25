@@ -12,7 +12,7 @@ observation:
     class: Muse
     obs_name: fov_sample_1_5     # should not include extensions in the name
     redshift: 0.004951
-    spectral_mask : [
+    spectral_mask: [
         [4000, 4770],
         [4850, 4880],
         [4950, 4970], 
@@ -24,6 +24,9 @@ observation:
         [7560, 7610],
         [8710, 8725],
         [9000, 9500]]
+    fixed_spectral_mask: [
+        [4000, 4780],
+        [9170, 9500]]    
     snr:
         window: [5450, 5550]
         min: 3
@@ -48,14 +51,14 @@ ppxf_dynamical_mask:          # This execution is optional (the block can be com
     mdegree : 8
     velscale_ratio : 2
 
-# ppxf_fixed_kinematics:        # This execution is optional (the block can be commented or deleted)
-#     moments : 4
-#     degree : -1
-#     mdegree : 8
-#     regul : 1000               # 1/Delta
-#     # reddening : 0
-#     velscale_ratio : 2        # Must keep this parameter in additional iterations, with the same value
-#     fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
+ppxf_fixed_kinematics:        # This execution is optional (the block can be commented or deleted)
+    moments : 4
+    degree : -1
+    mdegree : 8
+    regul : 100               # 1/Delta
+    # reddening : 0
+    velscale_ratio : 2        # Must keep this parameter in additional iterations, with the same value
+    fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
         
 ppxf_refit:
     mask:
