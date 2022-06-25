@@ -14,24 +14,28 @@ import numpy as np
 from ppxf.ppxf import ppxf, robust_sigma
 from scipy.constants import physical_constants
 
-prep = ppxf_prep.data
+prep = data
 
-def clip_outliers(galaxy, bestfit, goodpixels, sigma=3):
+def clip_outliers(galaxy, bestfit, goodpixels, fixed_goodpixels=None, sigma=3):
     """
     Adapted from Michele Cappellari's example
     
     Repeat the fit after clipping bins deviants more than 3*sigma
     in relative error until the bad bins don't change any more.
     """
+    if fixed_goodpixels is None:
+        fixed_goodpixels = np.arange(galaxy.size)
     while True:
+        goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
         scale = galaxy[goodpixels] @ bestfit[goodpixels]/np.sum(bestfit[goodpixels]**2)
         resid = scale*bestfit[goodpixels] - galaxy[goodpixels]
         err = robust_sigma(resid, zero=1)
         ok_old = goodpixels.copy()
         goodpixels = np.flatnonzero(np.abs(bestfit - galaxy) < sigma*err)
+        goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
         if np.array_equal(goodpixels, ok_old):
             break
-    return goodpixels   
+    return goodpixels
     
 def mask_wavelength(wave, intervals =[]):
     mask = np.full_like(wave, False, dtype = bool)
@@ -42,13 +46,13 @@ def mask_wavelength(wave, intervals =[]):
     
     # Invert mask to include in the fit
     mask = ~mask
-    return mask
+    
+    goodpixels = np.arange(mask.size)[mask]
+    return goodpixels
 
 
-galaxy = np.nansum(prep.obs.flux_grid[:, 1800:1820], axis = 1)
-noise = prep.obs.flux_grid_unc**2
-noise = np.nansum(noise[:, 1800:1820], axis = 1)
-noise = np.sqrt(noise)
+galaxy = prep.obs.flux_grid[:, 0]
+noise = prep.obs.flux_grid_unc[:, 0]
 
 C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
 
@@ -58,23 +62,24 @@ frac = prep.obs.meta['wave_obs'][1]/prep.obs.meta['wave_obs'][0]
 velscale = np.log(frac)*C       # Velocity scale in km/s per pixel (eq.8 of Cappellari 2017)
 # z = prep.meta.z # redshift estimate
 
-# dv = C*np.log(prep.model.meta['wave_model'][0]/prep.obs.meta['wave_obs'][0])    # eq.(8) of Cappellari (2017)
-# goodpixels = util.determine_goodpixels(np.log(prep.obs.meta['wave_obs']), prep.meta.limit_model, z =0, width=2500)
 
 vel = C*np.log(1 + 0)   # q.(8) of Cappellari (2017)
 start = [vel, 3*velscale] # (km/s), starting guess for [V, sigma]
 
-# flux = prep.obs.mmap_flux_grid[:].sum(axis=1)
-# galaxy[-1] =galaxy[-2]
-# noise[-1] =noise[-2]
 
-# lam_range_gal = [np.min(prep.obs.meta['wave_obs']), np.max(prep.obs.meta['wave_obs'])]
-# gas_template, gas_names,gas_names = util.emission_lines(
-#     ln_lam_temp = np.log(prep.model.meta['wave_model']), lam_range_gal=lam_range_gal,
-#     FWHM_gal = 2.6,tie_balmer=True)
 
-# shape = prep.model.mmap_flux_model.shape[0]
-# star_template = prep.model.mmap_flux_model.reshape(shape, -1)
+def fixed_mask_wavelength(wave, intervals =[]):
+    mask = np.full_like(wave, False, dtype = bool)
+    
+    for lower, upper in intervals:
+        temp = np.ma.masked_inside(wave, lower, upper)
+        mask = np.logical_or(mask, temp.mask)
+    
+    # Invert mask to include in the fit
+    mask = ~mask
+    
+    goodpixels = np.arange(mask.size)[mask]
+    return goodpixels
 
 mask_list = [
     [4000, 4770],
@@ -91,11 +96,17 @@ mask_list = [
     [8710, 8725],
     [9000, 9500]]
 
-mask = mask_wavelength(prep.obs.meta['wave_obs'], mask_list)
-# start = [start, [0, 70]]
-        
+fixed_mask_list = [
+    [4000, 4770],
+    [9200, 9500]]
 
-#%%      TEMPLATES MINE XSL
+# goodpixels = mask_wavelength(prep.obs.meta['wave_obs'], mask_list)
+# fixed_goodpixels = fixed_mask_wavelength(prep.obs.meta['wave_obs'], fixed_mask_list)
+
+goodpixels = prep.obs.meta['guess_goodpixels']
+fixed_goodpixels = prep.obs.meta['fixed_goodpixels']
+
+#     TEMPLATES MINE
 
 reg_dim = prep.model.flux_grid.shape[1:]
 
@@ -112,44 +123,10 @@ template = star_template
 
 lam_temp=prep.model.meta['wave_model']
 
-#%%      TEMPLATES MINE
 
-reg_dim = prep.model.meta['reg_dim']
+#
 
-# shape = prep.model.flux_grid.shape[0]
-# star_template = prep.model.flux_grid.reshape(shape, -1)
-
-# template = np.column_stack([star_template, gas_template])
-template = star_template
-# n_stars = star_template.shape[1]
-# n_gas = len(gas_names)
-# component = np.array([0]*n_stars + [1]*n_gas)
-# gas_component = np.array(component) > 0  # gas_component=True for gas templates
-
-
-lam_temp=prep.model.meta['wave_model']
-
-#%%         TEMPLATE CAPPELLARI 
-
-reg_dim = t1.templates.shape[1:]
-
-shape = t1.templates.shape[0]
-star_template = t1.templates.reshape(shape, -1)
-
-# template = np.column_stack([star_template, gas_template])
-template = star_template
-# n_stars = star_template.shape[1]
-# n_gas = len(gas_names)
-# component = np.array([0]*n_stars + [1]*n_gas)
-# gas_component = np.array(component) > 0  # gas_component=True for gas templates
-
-
-lam_temp=t1.lam_temp
-
-
-#%%
-
-degree = 8
+degree = 10
 
 pp = ppxf(
     template, 
@@ -158,10 +135,11 @@ pp = ppxf(
     velscale, start, moments=2, degree=-1, mdegree=degree,
     clean=False,
     # reg_dim=reg_dim, regul=1/0.01,
-    reddening=0, 
+    # reddening=0, 
+    goodpixels=np.intersect1d(fixed_goodpixels, goodpixels),
     # goodpixels=goodpixels,
     velscale_ratio=2,
-    mask = mask,
+    # mask = mask,
     # component = component, gas_component=gas_component, gas_names=gas_names,gas_reddening=0,
     lam=prep.obs.meta['wave_obs'], 
     lam_temp=lam_temp,
@@ -172,7 +150,7 @@ pp = ppxf(
 # fig, ax = plt.subplots()
 # ax = pp.plot()
 
-good = clip_outliers(pp.galaxy, pp.bestfit, pp.goodpixels, sigma = 2.5)
+good = clip_outliers(pp.galaxy, pp.bestfit, pp.goodpixels, fixed_goodpixels, sigma=2.5)
 
 pp = ppxf(
     template, 
@@ -181,7 +159,8 @@ pp = ppxf(
     velscale, start, moments=2, degree=-1, mdegree=degree,
     clean=False,
     # reg_dim=reg_dim, regul=1/0.01,
-    reddening=0, 
+    # reddening=0, 
+    # goodpixels=np.intersect1d(fixed_goodpixels, good),
     goodpixels=good,
     velscale_ratio=2,
     # mask = mask,
