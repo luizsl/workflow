@@ -105,13 +105,13 @@ if __name__ == '__main__':
     
 #%% Debug
 
-    # import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt
     
-    # conf = 'test.yaml'
+    conf = 'test.yaml'
     
-    # ppxf_prep = Main(conf)
-    
-    # ppxf_prep.run_all()
+    ppxf_prep = Main(conf)
+    # ppxf_prep.read_config()
+    ppxf_prep.run_all()
     
     # fig, ax = plt.subplots(1, 3)
     # ax[0].imshow(10**(age-9), origin='lower')

@@ -52,8 +52,8 @@ class ExecutePpxf:
         size = data.obs.flux_grid[0, ...].size
         
         if data.obs.flux_grid.ndim==1:
-            #     # NOBUG: Adding an exception to deal with a single spectrum
-            #     # not neat but shoul work. <>
+            # NOBUG: Adding an exception to deal with a single spectrum
+            # not neat but shoul work. <>
             data.obs.flux_grid = np.expand_dims(data.obs.flux_grid, axis=1)
             data.obs.flux_grid_unc = np.expand_dims(data.obs.flux_grid_unc, axis=1)
             
@@ -66,28 +66,31 @@ class ExecutePpxf:
             if np.any(np.isnan(flux_obs_unc_slice) | np.isnan(flux_obs_slice)):
                 print('nan')
             else:
-                goodpixels = None
+                goodpixels = data.obs.meta['guess_goodpixels']
+                fixed_goodpixels = data.obs.meta['fixed_goodpixels']
+                
                 pp = None
                 
-                pp = self.execute_ppxf(data.obs, data.model, i, goodpixels,
+                pp = self.execute_ppxf(data.obs, data.model, i,
+                                       goodpixels, fixed_goodpixels,
                                        conf=self.main_meta['ppxf'])
                 
                 if 'ppxf_dynamical_mask' in self.main_meta:
                     print('\n*************')
                     print('Calling refit with new spectral mask', end='\n\n')
                     goodpixels = self.clip_outliers(
-                        pp.galaxy, pp.bestfit, pp.goodpixels,
+                        pp.galaxy, pp.bestfit, pp.goodpixels, fixed_goodpixels,
                         **self.main_meta['ppxf_refit']['mask'])
                     pp = self.execute_ppxf(
-                        data.obs, data.model, i, goodpixels, pp, 
-                        conf=self.main_meta['ppxf_dynamical_mask'])
+                        data.obs, data.model, i, goodpixels, fixed_goodpixels,
+                        pp, conf=self.main_meta['ppxf_dynamical_mask'])
                     
                 if 'ppxf_fixed_kinematics' in self.main_meta:
                     print('\n*************')
                     print('Calling refit with fixed kinematics', end='\n\n')
                     pp = self.execute_ppxf(
-                        data.obs, data.model, i, goodpixels, pp,
-                        conf=self.main_meta['ppxf_fixed_kinematics'])
+                        data.obs, data.model, i, goodpixels, fixed_goodpixels,
+                        pp, conf=self.main_meta['ppxf_fixed_kinematics'])
                     
                 if not storage:
                     n_obj = data.obs.flux_grid.shape[-1]
@@ -100,10 +103,13 @@ class ExecutePpxf:
         self.meta['ppxf_end_time'] = datetime.now().strftime("%d/%m/%Y %H:%M")
 
     def execute_ppxf(self, obs=None, model=None, index=None, 
-                     goodpixels=None, pp=None, conf=None):
+                     goodpixels=None, fixed_goodpixels=None,
+                     pp=None, conf=None):
         assert conf is not None
         assert obs is not None
         assert model is not None
+        assert goodpixels is not None
+        assert fixed_goodpixels is not None
 
         t = clock()
 
@@ -121,40 +127,44 @@ class ExecutePpxf:
         else:
             start = pp.sol
             
-        if goodpixels is not None:
-            mask=None
-        elif 'spectral_mask' in obs.meta:
-            mask = obs.meta['spectral_mask']
-        else:
-            mask = np.ones_like(galaxy)
-            print('Mask not available')
+        if goodpixels is None:
+            goodpixels = np.arange(galaxy.size)
+        if fixed_goodpixels is None:
+            fixed_goodpixels = np.arange(galaxy.size)    
+
+        goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
 
         pp = ppxf(
             template, galaxy, noise, velscale, start, lam=obs.meta['wave_obs'],
             lam_temp=model.meta['wave_model'], reg_dim=model.meta['reg_dim'],
-            mask = mask, goodpixels=goodpixels, **conf)
+            goodpixels=goodpixels, **conf)
         
         print('Elapsed time in PPXF: %.2f s' % (clock() - t))
         return pp
     
     @staticmethod
-    def clip_outliers(galaxy, bestfit, goodpixels, sigma=3):
+    def clip_outliers(galaxy, bestfit, goodpixels, fixed_goodpixels=None,
+                      sigma=3):
         """
         Adapted from Michele Cappellari's example
         
         Repeat the fit after clipping bins deviants more than 3*sigma
         in relative error until the bad bins don't change any more.
         """
+        if fixed_goodpixels is None:
+            fixed_goodpixels = np.arange(galaxy.size)
         while True:
+            goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
             scale = galaxy[goodpixels] @ bestfit[goodpixels]/np.sum(bestfit[goodpixels]**2)
             resid = scale*bestfit[goodpixels] - galaxy[goodpixels]
             err = robust_sigma(resid, zero=1)
             ok_old = goodpixels.copy()
             goodpixels = np.flatnonzero(np.abs(bestfit - galaxy) < sigma*err)
+            goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
             if np.array_equal(goodpixels, ok_old):
                 break
-        return goodpixels   
-    
+        return goodpixels
+
     def build_output_storage(self, par=[], out_obj=None, n_obj=None):
         assert 'ppxf' not in dir(self)
         assert n_obj and out_obj is not None
