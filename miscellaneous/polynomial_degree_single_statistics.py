@@ -8,8 +8,10 @@ Created on Fri Jun 24 16:36:30 2022
 Residuals analysis of Legendre polynomial test 
 """
 import os
+import json
 
 import numpy as np
+import seaborn as sns
 import matplotlib.pyplot as plt
 from astropy.io import fits
 
@@ -56,6 +58,11 @@ if __name__ == '__main__':
     degree_range = np.arange(-1, 21, 1)
     mdegree_range = np.arange(0, 21, 1)
     
+    # Build spectral axis from some of the metadata file
+    metadata_path = '../data_products/polynomial_single/emiles/additive_polynomial/NGC0613_full_stacked_spectrum/MilesAgeMh/ppxf/metadata.json'
+    with open(metadata_path) as f:
+        metadata=json.load(f)
+        
     # Read bestfit
     # Additive
     bestfit_add_emiles = build_spectra_array(
@@ -134,3 +141,25 @@ if __name__ == '__main__':
         directory='../data_products/polynomial_single/xsl/multiplicative_polynomial/NGC0613_full_stacked_spectrum/',
         lib='XSLAgeMh')
     
+    # Plot bestfit
+    # E-MILES
+    
+    data_bestfit = bestfit_add_emiles
+    data_galaxy =  galaxy_add_emiles
+    
+    fig, ax = plt.subplots(figsize=(12,4))
+    wave = metadata['obs']['wave_obs']
+    c_seq = plt.get_cmap('rainbow', 21)
+    # c_seq = sns.color_palette(sns.cubehelix_palette(start=2, rot=1))
+    # c_seq = plt.matplotlib.colors.ListedColormap(c_seq)
+    n_spec = data_bestfit.shape[1]
+    for i in range(0):
+        spectrum = data_bestfit[:, 0]
+        plt.plot(wave, data_galaxy[:, 5] - data_bestfit[:, 5], alpha=1)
+        plt.plot(wave, data_galaxy[:, 5], alpha=1)
+        
+    ax.set_xlabel(r'Wavelength [$\AA$]')
+    ax.set_ylabel(r'Spectral flux density [arbitrary units]')
+    ax.set_title('Additive Legendre polynomial')
+        
+        
