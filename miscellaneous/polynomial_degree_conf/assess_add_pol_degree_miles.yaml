@@ -41,6 +41,11 @@ observation:
     - 8725
   - - 9000
     - 9500
+  fixed_spectral_mask:
+  - - 4000
+    - 4780
+  - - 9170
+    - 9500
 output:
   output_root: ../data_products/polynomial_ifu/miles/additive_polynomial
   to_save:
