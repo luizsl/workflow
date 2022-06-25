@@ -69,5 +69,5 @@ resources:
   model: ../data/models/miles_Padova00_UN_baseFe_v10.0
   observation: ../data/
 vorbin:
-  apply: false
+  apply: true
   target_sn: 100
