@@ -112,6 +112,7 @@ if __name__ == '__main__':
     # ppxf_prep = Main(conf)
     # ppxf_prep.read_config()
     # ppxf_prep.run_all()
+
     
     # fig, ax = plt.subplots(1, 3)
     # ax[0].imshow(10**(age-9), origin='lower')

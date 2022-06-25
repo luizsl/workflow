@@ -100,10 +100,11 @@ fixed_mask_list = [
     [4000, 4770],
     [9200, 9500]]
 
-goodpixels = mask_wavelength(prep.obs.meta['wave_obs'], mask_list)
-fixed_goodpixels = fixed_mask_wavelength(prep.obs.meta['wave_obs'], fixed_mask_list)
-# start = [start, [0, 70]]
-        
+# goodpixels = mask_wavelength(prep.obs.meta['wave_obs'], mask_list)
+# fixed_goodpixels = fixed_mask_wavelength(prep.obs.meta['wave_obs'], fixed_mask_list)
+
+goodpixels = prep.obs.meta['guess_goodpixels']
+fixed_goodpixels = prep.obs.meta['fixed_goodpixels']
 
 #     TEMPLATES MINE
 
