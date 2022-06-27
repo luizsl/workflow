@@ -144,22 +144,40 @@ if __name__ == '__main__':
     # Plot bestfit
     # E-MILES
     
-    data_bestfit = bestfit_add_emiles
-    data_galaxy =  galaxy_add_emiles
+    
+    # Read provisional mask
+    goodpixels_file = '../data_products/fov_sample_1_5/MilesAgeMh_1/ppxf/goodpixels.fits'
+    with fits.open(goodpixels_file)as hdul:
+        goodpixels = hdul[0].data[:, 30, 30]
+        goodpixels = goodpixels[np.isfinite(goodpixels)]
+        goodpixels = np.asarray(goodpixels, dtype=int)
+        
+    data_bestfit = bestfit_mlt_emiles
+    data_galaxy =  galaxy_mlt_emiles
     
     fig, ax = plt.subplots(figsize=(12,4))
-    wave = metadata['obs']['wave_obs']
+    wave = np.asarray(metadata['obs']['wave_obs'])
     c_seq = plt.get_cmap('rainbow', 21)
     # c_seq = sns.color_palette(sns.cubehelix_palette(start=2, rot=1))
     # c_seq = plt.matplotlib.colors.ListedColormap(c_seq)
     n_spec = data_bestfit.shape[1]
-    for i in range(0):
-        spectrum = data_bestfit[:, 0]
-        plt.plot(wave, data_galaxy[:, 5] - data_bestfit[:, 5], alpha=1)
-        plt.plot(wave, data_galaxy[:, 5], alpha=1)
+    for i in range(0,1):
+        residual = data_galaxy[:, i] - data_bestfit[:, i]
+        plt.step(wave, residual, alpha=1, where='mid')
+        plt.axhline(np.nanmedian(residual), alpha=0.5, color='k', lw=0.5)
+        plt.step(wave, data_galaxy[:, i], alpha=1, where='mid')
         
     ax.set_xlabel(r'Wavelength [$\AA$]')
-    ax.set_ylabel(r'Spectral flux density [arbitrary units]')
+    ax.set_ylabel(r'Flux density [a.u.]')
     ax.set_title('Additive Legendre polynomial')
-        
-        
+    
+    import spectcube as sc
+    bound = sc.util._build_edges(wave, 'ln')
+    
+    for i in range(wave.size):
+        if i not in goodpixels:
+            lw = bound[i]
+            up = bound[i+1]
+            ax.axvspan(lw, up, color='lightgray')
+            
+    plt.tight_layout()

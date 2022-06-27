@@ -46,7 +46,7 @@ observation:
     - 4780
   - - 9170
     - 9500
-    output:
+output:
   output_root: ../data_products/polynomial_single/miles/additive_polynomial
   to_save:
   - chi2
