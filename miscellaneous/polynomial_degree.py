@@ -182,7 +182,7 @@ if __name__ == "__main__":
     degree_range = np.arange(-1, 21, 1)
     mdegree_range = np.arange(0, 21, 1)
 
-    ifu_data(degree_range, mdegree_range)
+    # ifu_data(degree_range, mdegree_range)
 
-    os.system("nohup python stack_on_a_single_spectrum.py")
+    # os.system("nohup python stack_on_a_single_spectrum.py")
     integrated_spectrum(degree_range, mdegree_range)
