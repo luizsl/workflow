@@ -66,31 +66,38 @@ class ExecutePpxf:
             if np.any(np.isnan(flux_obs_unc_slice) | np.isnan(flux_obs_slice)):
                 print('nan')
             else:
-                goodpixels = data.obs.meta['guess_goodpixels']
+                guess_goodpixels = data.obs.meta['guess_goodpixels']
                 fixed_goodpixels = data.obs.meta['fixed_goodpixels']
                 
                 pp = None
                 
-                pp = self.execute_ppxf(data.obs, data.model, i,
-                                       goodpixels, fixed_goodpixels,
-                                       conf=self.main_meta['ppxf'])
+                pp = self.execute_ppxf(obs=data.obs, model=data.model,index=i,
+                                       goodpixels=guess_goodpixels,
+                                       fixed_goodpixels = fixed_goodpixels,
+                                       pp=None, conf=self.main_meta['ppxf'])
                 
                 if 'ppxf_dynamical_mask' in self.main_meta:
                     print('\n*************')
                     print('Calling refit with new spectral mask', end='\n\n')
+                    # Determine actual goodpixels
                     goodpixels = self.clip_outliers(
                         pp.galaxy, pp.bestfit, pp.goodpixels, fixed_goodpixels,
                         **self.main_meta['ppxf_refit']['mask'])
+                    
                     pp = self.execute_ppxf(
-                        data.obs, data.model, i, goodpixels, fixed_goodpixels,
-                        pp, conf=self.main_meta['ppxf_dynamical_mask'])
+                        obs=data.obs, model=data.model,index=i,
+                        goodpixels=goodpixels,
+                        fixed_goodpixels=fixed_goodpixels,
+                        pp=pp, conf=self.main_meta['ppxf_dynamical_mask'])
                     
                 if 'ppxf_fixed_kinematics' in self.main_meta:
                     print('\n*************')
                     print('Calling refit with fixed kinematics', end='\n\n')
                     pp = self.execute_ppxf(
-                        data.obs, data.model, i, goodpixels, fixed_goodpixels,
-                        pp, conf=self.main_meta['ppxf_fixed_kinematics'])
+                        obs=data.obs, model=data.model,index=i,
+                        goodpixels=goodpixels,
+                        fixed_goodpixels=fixed_goodpixels,
+                        pp=pp, conf=self.main_meta['ppxf_fixed_kinematics'])
                     
                 if not storage:
                     n_obj = data.obs.flux_grid.shape[-1]
@@ -108,8 +115,6 @@ class ExecutePpxf:
         assert conf is not None
         assert obs is not None
         assert model is not None
-        assert goodpixels is not None
-        assert fixed_goodpixels is not None
 
         t = clock()
 
