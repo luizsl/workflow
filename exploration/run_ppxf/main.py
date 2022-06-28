@@ -15,8 +15,8 @@ import yaml
 from astropy.utils.misc import JsonCustomEncoder
 
 from data_preprocessing import DataPreprocessing
-from ppxf_execution import ExecutePpxf
 from post_processing import PopMeanProperties
+from ppxf_execution import ExecutePpxf
 
 
 class Main:

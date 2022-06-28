@@ -69,8 +69,6 @@ class ExecutePpxf:
                 guess_goodpixels = data.obs.meta['guess_goodpixels']
                 fixed_goodpixels = data.obs.meta['fixed_goodpixels']
                 
-                pp = None
-                
                 pp = self.execute_ppxf(obs=data.obs, model=data.model,index=i,
                                        goodpixels=guess_goodpixels,
                                        fixed_goodpixels = fixed_goodpixels,

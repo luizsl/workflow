@@ -5,6 +5,7 @@ Created on Tue Aug 31 14:04:00 2021
 """
 import numpy as np
 
+
 def normalize_band(flux=None, wave=None, limits=[-np.inf, np.inf]):
     global band
     assert flux is not None
