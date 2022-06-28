@@ -15,6 +15,7 @@ import numpy as np
 import spectcube as sc
 from astropy.io import fits
 from vorbin.voronoi_2d_binning import voronoi_2d_binning
+
 from normalize_median import normalize_band
 
 

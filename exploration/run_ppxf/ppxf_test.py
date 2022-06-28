@@ -51,8 +51,8 @@ def mask_wavelength(wave, intervals =[]):
     return goodpixels
 
 
-galaxy = prep.obs.flux_grid[:, 0]
-noise = prep.obs.flux_grid_unc[:, 0]
+galaxy = prep.obs.flux_grid[:, 10]
+noise = prep.obs.flux_grid_unc[:, 10]
 
 C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
 
@@ -81,24 +81,24 @@ def fixed_mask_wavelength(wave, intervals =[]):
     goodpixels = np.arange(mask.size)[mask]
     return goodpixels
 
-mask_list = [
-    [4000, 4770],
-    [4850, 4880],
-    [4950, 4970], 
-    [4990, 5025],
-    [5524, 5574],
-    [5190, 5210],
-    [5831, 5975],
-    [6250, 6380],
-    [6530, 6600],
-    [6700, 6750],
-    [7560, 7610],
-    [8710, 8725],
-    [9000, 9500]]
+# mask_list = [
+#     [4000, 4770],
+#     [4850, 4880],
+#     [4950, 4970], 
+#     [4990, 5025],
+#     [5524, 5574],
+#     [5190, 5210],
+#     [5831, 5975],
+#     [6250, 6380],
+#     [6530, 6600],
+#     [6700, 6750],
+#     [7560, 7610],
+#     [8710, 8725],
+#     [9000, 9500]]
 
-fixed_mask_list = [
-    [4000, 4770],
-    [9200, 9500]]
+# fixed_mask_list = [
+#     [4000, 4770],
+#     [9200, 9500]]
 
 # goodpixels = mask_wavelength(prep.obs.meta['wave_obs'], mask_list)
 # fixed_goodpixels = fixed_mask_wavelength(prep.obs.meta['wave_obs'], fixed_mask_list)
@@ -132,7 +132,7 @@ pp = ppxf(
     template, 
     galaxy,
     noise,
-    velscale, start, moments=2, degree=-1, mdegree=degree,
+    velscale, start, moments=4, degree=-1, mdegree=degree,
     clean=False,
     # reg_dim=reg_dim, regul=1/0.01,
     # reddening=0, 
@@ -146,9 +146,9 @@ pp = ppxf(
     # lam_temp=miles.lam_temp,
     plot = False, quiet=False)
 
-# import matplotlib.pyplot as plt
-# fig, ax = plt.subplots()
-# ax = pp.plot()
+import matplotlib.pyplot as plt
+fig, ax = plt.subplots()
+ax = pp.plot()
 
 good = clip_outliers(pp.galaxy, pp.bestfit, pp.goodpixels, fixed_goodpixels, sigma=2.5)
 
@@ -156,7 +156,7 @@ pp = ppxf(
     template, 
     galaxy,
     noise,
-    velscale, start, moments=2, degree=-1, mdegree=degree,
+    velscale, start, moments=4, degree=-1, mdegree=degree,
     clean=False,
     # reg_dim=reg_dim, regul=1/0.01,
     # reddening=0, 
