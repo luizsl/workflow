@@ -59,7 +59,9 @@ if __name__ == '__main__':
     mdegree_range = np.arange(0, 21, 1)
     
     # Build spectral axis from some of the metadata file
-    metadata_path = '../data_products/polynomial_single/emiles/additive_polynomial/NGC0613_full_stacked_spectrum/MilesAgeMh/ppxf/metadata.json'
+    metadata_path = ('../data_products/polynomial_single/emiles/'
+                      'multiplicative_polynomial/NGC0613_full_stacked_spectrum/'
+                      'MilesAgeMh/ppxf/metadata.json')
     with open(metadata_path) as f:
         metadata=json.load(f)
         
@@ -71,17 +73,17 @@ if __name__ == '__main__':
         directory='../data_products/polynomial_single/emiles/additive_polynomial/NGC0613_full_stacked_spectrum/',
         lib='MilesAgeMh')
     
-    bestfit_add_miles = build_spectra_array(
-        prop='bestfit',
-        order_range=degree_range, 
-        directory='../data_products/polynomial_single/miles/additive_polynomial/NGC0613_full_stacked_spectrum/',
-        lib='MilesAgeMh')
+    # bestfit_add_miles = build_spectra_array(
+    #     prop='bestfit',
+    #     order_range=degree_range, 
+    #     directory='../data_products/polynomial_single/miles/additive_polynomial/NGC0613_full_stacked_spectrum/',
+    #     lib='MilesAgeMh')
     
-    bestfit_add_xsl = build_spectra_array(
-        prop='bestfit',
-        order_range=degree_range, 
-        directory='../data_products/polynomial_single/xsl/additive_polynomial/NGC0613_full_stacked_spectrum/',
-        lib='XSLAgeMh')
+    # bestfit_add_xsl = build_spectra_array(
+    #     prop='bestfit',
+    #     order_range=degree_range, 
+    #     directory='../data_products/polynomial_single/xsl/additive_polynomial/NGC0613_full_stacked_spectrum/',
+    #     lib='XSLAgeMh')
     
     # Multiplicative
     bestfit_mlt_emiles = build_spectra_array(
@@ -90,17 +92,17 @@ if __name__ == '__main__':
         directory='../data_products/polynomial_single/emiles/multiplicative_polynomial/NGC0613_full_stacked_spectrum/',
         lib='MilesAgeMh')
     
-    bestfit_mlt_miles = build_spectra_array(
-        prop='bestfit',
-        order_range=mdegree_range, 
-        directory='../data_products/polynomial_single/miles/multiplicative_polynomial/NGC0613_full_stacked_spectrum/',
-        lib='MilesAgeMh')
+    # bestfit_mlt_miles = build_spectra_array(
+    #     prop='bestfit',
+    #     order_range=mdegree_range, 
+    #     directory='../data_products/polynomial_single/miles/multiplicative_polynomial/NGC0613_full_stacked_spectrum/',
+    #     lib='MilesAgeMh')
     
-    bestfit_mlt_xsl = build_spectra_array(
-        prop='bestfit',
-        order_range=mdegree_range, 
-        directory='../data_products/polynomial_single/xsl/multiplicative_polynomial/NGC0613_full_stacked_spectrum/',
-        lib='XSLAgeMh')
+    # bestfit_mlt_xsl = build_spectra_array(
+    #     prop='bestfit',
+    #     order_range=mdegree_range, 
+    #     directory='../data_products/polynomial_single/xsl/multiplicative_polynomial/NGC0613_full_stacked_spectrum/',
+    #     lib='XSLAgeMh')
     
     # Read observation (They must be all the same)
     # Additive
@@ -110,17 +112,17 @@ if __name__ == '__main__':
         directory='../data_products/polynomial_single/emiles/additive_polynomial/NGC0613_full_stacked_spectrum/',
         lib='MilesAgeMh')
     
-    galaxy_add_miles = build_spectra_array(
-        prop='galaxy',
-        order_range=degree_range, 
-        directory='../data_products/polynomial_single/miles/additive_polynomial/NGC0613_full_stacked_spectrum/',
-        lib='MilesAgeMh')
+    # galaxy_add_miles = build_spectra_array(
+    #     prop='galaxy',
+    #     order_range=degree_range, 
+    #     directory='../data_products/polynomial_single/miles/additive_polynomial/NGC0613_full_stacked_spectrum/',
+    #     lib='MilesAgeMh')
     
-    galaxy_add_xsl = build_spectra_array(
-        prop='galaxy',
-        order_range=degree_range, 
-        directory='../data_products/polynomial_single/xsl/additive_polynomial/NGC0613_full_stacked_spectrum/',
-        lib='XSLAgeMh')
+    # galaxy_add_xsl = build_spectra_array(
+    #     prop='galaxy',
+    #     order_range=degree_range, 
+    #     directory='../data_products/polynomial_single/xsl/additive_polynomial/NGC0613_full_stacked_spectrum/',
+    #     lib='XSLAgeMh')
     
     # Multiplicative
     galaxy_mlt_emiles = build_spectra_array(
@@ -129,28 +131,39 @@ if __name__ == '__main__':
         directory='../data_products/polynomial_single/emiles/multiplicative_polynomial/NGC0613_full_stacked_spectrum/',
         lib='MilesAgeMh')
     
-    galaxy_mlt_miles = build_spectra_array(
-        prop='galaxy',
-        order_range=mdegree_range, 
-        directory='../data_products/polynomial_single/miles/multiplicative_polynomial/NGC0613_full_stacked_spectrum/',
-        lib='MilesAgeMh')
+    # galaxy_mlt_miles = build_spectra_array(
+    #     prop='galaxy',
+    #     order_range=mdegree_range, 
+    #     directory='../data_products/polynomial_single/miles/multiplicative_polynomial/NGC0613_full_stacked_spectrum/',
+    #     lib='MilesAgeMh')
     
-    galaxy_mlt_xsl = build_spectra_array(
-        prop='galaxy',
-        order_range=mdegree_range, 
-        directory='../data_products/polynomial_single/xsl/multiplicative_polynomial/NGC0613_full_stacked_spectrum/',
-        lib='XSLAgeMh')
+    # galaxy_mlt_xsl = build_spectra_array(
+    #     prop='galaxy',
+    #     order_range=mdegree_range, 
+    #     directory='../data_products/polynomial_single/xsl/multiplicative_polynomial/NGC0613_full_stacked_spectrum/',
+    #     lib='XSLAgeMh')
     
     # Plot bestfit
     # E-MILES
     
     
     # Read provisional mask
-    goodpixels_file = '../data_products/fov_sample_1_5/MilesAgeMh_1/ppxf/goodpixels.fits'
+    
+    goodpixels_file= ('../data_products/polynomial_single/emiles/'
+                      'multiplicative_polynomial/NGC0613_full_stacked_spectrum/'
+                      'MilesAgeMh/ppxf/goodpixels.fits')
     with fits.open(goodpixels_file)as hdul:
-        goodpixels = hdul[0].data[:, 30, 30]
+        goodpixels = hdul[0].data
         goodpixels = goodpixels[np.isfinite(goodpixels)]
         goodpixels = np.asarray(goodpixels, dtype=int)
+    
+    # read fixed mask
+    fixed_mask_path = ('../data_products/polynomial_single/emiles/'
+                       'multiplicative_polynomial/NGC0613_full_stacked_spectrum/'
+                       'MilesAgeMh/ppxf/metadata.json')
+    with open(metadata_path) as f:
+        _ = json.load(f)
+        fixed_mask = _['conf']['observation']['fixed_spectral_mask']
         
     data_bestfit = bestfit_mlt_emiles
     data_galaxy =  galaxy_mlt_emiles
@@ -161,15 +174,16 @@ if __name__ == '__main__':
     # c_seq = sns.color_palette(sns.cubehelix_palette(start=2, rot=1))
     # c_seq = plt.matplotlib.colors.ListedColormap(c_seq)
     n_spec = data_bestfit.shape[1]
-    for i in range(0,1):
+    for i in range(10,11):
         residual = data_galaxy[:, i] - data_bestfit[:, i]
         plt.step(wave, residual, alpha=1, where='mid')
         plt.axhline(np.nanmedian(residual), alpha=0.5, color='k', lw=0.5)
         plt.step(wave, data_galaxy[:, i], alpha=1, where='mid')
+        plt.step(wave, data_bestfit[:, i], alpha=1, where='mid')
         
     ax.set_xlabel(r'Wavelength [$\AA$]')
     ax.set_ylabel(r'Flux density [a.u.]')
-    ax.set_title('Additive Legendre polynomial')
+    # ax.set_title('Additive Legendre polynomial')
     
     import spectcube as sc
     bound = sc.util._build_edges(wave, 'ln')
