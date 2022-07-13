@@ -108,7 +108,7 @@ fixed_goodpixels = prep.obs.meta['fixed_goodpixels']
 
 #     TEMPLATES MINE
 
-reg_dim = prep.model.flux_grid.shape[1:]
+# reg_dim = prep.model.flux_grid.shape[1:]
 
 shape = prep.model.flux_grid.shape[0]
 star_template = prep.model.flux_grid.reshape(shape, -1)
@@ -150,7 +150,7 @@ import matplotlib.pyplot as plt
 fig, ax = plt.subplots()
 ax = pp.plot()
 
-good = clip_outliers(pp.galaxy, pp.bestfit, pp.goodpixels, fixed_goodpixels, sigma=3)
+good = clip_outliers(pp.galaxy, pp.bestfit, pp.goodpixels, fixed_goodpixels, sigma=2.5)
 
 pp = ppxf(
     template, 
@@ -182,6 +182,8 @@ fig, ax = plt.subplots()
 ax = pp.plot()
 
 #%%    
+
+reg_dim = (24, 6)
 fig, ax = plt.subplots()
 light_weights = pp.weights
 #[~gas_component]

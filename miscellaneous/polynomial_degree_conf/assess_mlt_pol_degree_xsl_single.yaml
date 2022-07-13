@@ -19,17 +19,10 @@ observation:
     - 5450
     - 5550
   spectral_mask: [
-      [5546, 5555],
-      [5855, 5870],
-      [6258, 6280],
-      [6325, 6345],
-      [9020, 9060],
-      [9260, 9290]]
+      [6258, 6280],      # Unknown emission 
+      [6325, 6345],      # Unknown emission
+      [9020, 9060]]      # Noisy
   fixed_spectral_mask: [
-      [4700.0, 4735.0],  # start of the spectral axis (masking ~3*sigma_star, sigma_star ~ 200)
-      [9330.0, 9500.0],  # end of the spectral axis (masking ~3*sigma_star, sigma_star ~ 200)
-      [7553.0, 7575.0],  # noisy region 
-      [7587.0, 7620.0],  # noisy region 
       [4855.3, 4867.4],  # 4861.33 Hb         (750 km/s)
       [4952.7, 4965.1],  # 4958.91 [O III]    (750 km/s)
       [5000.6, 5013.1],  # 5006.84 [O III]    (750 km/s)
@@ -43,7 +36,13 @@ observation:
       [6575.2, 6591.7],  # 6583.46 [N II]     (750 km/s)
       [6708.0, 6724.8],  # 6716.44 [S II]     (750 km/s)
       [6722.4, 6739.2],  # 6730.81 [S II]     (750 km/s)
-      [9057.3, 9080.0]]  # 9068.60 [S III]    (750 km/s)
+      [9057.3, 9080.0],  # 9068.60 [S III]    (750 km/s)
+
+      [4740.5, 4759.5],  # 4750.00 Nominal start  (3*sigma_star ~ 600 km/s)
+      [9331.3, 9368.7],  # 9350.00 Nominal end    (3*sigma_star ~ 600 km/s)
+
+      [7553.0, 7575.0],  # Noisy region
+      [7587.0, 7620.0]]  # Noisy region
 output:
   output_root: ../data_products/polynomial_single/xsl/multiplicative_polynomial
   to_save:

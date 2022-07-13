@@ -10,9 +10,11 @@ from scipy.constants import physical_constants
 
 C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
 
+#%% Masking emission-line
+
 linewidth = 750 # km/s
 
-wave_list = [     # air
+emission_list = [     # air
     4861.333, 	# Hβ
     4958.911, 	# [O III]
     5006.843, 	# [O III]
@@ -46,15 +48,63 @@ name_list = [
     '[S III]',
 ]
 
-wave_list = np.asarray(wave_list)
+emission_list = np.asarray(emission_list)
 
-lower_bound = wave_list / np.e**((linewidth*0.5) / C)
-upper_bound = wave_list * np.e**((linewidth*0.5) / C)
+lower_bound = emission_list / np.e**((linewidth*0.5) / C)
+upper_bound = emission_list * np.e**((linewidth*0.5) / C)
 
-# line_bound = np.column_stack([lower_bound, upper_bound])
 np.round(lower_bound, 1, out=lower_bound)
 np.round(upper_bound, 1, out=upper_bound)
 
 
-for i in range(wave_list.size):
-   print(f'[{lower_bound[i]}, {upper_bound[i]}],  # {wave_list[i]:.2f} {name_list[i]:10} ({linewidth} km/s)')
+for i in range(emission_list.size):
+   print(f'[{lower_bound[i]}, {upper_bound[i]}],  # {emission_list[i]:.2f} {name_list[i]:10} ({linewidth} km/s)')
+print('')   
+
+#%% Masking edges
+
+sigma_star = 200 # km/s
+z = 0.004951
+
+spectral_edge = [
+    4750,
+    9350,
+]
+
+name_list = [
+    'Nominal start',
+    'Nominal end',
+]
+
+spectral_edge = np.asarray(spectral_edge)
+
+spectral_edge_rest = spectral_edge / (1+z)
+
+lower_bound = spectral_edge / np.e**((3*sigma_star) / C)
+upper_bound = spectral_edge * np.e**((3*sigma_star) / C)
+
+np.round(lower_bound, 1, out=lower_bound)
+np.round(upper_bound, 1, out=upper_bound)
+
+
+for i in range(spectral_edge.size):
+   print(f'[{lower_bound[i]}, {upper_bound[i]}],  # {spectral_edge[i]:.2f} {name_list[i]:14} (3*sigma_star ~ {3*sigma_star} km/s)')
+print('')   
+
+#%% Ansatz
+
+ansatz_region = [
+    [7553.0, 7575.0],
+    [7587.0, 7620.0],
+]
+
+name_list = [
+    'Noisy region',
+    'Noisy region',
+]
+
+ansatz_region = np.asarray(ansatz_region)
+
+for i in range(len(ansatz_region)):
+   print(f'[{ansatz_region[i, 0]}, {ansatz_region[i, 1]}],  # {name_list[i]:10}')
+print('')   

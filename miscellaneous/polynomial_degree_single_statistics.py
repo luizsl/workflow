@@ -168,30 +168,59 @@ if __name__ == '__main__':
     data_bestfit = bestfit_mlt_emiles
     data_galaxy =  galaxy_mlt_emiles
     
-    fig, ax = plt.subplots(figsize=(12,4))
+    fig, ax = plt.subplots(figsize=(12,5))
     wave = np.asarray(metadata['obs']['wave_obs'])
-    c_seq = plt.get_cmap('rainbow', 21)
+    c_seq = plt.get_cmap('winter', 21)
     # c_seq = sns.color_palette(sns.cubehelix_palette(start=2, rot=1))
     # c_seq = plt.matplotlib.colors.ListedColormap(c_seq)
     n_spec = data_bestfit.shape[1]
-    for i in range(10,11):
+    
+    mask = np.full_like(wave, fill_value=True, dtype=bool)
+    mask[goodpixels] = False
+    
+    for i in range(0,21,3):
         residual = data_galaxy[:, i] - data_bestfit[:, i]
-        plt.step(wave, residual, alpha=1, where='mid')
-        plt.axhline(np.nanmedian(residual), alpha=0.5, color='k', lw=0.5)
+        # residual = np.ma.masked_where(mask, residual)
+        plt.step(wave, 0.05*i+residual, alpha=0.1, where='mid', color='gray')
+        plt.step(wave, 0.05*i+np.ma.masked_where(mask, residual),
+                  alpha=0.8, where='mid', color=c_seq(i))
+        plt.axhline(0.05*i+np.nanmedian(residual), alpha=0.5, color='k', lw=0.5)
         plt.step(wave, data_galaxy[:, i], alpha=1, where='mid')
-        plt.step(wave, data_bestfit[:, i], alpha=1, where='mid')
+        # plt.step(wave, data_bestfit[:, i], alpha=1, where='mid')
         
     ax.set_xlabel(r'Wavelength [$\AA$]')
-    ax.set_ylabel(r'Flux density [a.u.]')
+    ax.set_ylabel(r'Flux density [a. u.]')
     # ax.set_title('Additive Legendre polynomial')
     
     import spectcube as sc
     bound = sc.util._build_edges(wave, 'ln')
     
+    def check_inside(wave, interval:list):
+        for bound in fixed_mask:
+            if (wave > bound[0]) & (wave < bound[1]):
+                return True
+        return False
+
     for i in range(wave.size):
-        if i not in goodpixels:
+        if check_inside(wave[i], fixed_mask):
             lw = bound[i]
             up = bound[i+1]
-            ax.axvspan(lw, up, color='lightgray')
+            ax.axvspan(lw, up, color='lightgray', alpha=0.8, lw=0) 
+        elif i not in goodpixels:
+            lw = bound[i]
+            up = bound[i+1]
+            ax.axvspan(lw, up, color='darkseagreen', alpha=0.8, lw=0)
             
     plt.tight_layout()
+    
+
+    #%%  Distribution
+    
+    size = np.arange(0,21,1)
+    fig, ax = plt.subplots(len(size), sharex=True, figsize=(5, 9))
+    for i, value in enumerate(size):
+        residual = data_galaxy[:, value] - data_bestfit[:, value]
+        ax[i].hist(residual,alpha=0.8, bins=1000)
+        # ax[i].set_xlim((-0.1,0.1))
+    plt.xlim((-0.05,0.05))
+    # plt.tight_layout()
