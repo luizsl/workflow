@@ -18,6 +18,7 @@ exploration/run_ppxf/ppxf_test.py
 exploration/run_ppxf/*.fits
 exploration/test_conf/
 exploration/run_ppxf/test_voronoi.py
+exploration/run_ppxf/voronoi_2d_binning.py
 
 miscellaneous/.ipynb_checkpoints
 miscellaneous/*.ipynb

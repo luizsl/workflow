@@ -80,8 +80,8 @@ spectral_edge = np.asarray(spectral_edge)
 
 spectral_edge_rest = spectral_edge / (1+z)
 
-lower_bound = spectral_edge / np.e**((3*sigma_star) / C)
-upper_bound = spectral_edge * np.e**((3*sigma_star) / C)
+lower_bound = spectral_edge_rest / np.e**((3*sigma_star) / C)
+upper_bound = spectral_edge_rest * np.e**((3*sigma_star) / C)
 
 np.round(lower_bound, 1, out=lower_bound)
 np.round(upper_bound, 1, out=upper_bound)

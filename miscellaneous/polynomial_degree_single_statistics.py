@@ -12,6 +12,7 @@ import json
 
 import numpy as np
 import seaborn as sns
+import spectcube as sc
 import matplotlib.pyplot as plt
 from astropy.io import fits
 
@@ -53,6 +54,12 @@ def build_spectra_array(prop=None, order_range=None, directory=None, lib=None):
     # Convert to numpy arrays for sake of simplicity
     out = np.asarray(out).T
     return out
+
+def check_inside(wave, interval:list):
+    for bound in fixed_mask:
+        if (wave > bound[0]) & (wave < bound[1]):
+            return True
+    return False
 
 if __name__ == '__main__':
     degree_range = np.arange(-1, 21, 1)
@@ -168,7 +175,7 @@ if __name__ == '__main__':
     data_bestfit = bestfit_mlt_emiles
     data_galaxy =  galaxy_mlt_emiles
     
-    fig, ax = plt.subplots(figsize=(12,5))
+    
     wave = np.asarray(metadata['obs']['wave_obs'])
     c_seq = plt.get_cmap('winter', 21)
     # c_seq = sns.color_palette(sns.cubehelix_palette(start=2, rot=1))
@@ -178,40 +185,51 @@ if __name__ == '__main__':
     mask = np.full_like(wave, fill_value=True, dtype=bool)
     mask[goodpixels] = False
     
-    for i in range(0,21,3):
-        residual = data_galaxy[:, i] - data_bestfit[:, i]
-        # residual = np.ma.masked_where(mask, residual)
-        plt.step(wave, 0.05*i+residual, alpha=0.1, where='mid', color='gray')
-        plt.step(wave, 0.05*i+np.ma.masked_where(mask, residual),
-                  alpha=0.8, where='mid', color=c_seq(i))
-        plt.axhline(0.05*i+np.nanmedian(residual), alpha=0.5, color='k', lw=0.5)
-        plt.step(wave, data_galaxy[:, i], alpha=1, where='mid')
-        # plt.step(wave, data_bestfit[:, i], alpha=1, where='mid')
+    panels = np.arange(0,21,3)
+    
+    plt.style.use('../src/fig_conf.mplstyle')
+    fig, ax = plt.subplots(panels.size, figsize=(12,5), constrained_layout=True,
+                           sharex=True, sharey=False)
+    
+    for i, p in enumerate(panels):
+        residual = data_galaxy[:, i] / data_bestfit[:, i]
+
+        # plt.step(wave, 0.05*i+residual, alpha=0.5, where='mid', color='gray')
         
-    ax.set_xlabel(r'Wavelength [$\AA$]')
-    ax.set_ylabel(r'Flux density [a. u.]')
+        # residual
+        # ax[i].step(wave, 0.05*i*0+np.ma.masked_where(mask, residual),
+        #           alpha=0.8, where='mid', color=c_seq(i))
+        
+        # scatter
+        ax[i].scatter(wave, 0.05*i*0+np.ma.masked_where(mask, residual),
+                      alpha=0.5, color=c_seq(0), s=1, marker='.')
+        
+        # median line
+        ax[i].axhline(0.05*i*0+np.nanmedian(residual), alpha=0.5, color='k', lw=0.5)
+    
+        bound = sc.util._build_edges(wave, 'ln')
+        
+        for j in range(wave.size):
+            if check_inside(wave[j], fixed_mask):
+                lw = bound[j]
+                up = bound[j+1]
+                ax[i].axvspan(lw, up, color='lightgray', alpha=0.8, lw=0) 
+            elif j not in goodpixels:
+                lw = bound[j]
+                up = bound[j+1]
+                ax[i].axvspan(lw, up, color='darkseagreen', alpha=0.8, lw=0)
+                
+        ax[i].set_ylim(0.9, 1.15)
+        
+    fig.supxlabel(r'Wavelength [\AA]')
+    fig.supylabel(r'Residual')
+    fig.set_constrained_layout_pads(h_pad=0.01, w_pad=0.05)
+    
+    # ax.set_xlabel(r'Wavelength [$\AA$]')
+    # ax.set_ylabel(r'Residual [a. u.]')
     # ax.set_title('Additive Legendre polynomial')
     
-    import spectcube as sc
-    bound = sc.util._build_edges(wave, 'ln')
-    
-    def check_inside(wave, interval:list):
-        for bound in fixed_mask:
-            if (wave > bound[0]) & (wave < bound[1]):
-                return True
-        return False
-
-    for i in range(wave.size):
-        if check_inside(wave[i], fixed_mask):
-            lw = bound[i]
-            up = bound[i+1]
-            ax.axvspan(lw, up, color='lightgray', alpha=0.8, lw=0) 
-        elif i not in goodpixels:
-            lw = bound[i]
-            up = bound[i+1]
-            ax.axvspan(lw, up, color='darkseagreen', alpha=0.8, lw=0)
-            
-    plt.tight_layout()
+    # plt.tight_layout(h_pad=0.2, pad=1.1)
     
 
     #%%  Distribution
