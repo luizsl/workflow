@@ -206,7 +206,9 @@ if __name__ == '__main__':
         
         # median line
         ax[i].axhline(0.05*i*0+np.nanmedian(residual), alpha=0.5, color='k', lw=0.5)
-    
+        
+        ax[i].set_ylabel(f'$p={p}$')
+        
         bound = sc.util._build_edges(wave, 'ln')
         
         for j in range(wave.size):
@@ -220,6 +222,7 @@ if __name__ == '__main__':
                 ax[i].axvspan(lw, up, color='darkseagreen', alpha=0.8, lw=0)
                 
         ax[i].set_ylim(0.9, 1.15)
+        ax[i].set_xlim(4680, 9350)
         
     fig.supxlabel(r'Wavelength [\AA]')
     fig.supylabel(r'Residual')
