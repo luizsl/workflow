@@ -39,7 +39,7 @@ observation:
       [9057.3, 9080.0],  # 9068.60 [S III]    (750 km/s)
 
       [4717.1, 4736.1],  # 4750.00 Nominal start  (3*sigma_star ~ 600 km/s)
-      [9285.3, 9322.6],  # 9350.00 Nominal end    (3*sigma_star ~ 600 km/s)
+      [7294.5, 9322.6],  # 9350.00 Nominal end    (3*sigma_star ~ 600 km/s)
 
       [7553.0, 7575.0],  # Noisy region
       [7587.0, 7620.0]]  # Noisy region
