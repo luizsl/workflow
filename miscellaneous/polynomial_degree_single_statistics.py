@@ -53,8 +53,10 @@ def check_inside(wave, fixed_mask:list):
             return True
     return False
 
-def residual_and_degree(bestfit, galaxy, goodpixels, degree, degree_plot, metadata,
-                        spectral_limits=[4736.1, 9285.3]):
+def residual_and_degree(bestfit, galaxy, goodpixels, degree, degree_plot,
+                        metadata, spectral_limits=[4736.1, 9285.3], title=None,
+                        save_title=None):
+
     assert galaxy.shape[1] == degree.shape[0]
 
     wave = np.asarray(metadata['obs']['wave_obs'])
@@ -71,7 +73,7 @@ def residual_and_degree(bestfit, galaxy, goodpixels, degree, degree_plot, metada
     plt.style.use('../src/fig_conf.mplstyle')
     fig = plt.figure(figsize=(11,6),)
     gs = fig.add_gridspec(nrows=degree_plot.size, ncols=2,
-                          left=0.07, right=0.99,
+                          left=0.08, right=0.99,
                           top=0.95, bottom=0.1,
                           hspace=0.1, wspace=0,
                           width_ratios = [30,1],
@@ -79,20 +81,26 @@ def residual_and_degree(bestfit, galaxy, goodpixels, degree, degree_plot, metada
     ax = np.full((degree_plot.size, 2), fill_value=None, dtype=object)
     for i in range(degree_plot.size) :
         ax[i, 0] = fig.add_subplot(gs[i, 0], sharex=ax[0,0], sharey=ax[0,0])
-        ax[i, 1] = fig.add_subplot(gs[i, 1])
+        ax[i, 1] = fig.add_subplot(gs[i, 1], sharey=ax[0,0])
 
     # Plot
     i = 0
     for k, p in enumerate(degree):
         if p in degree_plot:
             residual = galaxy[:, k] / bestfit[:, k]
+            # print(p, np.nanmax(np.ma.masked_where(mask, residual)).round(3) , (np.nanmin(np.ma.masked_where(mask, residual))).round(3))
 
             # scatter
             ax[i, 0].scatter(wave, np.ma.masked_where(mask, residual),
                              alpha=1, color='navy', s=1, marker='.')
+
             # shaded line
             ax[i, 0].axhline(1, alpha=0.5, color='k', lw=0.5)
-            ax[i, 0].axhspan(1-.025, 1 + .025, color='lightcoral', alpha=0.3, lw=0)
+            ax[i, 0].axhspan(1 - 0.01, 1 + 0.01, color='lightcoral', alpha=0.5,
+                             lw=0, zorder=0)
+            # ax[i, 0].axhspan(1 - 0.03, 1 + 0.03, color='lightcoral', alpha=0.1,
+            #                   lw=0, zorder=0)
+
             ax[i, 0].set_ylabel(f'$p={p}$')
 
             # shade regions
@@ -107,36 +115,42 @@ def residual_and_degree(bestfit, galaxy, goodpixels, degree, degree_plot, metada
                     ax[i, 0].axvspan(lw, up, color='darkseagreen', alpha=1, lw=0)
 
             # shade bounds
-            ax[i, 0].axvspan(4680, spectral_limits[0], color='silver', alpha=1, lw=0)
-            ax[i, 0].axvspan(spectral_limits[1], 9350, color='silver', alpha=1, lw=0)
+            ax[i, 0].axvspan(4680, spectral_limits[0], color='silver',
+                             alpha=1, lw=0)
+            ax[i, 0].axvspan(spectral_limits[1], 9350, color='silver',
+                             alpha=1, lw=0)
 
-            ax[i, 0].set_ylim(0.93, 1.15)
+            # ax[i, 0].set_ylim(-0.055, 0.1)
+            ax[i, 0].set_ylim(1 - 0.06, 1 + 0.13)
             ax[i, 0].set_xlim(4680, 9350)
 
             #  Distribution
             sns.kdeplot(ax=ax[i, 1], y=residual, bw_method='silverman',
                         bw_adjust=.1,
-                        clip=(0.80,1.20),
+                        # clip=(-0.1,0.1),
+                        clip=(1 + 0.1 , 1 - 0.1),
                         fill=True, common_norm=True, alpha=.5, linewidth=0.5,
                         color='navy',
                     )
-            ax[i, 1].set_ylim((0.93,1.15))
+            # ax[i, 1].set_ylim((0.93,1.15))
 
             i = i + 1
 
         ax[-1,0].set_xlabel(r'Wavelength [\AA]', fontsize='large')
         ax[-1,1].set_xlabel(r'Density', fontsize='large')
 
-        fig.supylabel(r'Residual', x=0.01)
+        fig.supylabel(r'Residual [$\%$]', x=0.01)
 
     for i in range(ax.shape[0]-1):
-        ax[i,0].get_xaxis().set_visible(False)
-        ax[i,1].get_xaxis().set_visible(False)
+        ax[i,0].get_xaxis().set_ticklabels([])
+        ax[i,1].get_xaxis().set_ticklabels([])
         ax[i,1].set_xlabel('')
     for i in range(ax.shape[0]):
-        ax[i,1].get_yaxis().set_ticklabels([])
+        ax[i, 1].label_outer()
 
+    ax[0,0].set_title(title, loc='left')
 
+    plt.savefig(f'../plots/polynomial_degree/residual_{save_title}.pdf')
 
 if __name__ == '__main__':
     degree_range = np.arange(-1, 21, 1)
@@ -262,8 +276,46 @@ if __name__ == '__main__':
         directory='../data_products/polynomial_single/xsl/multiplicative_polynomial/NGC0613_full_stacked_spectrum/',
         lib='XSLAgeMh')
 
+    # Read polynomial
+    ## Additive
+    poly_add_miles = build_spectra_array(
+        prop='apoly',
+        order_range=degree_range,
+        directory='../data_products/polynomial_single/miles/additive_polynomial/NGC0613_full_stacked_spectrum/',
+        lib='MilesAgeMh')
 
-    # Residual against polynomial degree
+    poly_add_emiles = build_spectra_array(
+        prop='apoly',
+        order_range=degree_range,
+        directory='../data_products/polynomial_single/emiles/additive_polynomial/NGC0613_full_stacked_spectrum/',
+        lib='MilesAgeMh')
+
+    poly_add_xsl = build_spectra_array(
+        prop='apoly',
+        order_range=degree_range,
+        directory='../data_products/polynomial_single/xsl/additive_polynomial/NGC0613_full_stacked_spectrum/',
+        lib='XSLAgeMh')
+
+    ## Multiplicative
+    poly_mlt_miles = build_spectra_array(
+        prop='mpoly',
+        order_range=mdegree_range,
+        directory='../data_products/polynomial_single/miles/multiplicative_polynomial/NGC0613_full_stacked_spectrum/',
+        lib='MilesAgeMh')
+
+    poly_mlt_emiles = build_spectra_array(
+        prop='mpoly',
+        order_range=mdegree_range,
+        directory='../data_products/polynomial_single/emiles/multiplicative_polynomial/NGC0613_full_stacked_spectrum/',
+        lib='MilesAgeMh')
+
+    poly_mlt_xsl = build_spectra_array(
+        prop='mpoly',
+        order_range=mdegree_range,
+        directory='../data_products/polynomial_single/xsl/multiplicative_polynomial/NGC0613_full_stacked_spectrum/',
+        lib='XSLAgeMh')
+
+    #%% Residual against polynomial degree
 
     # Common polynomial degree list
     degree_plot = np.array([-1,4,6,8,10,12,16])
@@ -285,7 +337,9 @@ if __name__ == '__main__':
                         degree = degree_range,
                         degree_plot=degree_plot,
                         metadata=metadata_miles,
-                        spectral_limits=[4736.1, 7300])
+                        spectral_limits=[4736.1, 7300],
+                        title=r'\texttt{MILES} / Additive polynomial',
+                        save_title='miles_dditive_polynomial')
 
     ## Multiplicative
     residual_and_degree(bestfit=bestfit_mlt_miles,
@@ -294,7 +348,9 @@ if __name__ == '__main__':
                         degree = mdegree_range,
                         degree_plot=mdegree_plot,
                         metadata=metadata_miles,
-                        spectral_limits=[4736.1, 7300])
+                        spectral_limits=[4736.1, 7300],
+                        title=r'\texttt{MILES} / Multiplicative polynomial',
+                        save_title='miles_ultiplicative_polynomial')
 
     # E-MILES
 
@@ -311,7 +367,9 @@ if __name__ == '__main__':
                         goodpixels=goodpixels_add_emiles,
                         degree = degree_range,
                         degree_plot=degree_plot,
-                        metadata=metadata_miles)
+                        metadata=metadata_miles,
+                        title=r'\texttt{E-MILES} / Additive polynomial',
+                        save_title='emiles_additive_polynomial')
 
     ## Multiplicative
     residual_and_degree(bestfit=bestfit_mlt_emiles,
@@ -319,7 +377,9 @@ if __name__ == '__main__':
                         goodpixels=goodpixels_mlt_emiles,
                         degree = mdegree_range,
                         degree_plot=mdegree_plot,
-                        metadata=metadata_miles)
+                        metadata=metadata_miles,
+                        title=r'\texttt{E-MILES} / Multiplicative polynomial',
+                        save_title='emiles_multiplicative_polynomial')
 
     # XSL
 
@@ -336,7 +396,9 @@ if __name__ == '__main__':
                         goodpixels=goodpixels_add_xsl,
                         degree = degree_range,
                         degree_plot=degree_plot,
-                        metadata=metadata_miles)
+                        metadata=metadata_miles,
+                        title=r'\texttt{XSL} / Additive polynomial',
+                        save_title='xsl_additive_polynomial')
 
     ## Multiplicative
     residual_and_degree(bestfit=bestfit_mlt_xsl,
@@ -344,4 +406,6 @@ if __name__ == '__main__':
                         goodpixels=goodpixels_mlt_xsl,
                         degree = mdegree_range,
                         degree_plot=mdegree_plot,
-                        metadata=metadata_miles)
+                        metadata=metadata_miles,
+                        title=r'\texttt{XSL} / Multiplicative polynomial',
+                        save_title='xsl_multiplicative_polynomial')
