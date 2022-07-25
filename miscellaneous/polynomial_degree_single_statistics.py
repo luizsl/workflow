@@ -152,11 +152,106 @@ def residual_and_degree(bestfit, galaxy, goodpixels, degree, degree_plot,
 
     plt.savefig(f'../plots/polynomial_degree/residual_{save_title}.pdf')
 
+def bestfit_and_degree(bestfit, galaxy, degree, degree_plot,
+                        metadata, spectral_bounds=[4700, 9350], title=None,
+                        save_title=None, zoom=['hb', 'mg', 'cat']):
+    
+    wave = np.asarray(metadata['obs']['wave_obs'])
+
+    #color
+    color = plt.get_cmap('coolwarm', degree_plot.size)
+    
+    # Build figure frame
+    plt.style.use('../src/fig_conf.mplstyle')
+    fig = plt.figure(figsize=(13,4),)
+    gs = fig.add_gridspec(nrows=2, ncols=3,
+                          left=0.05, right=0.92,
+                          top=0.93, bottom=0.12,
+                          hspace=0.15, wspace=0.08,
+                          )
+    ax = np.full((2, 3), fill_value=None, dtype=object)
+    ax[0, 0] = fig.add_subplot(gs[0, :],)
+    ax[1, 0] = fig.add_subplot(gs[1, 0],)
+    ax[1, 1] = fig.add_subplot(gs[1, 1],)
+    ax[1, 2] = fig.add_subplot(gs[1, 2],)
+    
+    # Plot
+    i = 0
+    legend_custom = np.full(shape=degree_plot.shape, fill_value=object)
+    legend_name = np.full(shape=degree_plot.shape, fill_value=object)
+    
+    for k, p in enumerate(degree):
+        if p in degree_plot:
+            shift = .001
+            # main
+            flux_bestfit = bestfit[:, k]
+
+            # line plot
+            ax[0, 0].plot(wave,shift*(i+1)+flux_bestfit, alpha=1,
+                          color=color(i),
+                          )
+            legend_custom[i] = plt.Line2D([0], [0], color='w',
+                                          markerfacecolor=color(i), marker='o',
+                                          markersize=8)
+            legend_name[i] = f'$p={p}$'
+            ax[0, 0].set_xlim(spectral_bounds)
+            ax[0, 0].set_ylim(0.65, 1.12)
+                    
+            # Hb
+            # line plot
+            ax[1, 0].plot(wave,shift*(i+1)+flux_bestfit, alpha=1,
+                          color=color(i),
+                          )
+            ax[1, 0].set_xlim(4790, 4999)
+            ax[1, 0].set_ylim(0.65, 1.12)
+            ax[0, 0].axvspan(4790, 4999, color='silver', alpha=0.1,
+                             lw=0, zorder=0)
+            ax[1, 0].annotate('a)', xy=(0.03, 0.9), xycoords='axes fraction', weight="bold")
+            
+            # Mg
+            # line plot
+            ax[1, 1].plot(wave,shift*(i+1)+flux_bestfit, alpha=1,
+                          color=color(i),
+                          )
+            ax[1, 1].set_xlim(5060, 5299)
+            ax[1, 1].set_ylim(0.65, 1.12)
+            ax[0, 0].axvspan(5060, 5299, color='silver', alpha=0.1,
+                             lw=0, zorder=0)
+            ax[1, 1].annotate('b)', xy=(0.03, 0.9), xycoords='axes fraction', weight="bold")
+            
+            # Ca     
+            # line plot
+            ax[1, 2].plot(wave,shift*(i+1)+flux_bestfit, alpha=1,
+                          color=color(i),
+                          )
+            ax[1, 2].set_xlim(8310, 8755)
+            ax[1, 2].set_ylim(0.65, 1.12)
+            ax[0, 0].axvspan(8310, 8730, color='silver', alpha=0.1,
+                             lw=0, zorder=0)
+            ax[1, 2].annotate('c)', xy=(0.03, 0.9), xycoords='axes fraction', weight="bold")
+                              
+            i = i + 1
+
+    fig.supxlabel(r'Wavelength [\AA]')
+    fig.supylabel(r'Flux [a. u.]', x=0.01)
+    ax[0,0].set_title(title, loc='left')
+    
+    ax[0,0].legend(legend_custom, legend_name, loc='center left',
+                    bbox_to_anchor=(1., 0))
+    plt.savefig(f'../plots/polynomial_degree/bestfit_{save_title}.pdf')
+    
+    if not 'hb' in zoom:
+        fig.delaxes(ax[1, 0])
+    if not 'mg' in zoom:
+        fig.delaxes(ax[1, 1])
+    if not 'cat' in zoom:
+        fig.delaxes(ax[1, 2])
+        
 if __name__ == '__main__':
     degree_range = np.arange(-1, 21, 1)
     mdegree_range = np.arange(0, 21, 1)
 
-    # Read bestfit
+    #%% Read bestfit
 
     ## Additive
     bestfit_add_emiles = build_spectra_array(
@@ -409,3 +504,95 @@ if __name__ == '__main__':
                         metadata=metadata_miles,
                         title=r'\texttt{XSL} / Multiplicative polynomial',
                         save_title='xsl_multiplicative_polynomial')
+    
+    #%%  Plot bestfit for polynomial degree
+    
+    
+    # Common polynomial degree list
+    degree_plot = np.array([-1,4,6,8,10,12,16])
+    mdegree_plot = np.array([0,4,6,8,10,12,16])
+
+    # MILES
+    
+    # Commom metadata
+    metadata_path = ('../data_products/polynomial_single/miles/'
+                      'multiplicative_polynomial/NGC0613_full_stacked_spectrum/'
+                      'MilesAgeMh/ppxf/metadata.json')
+    with open(metadata_path) as f:
+        metadata_miles=json.load(f)
+    
+    ## Additive
+    bestfit_and_degree(bestfit=bestfit_add_miles,
+                        galaxy=galaxy_add_miles,
+                        degree = degree_range,
+                        degree_plot=degree_plot,
+                        metadata=metadata_miles,
+                        spectral_bounds=[4700.1, 7330],
+                        title=r'\texttt{MILES} / Additive polynomial',
+                        save_title='miles_dditive_polynomial',
+                        zoom=['hb', 'mg'])
+    
+    ## Multiplicative
+    bestfit_and_degree(bestfit=bestfit_mlt_miles,
+                        galaxy=galaxy_mlt_miles,
+                        degree = mdegree_range,
+                        degree_plot=mdegree_plot,
+                        metadata=metadata_miles,
+                        spectral_bounds=[4700, 7330],
+                        title=r'\texttt{MILES} / Multiplicative polynomial',
+                        save_title='miles_ultiplicative_polynomial',
+                        zoom=['hb', 'mg'])
+        
+    # E-MILES
+    
+    # Commom metadata
+    metadata_path = ('../data_products/polynomial_single/emiles/'
+                      'multiplicative_polynomial/NGC0613_full_stacked_spectrum/'
+                      'MilesAgeMh/ppxf/metadata.json')
+    with open(metadata_path) as f:
+        metadata_miles=json.load(f)
+    
+    ## Additive
+    bestfit_and_degree(bestfit=bestfit_add_emiles,
+                        galaxy=galaxy_add_emiles,
+                        degree = degree_range,
+                        degree_plot=degree_plot,
+                        metadata=metadata_miles,
+                        title=r'\texttt{E-MILES} / Additive polynomial',
+                        save_title='emiles_additive_polynomial',)
+    
+    ## Multiplicative
+    bestfit_and_degree(bestfit=bestfit_mlt_emiles,
+                        galaxy=galaxy_mlt_emiles,
+                        degree = mdegree_range,
+                        degree_plot=mdegree_plot,
+                        metadata=metadata_miles,
+                        title=r'\texttt{E-MILES} / Multiplicative polynomial',
+                        save_title='emiles_multiplicative_polynomial',)
+    
+    # XSL
+    
+    # Commom metadata
+    metadata_path = ('../data_products/polynomial_single/xsl/'
+                      'multiplicative_polynomial/NGC0613_full_stacked_spectrum/'
+                      'XSLAgeMh/ppxf/metadata.json')
+    with open(metadata_path) as f:
+        metadata_miles=json.load(f)
+    
+    ## Additive
+    bestfit_and_degree(bestfit=bestfit_add_xsl,
+                        galaxy=galaxy_add_xsl,
+                        degree = degree_range,
+                        degree_plot=degree_plot,
+                        metadata=metadata_miles,
+                        title=r'\texttt{XSL} / Additive polynomial',
+                        save_title='xsl_additive_polynomial',)
+    
+    ## Multiplicative
+    bestfit_and_degree(bestfit=bestfit_mlt_xsl,
+                        galaxy=galaxy_mlt_xsl,
+                        degree = mdegree_range,
+                        degree_plot=mdegree_plot,
+                        metadata=metadata_miles,
+                        title=r'\texttt{XSL} / Multiplicative polynomial',
+                        save_title='xsl_multiplicative_polynomial',)
