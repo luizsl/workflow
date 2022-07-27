@@ -74,7 +74,7 @@ ppxf_refit:
         sigma : 2.5
 
 output:
-    output_root : ../data_products/
+    output_root : ../data_products/regularization
     to_save : ['bestfit', 'chi2', 'error', 'reddening', 'sol',
         'weights']
     secondary : mean_log_age, mean_mh   

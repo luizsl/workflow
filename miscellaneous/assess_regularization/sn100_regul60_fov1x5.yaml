@@ -65,7 +65,7 @@ ppxf_fixed_kinematics:        # This execution is optional (the block can be com
     moments : 4
     degree : -1
     mdegree : 8
-    regul : 0                 # 1/Delta
+    regul : 60                # 1/Delta
     velscale_ratio : 2        # Must keep this parameter in additional iterations, with the same value
     fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
         
@@ -76,7 +76,7 @@ ppxf_refit:
 output:
     output_root : ../data_products/regularization
     to_save : ['bestfit', 'chi2', 'error', 'reddening', 'sol',
-        'weights', 'galaxy']
+        'weights']
     secondary : mean_log_age, mean_mh   
 
 vorbin:
