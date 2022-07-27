@@ -155,7 +155,6 @@ def residual_and_degree(bestfit, galaxy, goodpixels, degree, degree_plot,
 def bestfit_and_degree(bestfit, galaxy, degree, degree_plot,
                         metadata, spectral_bounds=[4700, 9350], title=None,
                         save_title=None, zoom=['hb', 'mg', 'cat']):
-    
     wave = np.asarray(metadata['obs']['wave_obs'])
 
     #color
@@ -180,26 +179,38 @@ def bestfit_and_degree(bestfit, galaxy, degree, degree_plot,
     legend_custom = np.full(shape=degree_plot.shape, fill_value=object)
     legend_name = np.full(shape=degree_plot.shape, fill_value=object)
     
+    # Plot galaxy spectrum
+    ax[0, 0].plot(wave, galaxy[:, 0], alpha=0.8, color='black', lw=1.2)
+    ax[1, 0].plot(wave, galaxy[:, 0], alpha=0.8, color='black', lw=1.2)
+    ax[1, 1].plot(wave, galaxy[:, 0], alpha=0.8, color='black', lw=1.2)
+    ax[1, 2].plot(wave, galaxy[:, 0], alpha=0.8, color='black', lw=1.2)
+    
+    legend_custom = np.append(legend_custom, plt.Line2D([0], [0], color='w',
+                                  markerfacecolor='black', marker='o',
+                                  markersize=10, alpha=0.8))
+    legend_name = np.append(legend_name, 'obs.')
+
+            
     for k, p in enumerate(degree):
         if p in degree_plot:
-            shift = .001
+            shift = .000
             # main
             flux_bestfit = bestfit[:, k]
 
             # line plot
             ax[0, 0].plot(wave,shift*(i+1)+flux_bestfit, alpha=1,
-                          color=color(i),
+                          color=color(i), lw=0.8,
                           )
-            legend_custom[i] = plt.Line2D([0], [0], color='w',
+            legend_custom[i] = plt.Line2D([0], [0], color='w', lw=0.8,
                                           markerfacecolor=color(i), marker='o',
                                           markersize=8)
             legend_name[i] = f'$p={p}$'
             ax[0, 0].set_xlim(spectral_bounds)
-            ax[0, 0].set_ylim(0.65, 1.12)
-                    
+            ax[0, 0].set_ylim(0.6, 1.15)
+            
             # Hb
             # line plot
-            ax[1, 0].plot(wave,shift*(i+1)+flux_bestfit, alpha=1,
+            ax[1, 0].plot(wave,shift*(i+1)+flux_bestfit, alpha=1, lw=0.8,
                           color=color(i),
                           )
             ax[1, 0].set_xlim(4790, 4999)
@@ -210,7 +221,7 @@ def bestfit_and_degree(bestfit, galaxy, degree, degree_plot,
             
             # Mg
             # line plot
-            ax[1, 1].plot(wave,shift*(i+1)+flux_bestfit, alpha=1,
+            ax[1, 1].plot(wave,shift*(i+1)+flux_bestfit, alpha=1, lw=0.8,
                           color=color(i),
                           )
             ax[1, 1].set_xlim(5060, 5299)
@@ -222,10 +233,10 @@ def bestfit_and_degree(bestfit, galaxy, degree, degree_plot,
             # Ca     
             # line plot
             ax[1, 2].plot(wave,shift*(i+1)+flux_bestfit, alpha=1,
-                          color=color(i),
+                          color=color(i), lw=0.8,
                           )
             ax[1, 2].set_xlim(8310, 8755)
-            ax[1, 2].set_ylim(0.65, 1.12)
+            ax[1, 2].set_ylim(0.6, 1.12)
             ax[0, 0].axvspan(8310, 8730, color='silver', alpha=0.1,
                              lw=0, zorder=0)
             ax[1, 2].annotate('c)', xy=(0.03, 0.9), xycoords='axes fraction', weight="bold")
@@ -246,7 +257,56 @@ def bestfit_and_degree(bestfit, galaxy, degree, degree_plot,
         fig.delaxes(ax[1, 1])
     if not 'cat' in zoom:
         fig.delaxes(ax[1, 2])
-        
+     
+def polyline_and_degree(polyline, galaxy, degree, degree_plot,
+                        metadata, spectral_bounds=[4700, 9350], title=None,
+                        save_title=None):
+    wave = np.asarray(metadata['obs']['wave_obs'])
+
+    #color
+    color = plt.get_cmap('coolwarm', degree_plot.size)
+    
+    # Build figure frame
+    plt.style.use('../src/fig_conf.mplstyle')
+    fig = plt.figure(figsize=(13,3),)
+    gs = fig.add_gridspec(nrows=1, ncols=1,
+                          left=0.05, right=0.92,
+                          top=0.93, bottom=0.15,
+                          hspace=0.15, wspace=0.08,
+                          )
+    ax = np.full((1, 1), fill_value=None, dtype=object)
+    ax[0, 0] = fig.add_subplot(gs[0, :],)
+    
+    # Plot
+    i = 0
+    legend_custom = np.full(shape=degree_plot.shape, fill_value=object)
+    legend_name = np.full(shape=degree_plot.shape, fill_value=object)
+            
+    for k, p in enumerate(degree):
+        if p in degree_plot:
+            shift = .000
+            # main
+            poly = polyline[k]
+
+            # line plot
+            ax[0, 0].plot(wave,shift*(i+1)+poly, alpha=1,
+                          color=color(i), lw=1,
+                          )
+            legend_custom[i] = plt.Line2D([0], [0], color='w', lw=0.8,
+                                          markerfacecolor=color(i), marker='o',
+                                          markersize=8)
+            legend_name[i] = f'$p={p}$'
+            ax[0, 0].set_xlim(spectral_bounds)
+            
+            i = i + 1
+
+    fig.supxlabel(r'Wavelength [\AA]')
+    fig.supylabel(r'Polynomial curve', x=0.01)
+    ax[0,0].set_title(title, loc='left')
+    
+    ax[0,0].legend(legend_custom, legend_name, loc='center left',
+                    bbox_to_anchor=(1., 0.5))
+    plt.savefig(f'../plots/polynomial_degree/polyline_{save_title}.pdf')        
 if __name__ == '__main__':
     degree_range = np.arange(-1, 21, 1)
     mdegree_range = np.arange(0, 21, 1)
@@ -434,7 +494,7 @@ if __name__ == '__main__':
                         metadata=metadata_miles,
                         spectral_limits=[4736.1, 7300],
                         title=r'\texttt{MILES} / Additive polynomial',
-                        save_title='miles_dditive_polynomial')
+                        save_title='miles_additive_polynomial')
 
     ## Multiplicative
     residual_and_degree(bestfit=bestfit_mlt_miles,
@@ -445,7 +505,7 @@ if __name__ == '__main__':
                         metadata=metadata_miles,
                         spectral_limits=[4736.1, 7300],
                         title=r'\texttt{MILES} / Multiplicative polynomial',
-                        save_title='miles_ultiplicative_polynomial')
+                        save_title='miles_multiplicative_polynomial')
 
     # E-MILES
 
@@ -507,7 +567,6 @@ if __name__ == '__main__':
     
     #%%  Plot bestfit for polynomial degree
     
-    
     # Common polynomial degree list
     degree_plot = np.array([-1,4,6,8,10,12,16])
     mdegree_plot = np.array([0,4,6,8,10,12,16])
@@ -529,7 +588,7 @@ if __name__ == '__main__':
                         metadata=metadata_miles,
                         spectral_bounds=[4700.1, 7330],
                         title=r'\texttt{MILES} / Additive polynomial',
-                        save_title='miles_dditive_polynomial',
+                        save_title='miles_additive_polynomial',
                         zoom=['hb', 'mg'])
     
     ## Multiplicative
@@ -540,7 +599,7 @@ if __name__ == '__main__':
                         metadata=metadata_miles,
                         spectral_bounds=[4700, 7330],
                         title=r'\texttt{MILES} / Multiplicative polynomial',
-                        save_title='miles_ultiplicative_polynomial',
+                        save_title='miles_multiplicative_polynomial',
                         zoom=['hb', 'mg'])
         
     # E-MILES
@@ -590,6 +649,97 @@ if __name__ == '__main__':
     
     ## Multiplicative
     bestfit_and_degree(bestfit=bestfit_mlt_xsl,
+                        galaxy=galaxy_mlt_xsl,
+                        degree = mdegree_range,
+                        degree_plot=mdegree_plot,
+                        metadata=metadata_miles,
+                        title=r'\texttt{XSL} / Multiplicative polynomial',
+                        save_title='xsl_multiplicative_polynomial',)
+    
+    #%%  Plot polynomial for polynomial degree
+    
+    # Common polynomial degree list
+    degree_plot = np.array([4,6,8,10,12,16])
+    mdegree_plot = np.array([4,6,8,10,12,16])
+    
+    # MILES
+    
+    # Commom metadata
+    metadata_path = ('../data_products/polynomial_single/miles/'
+                      'multiplicative_polynomial/NGC0613_full_stacked_spectrum/'
+                      'MilesAgeMh/ppxf/metadata.json')
+    with open(metadata_path) as f:
+        metadata_miles=json.load(f)
+    
+    ## Additive
+    polyline_and_degree(polyline=poly_add_miles,
+                        galaxy=galaxy_add_miles,
+                        degree = degree_range,
+                        degree_plot=degree_plot,
+                        metadata=metadata_miles,
+                        spectral_bounds=[4700.1, 7330],
+                        title=r'\texttt{MILES} / Additive polynomial',
+                        save_title='miles_additive_polynomial',
+                        )
+    
+    ## Multiplicative
+    polyline_and_degree(polyline=poly_mlt_miles,
+                        galaxy=galaxy_mlt_miles,
+                        degree = mdegree_range,
+                        degree_plot=mdegree_plot,
+                        metadata=metadata_miles,
+                        spectral_bounds=[4700, 7330],
+                        title=r'\texttt{MILES} / Multiplicative polynomial',
+                        save_title='miles_multiplicative_polynomial',
+                        )
+        
+    # E-MILES
+    
+    # Commom metadata
+    metadata_path = ('../data_products/polynomial_single/emiles/'
+                      'multiplicative_polynomial/NGC0613_full_stacked_spectrum/'
+                      'MilesAgeMh/ppxf/metadata.json')
+    with open(metadata_path) as f:
+        metadata_miles=json.load(f)
+    
+    ## Additive
+    polyline_and_degree(polyline=poly_add_emiles,
+                        galaxy=galaxy_add_emiles,
+                        degree = degree_range,
+                        degree_plot=degree_plot,
+                        metadata=metadata_miles,
+                        title=r'\texttt{E-MILES} / Additive polynomial',
+                        save_title='emiles_additive_polynomial',)
+    
+    ## Multiplicative
+    polyline_and_degree(polyline=poly_mlt_emiles,
+                        galaxy=galaxy_mlt_emiles,
+                        degree = mdegree_range,
+                        degree_plot=mdegree_plot,
+                        metadata=metadata_miles,
+                        title=r'\texttt{E-MILES} / Multiplicative polynomial',
+                        save_title='emiles_multiplicative_polynomial',)
+    
+    # XSL
+    
+    # Commom metadata
+    metadata_path = ('../data_products/polynomial_single/xsl/'
+                      'multiplicative_polynomial/NGC0613_full_stacked_spectrum/'
+                      'XSLAgeMh/ppxf/metadata.json')
+    with open(metadata_path) as f:
+        metadata_miles=json.load(f)
+    
+    ## Additive
+    polyline_and_degree(polyline=poly_add_xsl,
+                        galaxy=galaxy_add_xsl,
+                        degree = degree_range,
+                        degree_plot=degree_plot,
+                        metadata=metadata_miles,
+                        title=r'\texttt{XSL} / Additive polynomial',
+                        save_title='xsl_additive_polynomial',)
+    
+    ## Multiplicative
+    polyline_and_degree(polyline=poly_mlt_xsl,
                         galaxy=galaxy_mlt_xsl,
                         degree = mdegree_range,
                         degree_plot=mdegree_plot,
