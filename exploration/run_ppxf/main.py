@@ -96,7 +96,7 @@ class Main:
         if 'mean_mh' in self.meta['output']['secondary']:
             print('--mean M/H')
             mh = secondary.mh
-#%%
+
 if __name__ == '__main__':
     conf = sys.argv[1]
     # conf = 'test.yaml'
@@ -105,13 +105,13 @@ if __name__ == '__main__':
     
 #%% Debug
 
-    import matplotlib.pyplot as plt
-    
-    conf = 'test.yaml'
-    
-    ppxf_prep = Main(conf)
-    ppxf_prep.read_config()
-    ppxf_prep.run_all()
+	# import matplotlib.pyplot as plt
+	#    
+	# conf = 'test.yaml'
+	#    
+	# ppxf_prep = Main(conf)
+	# ppxf_prep.read_config()
+	# ppxf_prep.run_all()
 
     
     # fig, ax = plt.subplots(1, 3)
