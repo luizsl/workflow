@@ -7,6 +7,7 @@ Created on Sat Sep 25 12:54:40 2021
 """
 import os
 import tempfile
+import concurrent.futures
 from dataclasses import dataclass
 from datetime import datetime
 from time import perf_counter as clock
@@ -28,17 +29,20 @@ class ExecutePpxf:
 
     def __init__(self, data=None, metadata=None):
         assert data is not None
-        print('pPXF execution started')
+        self.data = data
+    
+        # NOTE: Adding an exception to deal with a single spectrum
+        # not neat but should work. <>
+        if self.data.obs.flux_grid.ndim==1:
+            self.data.obs.flux_grid = np.expand_dims(
+                self.data.obs.flux_grid, axis=1)
+            self.data.obs.flux_grid_unc = np.expand_dims(
+                self.data.obs.flux_grid_unc, axis=1)
+            
+        self.storage = False
+        self.size = self.data.obs.flux_grid[0, ...].size
         self.main_meta = metadata
-        self.run_all_data(data)
-        print('pPXF execution completed')
-
-    def run_all_data(self, data=None, par=[]):
-        assert data is not None
-
-        # keep start time
-        self.meta['ppxf_start_time'] = datetime.now().strftime("%d/%m/%Y %H:%M")
-
+        
         par = ['gas_reddening', 'reddening', 'status', 'gas_flux', 'gas_any', 
                'gas_flux_error', 'gas_bestfit', 'phot_npix', 'gas_any_zero', 
                'weights', 'bestfit','mpoly', 'gas_mpoly', 'dof', 'chi2', 
@@ -46,74 +50,76 @@ class ExecutePpxf:
         
         # NOTE: Saving output unforeseen
         new_par = self.main_meta['output']['to_save']
-        par = list(set(par) | set(new_par))
- 
-        storage = False
-        size = data.obs.flux_grid[0, ...].size
+        self.par = list(set(par) | set(new_par))
         
-        if data.obs.flux_grid.ndim==1:
-            # NOBUG: Adding an exception to deal with a single spectrum
-            # not neat but shoul work. <>
-            data.obs.flux_grid = np.expand_dims(data.obs.flux_grid, axis=1)
-            data.obs.flux_grid_unc = np.expand_dims(data.obs.flux_grid_unc, axis=1)
-            
-        for i in range(size):
-            print(70*'*', end='\n\n')
-            print(f'{i+1}/{size}', end='\n\n')
-            
-            flux_obs_slice = data.obs.flux_grid[:, i]
-            flux_obs_unc_slice = data.obs.flux_grid_unc[:, i]
-            if np.any(np.isnan(flux_obs_unc_slice) | np.isnan(flux_obs_slice)):
-                print('nan')
-            else:
-                guess_goodpixels = data.obs.meta['guess_goodpixels']
-                fixed_goodpixels = data.obs.meta['fixed_goodpixels']
-                
-                pp = self.execute_ppxf(obs=data.obs, model=data.model,index=i,
-                                       goodpixels=guess_goodpixels,
-                                       fixed_goodpixels = fixed_goodpixels,
-                                       pp=None, conf=self.main_meta['ppxf'])
-                
-                if 'ppxf_dynamical_mask' in self.main_meta:
-                    print('\n*************')
-                    print('Calling refit with new spectral mask', end='\n\n')
-                    # Determine actual goodpixels
-                    goodpixels = self.clip_outliers(
-                        pp.galaxy, pp.bestfit, pp.goodpixels, fixed_goodpixels,
-                        **self.main_meta['ppxf_refit']['mask'])
-                    
-                    pp = self.execute_ppxf(
-                        obs=data.obs, model=data.model,index=i,
-                        goodpixels=goodpixels,
-                        fixed_goodpixels=fixed_goodpixels,
-                        pp=pp, conf=self.main_meta['ppxf_dynamical_mask'])
-                    
-                if 'ppxf_fixed_kinematics' in self.main_meta:
-                    print('\n*************')
-                    print('Calling refit with fixed kinematics', end='\n\n')
-                    pp = self.execute_ppxf(
-                        obs=data.obs, model=data.model,index=i,
-                        goodpixels=goodpixels,
-                        fixed_goodpixels=fixed_goodpixels,
-                        pp=pp, conf=self.main_meta['ppxf_fixed_kinematics'])
-                    
-                if not storage:
-                    n_obj = data.obs.flux_grid.shape[-1]
-                    self.build_output_storage(par=par, out_obj=pp, n_obj=n_obj)
-                    storage = True
-                self.store_output(par=par, out_obj=pp, index=i)
-            print(70*'*', end='\n\n')
-            
+        self.run_all_data()
+
+    def run_all_data(self):
+        print('pPXF execution started')
+        
+        # keep start time
+        self.meta['ppxf_start_time'] = datetime.now().strftime("%d/%m/%Y %H:%M")
+    
+        for i in range(self.size):
+            pp = self.worker(i)
+            if pp is not None:
+                if not self.storage:
+                    self.build_output_storage(out_obj=pp)
+                self.store_output(out_obj=pp, index=i)
+        
         # keep end time
         self.meta['ppxf_end_time'] = datetime.now().strftime("%d/%m/%Y %H:%M")
-
+        
+        print('pPXF execution completed')
+        
+    def worker(self, i):
+        print(70*'*', end='\n\n')
+        print(f'{i+1}/{self.size}', end='\n\n')
+        
+        flux_obs_slice = self.data.obs.flux_grid[:, i]
+        flux_obs_unc_slice = self.data.obs.flux_grid_unc[:, i]
+        if np.any(np.isnan(flux_obs_unc_slice) | np.isnan(flux_obs_slice)):
+            return None
+        
+        pp = None
+        guess_goodpixels = self.data.obs.meta['guess_goodpixels']
+        fixed_goodpixels = self.data.obs.meta['fixed_goodpixels']
+        
+        pp = self.execute_ppxf(obs=self.data.obs, model=self.data.model,
+                               index=i, goodpixels=guess_goodpixels,
+                               fixed_goodpixels = fixed_goodpixels,
+                               pp=pp, conf=self.main_meta['ppxf'])
+        
+        if 'ppxf_dynamical_mask' in self.main_meta:
+            print('*************', end='\n\n')
+            print('Calling refit with new spectral mask', end='\n\n')
+            # Determine actual goodpixels
+            goodpixels = self.clip_outliers(
+                pp.galaxy, pp.bestfit, pp.goodpixels, fixed_goodpixels,
+                **self.main_meta['ppxf_refit']['mask'])
+            
+            pp = self.execute_ppxf(
+                obs=self.data.obs, model=self.data.model,
+                index=i, goodpixels=goodpixels,
+                fixed_goodpixels=fixed_goodpixels,
+                pp=pp, conf=self.main_meta['ppxf_dynamical_mask'])
+            
+        if 'ppxf_fixed_kinematics' in self.main_meta:
+            print('*************', end='\n\n')
+            print('Calling refit with fixed kinematics', end='\n\n')
+            pp = self.execute_ppxf(
+                obs=self.data.obs, model=self.data.model,
+                index=i, goodpixels=goodpixels,
+                fixed_goodpixels=fixed_goodpixels,
+                pp=pp, conf=self.main_meta['ppxf_fixed_kinematics'])
+            print(70*'*', end='\n\n')
+        return pp
+        
     def execute_ppxf(self, obs=None, model=None, index=None, 
                      goodpixels=None, fixed_goodpixels=None,
                      pp=None, conf=None):
         assert conf is not None
-        assert obs is not None
-        assert model is not None
-
+        
         t = clock()
 
         galaxy = obs.flux_grid[:, index]
@@ -136,7 +142,7 @@ class ExecutePpxf:
             fixed_goodpixels = np.arange(galaxy.size)    
 
         goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
-
+        
         pp = ppxf(
             template, galaxy, noise, velscale, start, lam=obs.meta['wave_obs'],
             lam_temp=model.meta['wave_model'], reg_dim=model.meta['reg_dim'],
@@ -168,13 +174,14 @@ class ExecutePpxf:
                 break
         return goodpixels
 
-    def build_output_storage(self, par=[], out_obj=None, n_obj=None):
+    def build_output_storage(self, out_obj=None):
         assert 'ppxf' not in dir(self)
-        assert n_obj and out_obj is not None
-
+        assert out_obj is not None
+        
         self.ppxf = PpxfResults()
-
-        for _p in par:
+        n_obj = self.data.obs.flux_grid.shape[-1]
+        
+        for _p in self.par:
             assert _p in dir(out_obj), f"ppxf doesn't output {_p}"
             _obj = out_obj.__getattribute__(_p)
 
@@ -183,8 +190,8 @@ class ExecutePpxf:
             elif isinstance(_obj, (float, int)):
                 _shape = (n_obj,)
             elif _p == 'goodpixels':
-            # goodpixels array has a variable size. It's trick to deal with 
-            # this kind of object so I'm implementing a special case
+            # NOTE: goodpixels array has a variable size. It's trick to deal with 
+            # this kind of object so I'm implementing a special case. <>
                 _aux = out_obj.__getattribute__('galaxy')
                 _shape = _aux.shape + (n_obj,)
             else:
@@ -195,12 +202,14 @@ class ExecutePpxf:
                 arr.fill(np.nan)
                 arr.flush()
                 self.ppxf.__setattr__(_p, arr)
-
-    def store_output(self, par=[], out_obj=None, index=None):
+                
+        self.storage = True
+        
+    def store_output(self, out_obj=None, index=None):
         assert 'ppxf' in dir(self), 'execute self.build_output_storage'
         assert out_obj and index is not None
 
-        for _p in par:
+        for _p in self.par:
             _obj = out_obj.__getattribute__(_p)
             try:
                 self.ppxf.__getattribute__(_p)[..., index] = _obj
@@ -210,10 +219,10 @@ class ExecutePpxf:
                 self.ppxf.__getattribute__(_p)[..., :shape, index] = _obj
                 self.ppxf.__getattribute__(_p).flush()
                 
-    def reconstruct_map(self, data=None, par=[], save=True):
+    def reconstruct_map(self, data=None, parameter=[], save=True):
         assert data is not None
 
-        for _p in par:
+        for _p in parameter:
             if self.main_meta['vorbin']['apply']:            
                 if self.ppxf.__getattribute__(_p).ndim < 2:
                     map_shape = data.obs.meta['bin_num'].shape
@@ -261,7 +270,6 @@ class ExecutePpxf:
         full_path = os.path.join(directory, f'{name}.fits')
         hdul.writeto(full_path, overwrite=overwrite)
         
-        
 if __name__ == '__main__':
     t = ExecutePpxf(ppxf_prep.data, ppxf_prep.data.main_meta)
-    t.reconstruct_map(ppxf_prep.data, par = ['bestfit' , 'chi2'])
+    t.reconstruct_map(ppxf_prep.data, parameter = ['bestfit' , 'chi2'])
