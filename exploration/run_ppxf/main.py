@@ -31,7 +31,7 @@ class Main:
         self.data = DataPreprocessing(self.meta)
         self.ppxf_out = ExecutePpxf(self.data, self.meta)
         self.ppxf_out.reconstruct_map(
-            self.data, par=self.meta['output']['to_save'])
+            self.data, parameter=self.meta['output']['to_save'])
 
         self.meta_to_json()
 
@@ -105,13 +105,13 @@ if __name__ == '__main__':
     
 # #%% Debug
 
-    # import matplotlib.pyplot as plt
+    import matplotlib.pyplot as plt
     
-    # conf = 'test.yaml'
+    conf = 'test.yaml'
     
-    # ppxf_prep = Main(conf)
-    # ppxf_prep.read_config()
-    # ppxf_prep.run_all()
+    ppxf_prep = Main(conf)
+    ppxf_prep.read_config()
+    ppxf_prep.run_all()
 
     
     # fig, ax = plt.subplots(1, 3)
