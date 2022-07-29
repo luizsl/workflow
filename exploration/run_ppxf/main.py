@@ -104,11 +104,11 @@ if __name__ == '__main__':
 
 # %% Debug
 
-    # 	conf = 'test.yaml'
-    #
-    # 	ppxf_prep = Main(conf)
-    # 	ppxf_prep.read_config()
-    # 	ppxf_prep.run_all()
+   	# conf = 'test.yaml'
+  
+   	# ppxf_prep = Main(conf)
+   	# ppxf_prep.read_config()
+   	# ppxf_prep.run_all()
 
     # import matplotlib.pyplot as plt
 
@@ -118,4 +118,3 @@ if __name__ == '__main__':
 
     # w = ppxf_prep.ppxf_out.ppxf.weights
     # ax[2].imshow(w[:, 0].reshape(24,6))
-

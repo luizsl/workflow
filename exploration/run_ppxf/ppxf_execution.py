@@ -5,8 +5,11 @@ Created on Sat Sep 25 12:54:40 2021
 
 @author: Luiz
 """
+import sys
+import io
 import os
 import tempfile
+import logging
 # import concurrent.futures
 from dataclasses import dataclass
 from datetime import datetime
@@ -30,8 +33,13 @@ class ExecutePpxf:
 
     def __init__(self, data=None, metadata=None):
         assert data is not None
+        assert metadata is not None
+        
         self.data = data
-
+        self.main_meta = metadata
+        
+        self.start_logging()
+        
         # NOTE: Adding an exception to deal with a single spectrum
         # not neat but should work. <>
         if self.data.obs.flux_grid.ndim==1:
@@ -42,8 +50,7 @@ class ExecutePpxf:
 
         self.storage = False
         self.size = self.data.obs.flux_grid[0, ...].size
-        self.main_meta = metadata
-
+        
         par = ['gas_reddening', 'reddening', 'status', 'gas_flux', 'gas_any',
                'gas_flux_error', 'gas_bestfit', 'phot_npix', 'gas_any_zero',
                'weights', 'bestfit','mpoly', 'gas_mpoly', 'dof', 'chi2',
@@ -54,9 +61,41 @@ class ExecutePpxf:
         self.par = list(set(par) | set(new_par))
 
         self.run_all_data()
+        
+    def start_logging(self):
+        name_log_file = os.path.join(
+            self.main_meta['output_run_ppxf'],
+            'log_ppxf_execution.log')
+        
+        formatter = logging.Formatter('%(message)s')
+        loglevel = logging.INFO
+        
+        file_handler = logging.FileHandler(name_log_file )
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(loglevel)
+        
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(formatter)
+        stream_handler.setLevel(loglevel)
+        
+        memory_handler = logging.handlers.MemoryHandler(
+            capacity=1024*1000, target=stream_handler)
+        memory_handler.setFormatter(formatter)
+        memory_handler.setLevel(loglevel)
+        self.memory_handler = memory_handler
+        
+        logger = logging.getLogger(__name__)
+        if logger.hasHandlers():
+            logger.handlers.clear()
 
+        logger.setLevel(loglevel)
+        logger.addHandler(self.memory_handler)
+        logger.addHandler(file_handler)
+        
+        self.logger = logger
+        
     def run_all_data(self):
-        print('pPXF execution started')
+        self.logger.info('pPXF execution started')
 
         # keep start time
         self.meta['ppxf_start_time'] = datetime.now().strftime("%d/%m/%Y %H:%M")
@@ -71,9 +110,12 @@ class ExecutePpxf:
         # keep end time
         self.meta['ppxf_end_time'] = datetime.now().strftime("%d/%m/%Y %H:%M")
 
-        print('pPXF execution completed')
+        self.logger.info('pPXF execution completed')
 
     def worker(self, i):
+        stdout = sys.stdout
+        sys.stdout = io.StringIO()
+
         print(70*'*', end='\n\n')
         print(f'{i+1}/{self.size}', end='\n\n')
 
@@ -139,7 +181,12 @@ class ExecutePpxf:
         # Include reddening fitted on the fly if exists
         if fly_reddening:
             pp.reddening = fly_reddening
-
+        
+        output = sys.stdout.getvalue()
+        sys.stdout = stdout
+        
+        self.logger.info(output)
+        self.memory_handler.flush()
         return pp
 
     def execute_ppxf(self,

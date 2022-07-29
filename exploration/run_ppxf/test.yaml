@@ -79,4 +79,4 @@ output:
 
 vorbin:
     apply: True
-    target_sn: 400
+    target_sn: 200
