@@ -51,12 +51,19 @@ ppxf_dynamical_mask:          # This execution is optional (the block can be com
     mdegree : 8
     velscale_ratio : 2
 
-ppxf_fixed_kinematics:        # This execution is optional (the block can be commented or deleted)
+ppxf_fit_reddening:           # This execution is optional (the block can be commented or deleted)
+    moments : 4
+    degree : -1
+    mdegree : -1
+    reddening : 0
+    velscale_ratio : 2        # Must keep this parameter in additional iterations, with the same value
+    fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
+        
+ppxf_regularization:          # This execution is optional (the block can be commented or deleted)
     moments : 4
     degree : -1
     mdegree : 8
     regul : 100               # 1/Delta
-    # reddening : 0
     velscale_ratio : 2        # Must keep this parameter in additional iterations, with the same value
     fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
         

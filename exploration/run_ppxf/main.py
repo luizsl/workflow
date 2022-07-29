@@ -38,7 +38,7 @@ class Main:
         if 'secondary' in self.meta['output']:
             print(f'Computing secondary properties\n{30*"-"}')
             self.compute_secondary()
-            
+
     def read_config(self):
         with open(self.conf_file) as f:
             self.meta = yaml.load(f, Loader=yaml.Loader)
@@ -51,7 +51,7 @@ class Main:
             os.makedirs(dir_, exist_ok=True)
 
         sec_dir_ = os.path.join(dir_, self.meta['model']['class_'])
-        
+
         # create unique name
         if os.path.isdir(sec_dir_) is False:
             self.meta['output_run'] = sec_dir_
@@ -62,7 +62,7 @@ class Main:
                 name = f"{sec_dir_}_{count}"
                 count += 1
             self.meta['output_run'] = name
-            
+
         self.meta['output_run_ppxf'] = os.path.join(
             self.meta['output_run'], 'ppxf')
         os.makedirs(self.meta['output_run_ppxf'], exist_ok=True)
@@ -80,44 +80,42 @@ class Main:
 
         with open(path, 'w') as out:
             json.dump(meta, fp=out, indent=4, cls=JsonCustomEncoder)
-    
-    def compute_secondary(self):     
+
+    def compute_secondary(self):
         global age, mh
         base = self.meta['output_run_ppxf']
         datapath = os.path.join(base, 'weights.fits')
-        metadatapath = os.path.join(base, 'metadata.json')        
+        metadatapath = os.path.join(base, 'metadata.json')
         secondary = PopMeanProperties(datapath=datapath,
                                       metadatapath=metadatapath)
-        
+
         if 'mean_log_age' in self.meta['output']['secondary']:
             print('--mean log age')
             age = secondary.age
-            
+
         if 'mean_mh' in self.meta['output']['secondary']:
             print('--mean M/H')
             mh = secondary.mh
 
 if __name__ == '__main__':
     conf = sys.argv[1]
-    # conf = 'test.yaml'
     ppxf_control = Main(conf)
     ppxf_control.run_all()
-    
-#%% Debug
 
-	# import matplotlib.pyplot as plt
-	#    
-	# conf = 'test.yaml'
-	#    
-	# ppxf_prep = Main(conf)
-	# ppxf_prep.read_config()
-	# ppxf_prep.run_all()
+# %% Debug
 
-    
+    # 	conf = 'test.yaml'
+    #
+    # 	ppxf_prep = Main(conf)
+    # 	ppxf_prep.read_config()
+    # 	ppxf_prep.run_all()
+
+    # import matplotlib.pyplot as plt
+
     # fig, ax = plt.subplots(1, 3)
     # ax[0].imshow(10**(age-9), origin='lower')
     # ax[1].imshow(mh, origin='lower')
-    
+
     # w = ppxf_prep.ppxf_out.ppxf.weights
     # ax[2].imshow(w[:, 0].reshape(24,6))
 
