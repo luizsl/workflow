@@ -15,9 +15,6 @@ from model_processing import Model
 from observation_processing import Muse
 
 
-
-
-
 class DataPreprocessing:
     def __init__(self, metadata={}):
         assert metadata
@@ -65,6 +62,7 @@ class DataPreprocessing:
         self.model = factory.get_model(self.main_meta['model']['class_'])
         self.logger.info(f"--{self.main_meta['model']['class_']}")
         self.model.load(self.main_meta['resources']['model'])
+        self.logger.info('--log10 age: %s', self.model.meta['age_log10'])
         
         if 'remove' in self.main_meta['model']:
             for key, value in self.main_meta['model']['remove'].items():
@@ -92,10 +90,11 @@ class DataPreprocessing:
             if self.main_meta['model']['convolve'] is True:
                 z = self.main_meta['observation']['redshift']
                 self.model.convolve(self.obs.meta['limit_obs'], z=z)
-            else:
+                self.logger.info('--Broadening templates')
+            elif self.main_meta['model']['convolve'] is False:
                 self.logger.info('--Not broadening templates')
-        except:
-            self.logger.info('--Not broadening templates, keyword not found')
+        except KeyError:
+            self.logger.warning('--Not broadening templates, keyword not found')
         
         oversample = self.main_meta['ppxf']['velscale_ratio']
         log_step = np.log(

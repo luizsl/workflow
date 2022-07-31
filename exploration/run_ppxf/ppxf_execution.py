@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
 Created on Sat Sep 25 12:54:40 2021
@@ -10,7 +9,7 @@ import io
 import os
 import tempfile
 import logging
-# import concurrent.futures
+from logging import handlers
 from dataclasses import dataclass
 from datetime import datetime
 from time import perf_counter as clock
@@ -78,8 +77,8 @@ class ExecutePpxf:
         stream_handler.setFormatter(formatter)
         stream_handler.setLevel(loglevel)
         
-        memory_handler = logging.handlers.MemoryHandler(
-            capacity=1024*1000, target=stream_handler)
+        memory_handler = handlers.MemoryHandler(capacity=1024*1000,
+                                                target=stream_handler)
         memory_handler.setFormatter(formatter)
         memory_handler.setLevel(loglevel)
         self.memory_handler = memory_handler
@@ -158,7 +157,7 @@ class ExecutePpxf:
                 pp=pp, conf=self.main_meta['ppxf_fit_reddening'])
             fly_reddening = pp.reddening
 
-            print('\nDered observation on the fly', end='\n\n')
+            print('\nDered observation on the fly')
             flux_obs_slice = self.dered(
                 flux_obs_slice,
                 wave=self.data.obs.meta['wave_obs'],

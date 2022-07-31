@@ -1,8 +1,8 @@
 ---
 resources:
     # model: ../../data/models/tmpWzZ2t1
-    # model: ../../data/models/XSL_SSP_PC_Kroupa/Kroupa
-    model: ../../data/models/miles_Padova00_UN_baseFe_v10.0
+    model: ../../data/models/XSL_SSP_PC_Kroupa/Kroupa
+    # model: ../../data/models/miles_Padova00_UN_baseFe_v10.0
     observation: ../../data/
 
 common:
@@ -32,11 +32,11 @@ observation:
         min: 3
           
 model:
-    # class_: XSLAgeMh
-    class_: MilesAgeMh
+    class_: XSLAgeMh
+    # class_: MilesAgeMh
     remove:
-        age_range: [15.8489]         # Must be a list, can be empty
-        mh_range: []                 # Must be a list, can be empty
+        age_range: []         # Must be a list, can be empty
+        mh_range: [-0.1, 0.1] # Must be a list, can be empty
     convolve: True
     
 ppxf:                         # This execution is mandatory 
@@ -63,7 +63,7 @@ ppxf_regularization:          # This execution is optional (the block can be com
     moments : 4
     degree : -1
     mdegree : 8
-    regul : 100               # 1/Delta
+    regul : 10                # 1/Delta
     velscale_ratio : 2        # Must keep this parameter in additional iterations, with the same value
     fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
         
@@ -75,7 +75,7 @@ output:
     output_root : ../../data_products/
     to_save : ['bestfit', 'chi2', 'error', 'reddening', 'sol',
         'weights', 'goodpixels']
-    secondary : mean_log_age, mean_mh   
+    secondary : mean_log_age_light, mean_mh_light   
 
 vorbin:
     apply: True

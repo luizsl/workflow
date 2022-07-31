@@ -10,6 +10,7 @@ import json
 import os
 import shutil
 import sys
+import logging
 
 import yaml
 from astropy.utils.misc import JsonCustomEncoder
@@ -22,7 +23,25 @@ from ppxf_execution import ExecutePpxf
 class Main:
     def __init__(self, conf_file):
         self.conf_file = conf_file
+        self.start_logging()
 
+    def start_logging(self):
+        formatter = logging.Formatter('%(message)s')
+        loglevel = logging.DEBUG
+
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(formatter)
+        stream_handler.setLevel(loglevel)
+        
+        logger = logging.getLogger(__name__)
+        if logger.hasHandlers():
+            logger.handlers.clear()
+
+        logger.setLevel(loglevel)
+        logger.addHandler(stream_handler)
+        
+        self.logger = logger
+        
     def run_all(self):
         self.read_config()
         self.create_output_folder()
@@ -36,7 +55,7 @@ class Main:
         self.meta_to_json()
 
         if 'secondary' in self.meta['output']:
-            print(f'Computing secondary properties\n{30*"-"}')
+            self.logger.info(f'Computing secondary properties\n{30*"-"}')
             self.compute_secondary()
 
     def read_config(self):
@@ -82,21 +101,24 @@ class Main:
             json.dump(meta, fp=out, indent=4, cls=JsonCustomEncoder)
 
     def compute_secondary(self):
-        global age, mh
         base = self.meta['output_run_ppxf']
         datapath = os.path.join(base, 'weights.fits')
         metadatapath = os.path.join(base, 'metadata.json')
-        secondary = PopMeanProperties(datapath=datapath,
-                                      metadatapath=metadatapath)
+        stellar = PopMeanProperties(
+            datapath=datapath,
+            metadatapath=metadatapath,
+            age_log10=self.data.model.meta['age_log10'])
 
-        if 'mean_log_age' in self.meta['output']['secondary']:
-            print('--mean log age')
-            age = secondary.age
+        if 'mean_log_age_light' in self.meta['output']['secondary']:
+            stellar.save(stellar.mh_light, 'mean_log10_age_light', 
+                         self.meta['output_run_ppxf'])
 
-        if 'mean_mh' in self.meta['output']['secondary']:
-            print('--mean M/H')
-            mh = secondary.mh
+        if 'mean_mh_light' in self.meta['output']['secondary']:
+            stellar.save(stellar.mh_light, 'mean_mh_light', 
+                         self.meta['output_run_ppxf'])
 
+            
+#%%
 if __name__ == '__main__':
     conf = sys.argv[1]
     ppxf_control = Main(conf)
