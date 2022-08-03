@@ -7,10 +7,10 @@ Created on Tue Aug 31 17:55:58 2021
 """
 
 import json
+import logging
 import os
 import shutil
 import sys
-import logging
 
 import yaml
 from astropy.utils.misc import JsonCustomEncoder
@@ -49,13 +49,11 @@ class Main:
 
         self.data = DataPreprocessing(self.meta)
         self.ppxf_out = ExecutePpxf(self.data, self.meta)
-        self.ppxf_out.reconstruct_map(
-            self.data, parameter=self.meta['output']['to_save'])
 
         self.meta_to_json()
 
         if 'secondary' in self.meta['output']:
-            self.logger.info(f'Computing secondary properties\n{30*"-"}')
+            self.logger.info(f'\nComputing secondary properties\n{30*"-"}')
             self.compute_secondary()
 
     def read_config(self):
