@@ -6,6 +6,7 @@ Created on Tue Aug 31 16:52:36 2021
 
 import glob
 import os
+import logging
 from time import perf_counter as clock
 
 import numpy as np
@@ -17,33 +18,62 @@ from observation_processing import Muse
 class DataPreprocessing:
     def __init__(self, metadata={}):
         assert metadata
-        print('\nStarting\n--------\n')
+
         self.main_meta = metadata
+        self.start_logging()
+        self.logger.info('\nStarting\n--------\n')
         self.pre_prepare()
         self.prepare_observation()
         self.prepare_model()
-        print('\nFinished\n--------\n')
-
+        self.logger.info('\nFinished\n--------\n')
+        
+    def start_logging(self):
+        name_log_file = os.path.join(
+            self.main_meta['output_run_ppxf'],
+            'log_ppxf_preprocessing.log')
+        
+        formatter = logging.Formatter('%(message)s')
+        loglevel = logging.INFO
+    
+        file_handler = logging.FileHandler(name_log_file)
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(loglevel)
+    
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(formatter)
+        stream_handler.setLevel(loglevel)
+    
+        logger = logging.getLogger(__name__)
+        if logger.hasHandlers():
+            logger.handlers.clear()
+            
+        logger.setLevel(loglevel)
+        logger.addHandler(file_handler)
+        logger.addHandler(stream_handler)
+        
+        self.logger = logger
+        
     def pre_prepare(self):
-        print('''Gathering Information\n*********************''')
+        self.logger.info('''Gathering Information\n*********************''')
 
         # Reading a single model to gather information
-        print('Reading model data')
+        self.logger.info('Reading model data')
         factory = Model()
         self.model = factory.get_model(self.main_meta['model']['class_'])
-        print(f"--{self.main_meta['model']['class_']}")
+        self.logger.info(f"--{self.main_meta['model']['class_']}")
         self.model.load(self.main_meta['resources']['model'])
+        self.logger.info('--log10 age: %s', self.model.meta['age_log10'])
         
         if 'remove' in self.main_meta['model']:
             for key, value in self.main_meta['model']['remove'].items():
                 self.model.remove_param(key, value)
         
         # Reading observations to gather information
-        print('Reading observations data')
+        self.logger.info('Reading observations data')
         path = os.path.join(self.main_meta['resources']['observation'],
                             self.main_meta['observation']['obs_name'])
         files = glob.glob(path + '*')
-        print('--', files[0], sep='')
+        self.logger.info('--' + f'{files[0]}')
         assert len(files) == 1, "Multiple files match the observation name"
         
         self.obs = Muse(
@@ -52,7 +82,7 @@ class DataPreprocessing:
 
     def prepare_model(self):
         t = clock()
-        print('''\nModel preparation\n*****************''')
+        self.logger.info('''\nModel preparation\n*****************''')
         self.model.build()
         self.model.reshape()
         
@@ -60,10 +90,11 @@ class DataPreprocessing:
             if self.main_meta['model']['convolve'] is True:
                 z = self.main_meta['observation']['redshift']
                 self.model.convolve(self.obs.meta['limit_obs'], z=z)
-            else:
-                print('--Not broadening templates')
-        except:
-            print('--Not broadening templates, keyword not found')
+                self.logger.info('--Broadening templates')
+            elif self.main_meta['model']['convolve'] is False:
+                self.logger.info('--Not broadening templates')
+        except KeyError:
+            self.logger.warning('--Not broadening templates, keyword not found')
         
         oversample = self.main_meta['ppxf']['velscale_ratio']
         log_step = np.log(
@@ -79,18 +110,18 @@ class DataPreprocessing:
         self.model.normalize(limits=limits)
         
         self.model.convert_to_mmap()
-        print(f'{round(clock()-t,2)} s')
+        self.logger.info(f'{round(clock()-t,2)} s')
         
     def prepare_observation(self):
         t = clock()
-        print('''\nObservation preparation\n***********************''')
+        self.logger.info('''\nObservation preparation\n***********************''')
         self.obs.build_grid(
             min_valid_sn=self.main_meta['observation']['snr']['min'], 
             snr_window=self.main_meta['observation']['snr']['window'])
 
         if (self.model.meta['o_limit_model'][0] > self.obs.meta['limit_obs'][0] - 100
             or self.model.meta['o_limit_model'][1] < self.obs.meta['limit_obs'][1] + 100):
-            print("--Observation's spectral axis needs to be trimmed")
+            self.logger.info("--Observation's spectral axis needs to be trimmed")
             lower, upper = self.model.meta['o_limit_model']
             lower+=100
             upper-=100
@@ -99,7 +130,7 @@ class DataPreprocessing:
         self.obs.resample()
         if self.main_meta['vorbin']['apply'] is True:
             target_sn=self.main_meta['vorbin']['target_sn']
-            print('--Voronoi binning with target SNR:{}'.format(target_sn))
+            self.logger.info('--Voronoi binning with target SNR:{}'.format(target_sn))
             self.obs.vorbin(target_sn=target_sn)
             
         if 'normalization' in self.main_meta['common']:
@@ -109,24 +140,24 @@ class DataPreprocessing:
         self.obs.convert_to_mmap()
             
         if 'spectral_mask' in self.main_meta['observation']:
-            print('--Ansatz for masked pixels')
+            self.logger.info('--Ansatz for masked pixels')
             mask_list = self.main_meta['observation']['spectral_mask']
             self.obs.mask_spectral_axis(mask_list, kind='guess')
         else:
-            print('--Ansatz for masked pixels not found')
+            self.logger.info('--Ansatz for masked pixels not found')
             mask_list = []
             self.obs.mask_spectral_axis(mask_list, kind='guess')
             
         if 'fixed_spectral_mask' in self.main_meta['observation']:
-            print('--Fixed masked pixels')
+            self.logger.info('--Fixed masked pixels')
             fixed_mask_list = self.main_meta['observation']['fixed_spectral_mask']
             self.obs.mask_spectral_axis(fixed_mask_list, kind='fixed')
         else:
-            print('--Fixed masked pixels not found')
+            self.logger.info('--Fixed masked pixels not found')
             fixed_mask_list = []
             self.obs.mask_spectral_axis(fixed_mask_list, kind='fixed')
             
-        print(f'{round(clock()-t,2)} s')
+        self.logger.info(f'{round(clock()-t,2)} s')
 
         
 if __name__ == '__main__':

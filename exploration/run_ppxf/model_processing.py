@@ -49,10 +49,7 @@ class Model(AbstractModel):
     
 
 class AbstractFactoryModel(ABC):
-    name_pattern = {}
-    meta = {}
-    model_resolving_power = 10_000
-
+    
     @abstractmethod
     def __init__(self):
         pass
@@ -153,19 +150,34 @@ class AbstractFactoryModel(ABC):
         self.resample()
         self.normalize()
 
+    def remove_param(self, param, values = []):
+        assert self.flags['build'] is False
+        attribute = getattr(self, param)
+        _, _, index = np.intersect1d(values, attribute, return_indices=True)
+        mask = np.zeros_like(attribute)
+        mask[index] = 1
+        masked_attribute = np.ma.masked_where(mask, attribute)
+        masked_attribute = masked_attribute.compressed()
+        setattr(self, param, masked_attribute)
+        setattr(self, param + '_mask', mask)
+
 
 class XSLAgeMh(AbstractFactoryModel):
+    meta = {}
     name_pattern = 'XSL_SSP_logT{0:.1f}_MH{1:.1f}_Kroupa_PC.fits'
     parameter_pattern = 'logT[0-9]{1,2}\.[0-9]{1,2}_MH[+/-]?[0-9]{1,2}\.[0-9]{1,2}'
     fwhm_model_ang = None
-
+    model_resolving_power = 10_000
+    
     def __init__(self):
-        pass
+        self.flags={}
+        self.flags['build'] = False
     
     def load(self, path_model_dir):
         assert os.path.isdir(path_model_dir), f'{path_model_dir} is NOT a directory'
         self.path_model_dir = path_model_dir
         self.meta['o_sampling_type'] = 'log'
+        self.meta['age_log10'] = True
 
         self.flux_grid = None
         self.head_grid = None
@@ -200,9 +212,11 @@ class XSLAgeMh(AbstractFactoryModel):
 
         age, metal = par.split("_")
         age = float(age.replace('logT', ''))
-        # Trick to remove -0 retrieved from file name
-        age += 0
+        
         metal = float(metal.replace('MH', ''))
+        # Trick to remove -0 retrieved from file name
+        metal += 0
+        
         return age, metal
 
     def get_parameter_range(self):
@@ -230,7 +244,12 @@ class XSLAgeMh(AbstractFactoryModel):
             for _age, _mh, z in it:
                 z[...] = self.name_pattern.format(_age, _mh)
             self.name_grid = it.operands[-1]
-
+            
+        self.meta['age_range'] = self.age_range 
+        self.meta['mh_range'] = self.mh_range
+        
+        self.flags['build'] = True
+            
     def build_flux_grid(self):
         out_shape = self.read_model(
             self.path_model_dir, self.name_grid[0,0]).shape + self.name_grid.shape
@@ -299,30 +318,23 @@ class XSLAgeMh(AbstractFactoryModel):
         plt.tight_layout()
         fig.show()
 
-    def remove_param(self, param, values = []):
-        attribute = getattr(self, param)
-        _, _, index = np.intersect1d(values, attribute, return_indices=True)
-        mask = np.zeros_like(attribute)
-        mask[index] = 1
-        masked_attribute = np.ma.masked_where(mask, attribute)
-        masked_attribute = masked_attribute.compressed()
-        setattr(self, param, masked_attribute)
-        setattr(self, param + '_mask', mask)
-
 
 class MilesAgeMh(AbstractFactoryModel):
+    meta = {}
     name_pattern = 'Eun1.30Z{:+05.2f}T{:07.4f}_iPp0.00_baseFe_linear_FWHM_variable.fits'
     parameter_pattern = '[m/p][0-9]\.[0-9]{2}T[0-9]{2}\.[0-9]{4}'
     fwhm_model_ang = 2.51
-
-    def __init__(self):
-        pass
     
+    def __init__(self):
+        self.flags={}
+        self.flags['build'] = False
+        
     def load(self, path_model_dir):
         assert os.path.isdir(path_model_dir), f'{path_model_dir} is NOT a directory'
         self.path_model_dir = path_model_dir
         self.meta['o_sampling_type'] = 'linear'
-
+        self.meta['age_log10'] = False
+        
         self.flux_grid = None
         self.head_grid = None
         self.name_grid = None
@@ -392,8 +404,11 @@ class MilesAgeMh(AbstractFactoryModel):
                 name = os.path.split(b[0])[-1]
                 z[...] = name
             self.name_grid = it.operands[-1]
+            
         self.meta['age_range'] = self.age_range 
         self.meta['mh_range'] = self.mh_range
+        
+        self.flags['build'] = True
         
     def build_flux_grid(self):
         out_shape = self.read_model(
@@ -406,14 +421,14 @@ class MilesAgeMh(AbstractFactoryModel):
                     self.read_model(self.path_model_dir, x[()])
 
             self.flux_grid = out
-
+        
     def build_head_grid(self):
         with np.nditer([self.name_grid, None]) as it:
             for x, y in it:
                 y[...] = dict(self.read_model(self.path_model_dir, x[()], 'header'))
 
             self.head_grid = it.operands[-1]
-
+        
     def isfile(self, directory, file):
         filepath = os.path.join(directory, file)
 
@@ -464,22 +479,21 @@ class MilesAgeMh(AbstractFactoryModel):
         plt.tight_layout()
         fig.show()
 
-    def remove_param(self, param, values = []):
-        attribute = getattr(self, param)
-        _, _, index = np.intersect1d(values, attribute, return_indices=True)
-        mask = np.zeros_like(attribute)
-        mask[index] = 1
-        masked_attribute = np.ma.masked_where(mask, attribute)
-        masked_attribute = masked_attribute.compressed()
-        setattr(self, param, masked_attribute)
-        setattr(self, param + '_mask', mask)
 
 #%%
 if __name__ == '__main__':
     
-    model = MilesAgeMh()
+    # model = MilesAgeMh()
     # model.load('../../data/models/tmpWzZ2t1')
-    model.load('../../data/models/miles_Padova00_UN_baseFe_v10.0')
+    
+    # model = MilesAgeMh()
+    # model.load('../../data/models/miles_Padova00_UN_baseFe_v10.0')
+    
+    model = XSLAgeMh()
+    model.load('../../data/models/XSL_SSP_PC_Kroupa/Kroupa')
+    
+    # model.remove_param('mh_range', [-2.2])
+    # model.remove_param('age_range', [7.7])
     model.build_name_grid()
     model.build_flux_grid()
     model.build_head_grid()
@@ -487,4 +501,3 @@ if __name__ == '__main__':
     model.convolve()
     model.resample()
     model.normalize(limits=[5450, 5550])
-    
