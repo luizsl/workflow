@@ -38,7 +38,8 @@ if __name__ == '__main__':
     for regul in reguls:
         root_dir = find_regul(regul, filename_pattern=filename_pattern)
         filename = os.path.join(root_dir, 'bestfit.fits')
-        locals()[f'bestfit_regul{regul}'] = read_fits_data(filename)
+        print(filename)
+        # locals()[f'bestfit_regul{regul}'] = read_fits_data(filename)
     
     # # Compute mse (mean squared error)
     # for regul in reguls:
