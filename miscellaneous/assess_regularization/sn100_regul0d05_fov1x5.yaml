@@ -7,7 +7,6 @@ resources:
 
 common:
     normalization: [5450, 5550]
-    n_process: 6
 
 observation:
     class: Muse

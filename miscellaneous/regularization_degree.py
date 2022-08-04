@@ -5,10 +5,8 @@ Created on Tue Jul 26 13:00:39 2022
 
 @author: Luiz
 """
-
 import multiprocessing as mp
 import subprocess
-
 
 def run_test(sn, regul, script_path, index):
     conf_file = f'assess_regularization/sn{sn}_regul{regul}_fov1x5.yaml'
@@ -20,7 +18,10 @@ limit = 1
 
 with mp.Pool(processes=limit) as pool:
     sn = 100
-    regul = [0,20,30,40,50,60,100]
-    script_path = '../exploration/run_ppxf/main.py'
+    regul = [0, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05]
     for index, r in enumerate(regul):
+        r = round(r, 2)
+        r = f'{r:0.2f}'
+        r = r.replace('.', 'd')
+        script_path = '../exploration/run_ppxf/main.py'
         pool.apply(run_test, args=[sn, r, script_path, index])

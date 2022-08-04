@@ -73,7 +73,7 @@ ppxf_regularization:          # This execution is optional (the block can be com
     moments : 4
     degree : -1
     mdegree : 8
-    regul : 60                # 1/Delta
+    regul : 10                # 1/Delta
     velscale_ratio : 2        # Must keep this parameter in additional iterations, with the same value
     fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
         
