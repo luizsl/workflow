@@ -10,14 +10,14 @@ import subprocess
 
 def run_test(sn, regul, script_path, index):
     conf_file = f'assess_regularization/sn{sn}_regul{regul}_fov1x5.yaml'
-    p0 = subprocess.run(f"taskset -c 0,1,2,3 nohup python {script_path} {conf_file} > nohup{index}.out",
+    p0 = subprocess.run(f"nohup python {script_path} {conf_file} > nohup{index}.out",
                    shell=True, check=True,
                    )
 
 limit = 1
 
 with mp.Pool(processes=limit) as pool:
-    sn = 100
+    sn = 40
     regul = [0, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05]
     for index, r in enumerate(regul):
         r = round(r, 2)
