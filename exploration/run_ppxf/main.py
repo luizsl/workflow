@@ -108,7 +108,7 @@ class Main:
             age_log10=self.data.model.meta['age_log10'])
 
         if 'mean_log_age_light' in self.meta['output']['secondary']:
-            stellar.save(stellar.mh_light, 'mean_log10_age_light', 
+            stellar.save(stellar.log10_age_light, 'mean_log10_age_light', 
                          self.meta['output_run_ppxf'])
 
         if 'mean_mh_light' in self.meta['output']['secondary']:
