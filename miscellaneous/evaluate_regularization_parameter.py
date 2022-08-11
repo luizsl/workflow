@@ -50,7 +50,7 @@ class Chi2Map(FactoryChi2Map):
         self.filepath_dof = filepath_dof
         self.filepath_grid = filepath_grid
         self.reduced_chi2 = self.read_reduced_chi2()
-        # self.dof = self.read_dof()
+        self.dof = self.read_dof()
     
     def read_reduced_chi2(self):
         with fits.open(self.filepath_reduced_chi2) as hdul:
@@ -74,11 +74,11 @@ class Chi2Map(FactoryChi2Map):
     
     @property
     def chi2(self):
-        return self.reduced_chi2 * 3680# self.dof
+        return self.reduced_chi2 * self.dof
 
     @property
     def delta_chi2(self):
-        target_chi2 = self.chi2 + np.sqrt(2 * 3680) #self.dof)
+        target_chi2 = self.chi2 + np.sqrt(2 * self.dof)
         return target_chi2
     
     def weights(self, i, j):
@@ -118,24 +118,70 @@ def read_fits_data(file, unit=0):
         return np.asarray(data)
     
 def find_regul(regul, 
-               root_directory='../data_products/regularization_ngc613',
+               root_directory=None,
                filename_pattern=None): 
     name = filename_pattern.replace('[regul]', str(regul))
     for path in Path(root_directory).rglob(name):
         return path.parent.as_posix()
 
+def plot_percentage(maps:list, list_reg:list=None, save_title=None):
+    plt.style.use('../src/fig_conf.mplstyle')
+    n_col = len(maps)
+    fig, ax = plt.subplots(1, n_col, figsize=(12,2.5), constrained_layout=True)
+    for i in range(n_col):
+        im = ax[i].imshow(maps[i], cmap='seismic',
+                          vmin = 1 - .13, vmax = 1 + .13,
+                          origin = 'lower')
+        if list_reg[i]:
+            ax[i].set_title(f'regul = $1/{list_reg[i]}$', loc='left')
+            ax[i].tick_params(labelleft=False, labeltop=False,
+                              labelright=False, labelbottom=False)
+            # ax[i].text(0, -.05, 'left top',
+            #         horizontalalignment='left',
+            #         verticalalignment='top',
+            #         transform=ax[i].transAxes)
+    cbar = fig.colorbar(im, ax=ax[:], use_gridspec=True,  pad=0.01)
+    cbar.set_label(r'$ \dfrac{\chi^{2}_{\rm r}}{\chi^{2}_{\rm u} + \Delta \chi^{2}}$')
+    
+    plt.savefig(f'../plots/regularization/regul_param_{save_title}.pdf')
+    
+def plot_grid_param(maps: list, x, y, save_title=None):
+    plt.style.use('../src/fig_conf.mplstyle')
+    n_col = len(maps)
+    fig, ax = plt.subplots(1, n_col, figsize=(12,2.5), constrained_layout=True, sharex=True, sharey=True)
+    for i in range(n_col):
+        _, meta = maps[i].read_grid()
+        weights = maps[i].weights(i=x, j=y)
+        x_age, y_mh = np.meshgrid(np.array(meta['model']['age_range']).round(2),
+                                  meta['model']['mh_range'])
+        grid = ax[i].pcolormesh(x_age, y_mh, weights.T, vmin=0, vmax=0.25)
+        points = ax[i].scatter(x_age, y_mh, marker='.', color='white', s=1)
+        ax[i].xaxis.set_major_locator(ticker.MultipleLocator(0.2))
+        ax[i].tick_params(axis='x', rotation=90)
+        ax[i].yaxis.set_major_locator(ticker.MultipleLocator(0.2))
+    cbar = fig.colorbar(grid, ax = ax[:], use_gridspec=True,  pad = 0.01)
+    cbar.set_label(r'weights')
+    fig.supxlabel('$\log_{10}$ Age (yr)')
+    ax[0].set_ylabel('[Fe/H]')
+    
+    plt.savefig(f'../plots/regularization/grid_param_coord_{save_title}.pdf')
+
+def plot_red_chi2_map(maps: list, unreg, list_reg=None):
+    n_col = len(maps)
+    fig, ax = plt.subplots(1,n_col)
+    for i in range(n_col):
+        im = ax[i].imshow(maps[i],
+                       vmin = 1 - .05, vmax = 1 + .05,
+                       origin = 'lower')
+        if list_reg:
+            ax[i].set_title(list_reg[i])
+    cbar = plt.colorbar(im, ax = ax[:])
+    cbar.set_label(label = '$\chi_{red}^2$')
+
 #%%     
             
 if __name__ == "__main__":
-
-    # """
-    # Compare the effect of sigma in the dynamic mask
-    # """ 
-    # unreg0d00_filepath_reduced_chi2 = '../../data_products/regularization_parameter/MilesAgeMh_unreg_sigma0d0/ppxf/chi2.fits'
-    # unreg0d00_filepath_dof = '../../data_products//regularization_parameter/MilesAgeMh_unreg_sigma0d0/ppxf/goodpixels.fits'
     
-    # unreg3d00_filepath_reduced_chi2 = '../../data_products/regularization_parameter/MilesAgeMh_unreg_sigma3d0/ppxf/chi2.fits'
-    # unreg3d00_filepath_dof = '../../data_products/regularization_parameter/MilesAgeMh_unreg_sigma3d0/ppxf/goodpixels.fits'
 
     # unreg2d50_filepath_reduced_chi2 = '../../data_products/regularization_parameter/MilesAgeMh_unreg_sigma2d5/ppxf/chi2.fits'
     # unreg2d50_filepath_dof = '../../data_products/regularization_parameter/MilesAgeMh_unreg_sigma2d5/ppxf/goodpixels.fits'
@@ -176,20 +222,25 @@ if __name__ == "__main__":
     #     list_reg=[None, 3.0, 2.5, 2.3, 2.0],
     #     bins = 20)
         
-#%% 
-    """
-    Increase of the chi**2 due to regularization
-    """ 
-    reguls=[0,20,30,40,50,60,100]
-    filename_pattern = 'sn100_regul[regul]_fov1x5.yaml'
+    #%%     Increase of the chi**2 due to regularization
     
+    filename_pattern = 'sn40_regul[regul]_fov1x5.yaml'
+    root_directory = '../data_products/regularization/fov_sample_1_5_sigma2d5'
+        
+    reguls = [0, 0.5, 0.4, 0.3, 0.2, 0.1, 0.05]
+    for i, regul in enumerate(reguls):
+        regul = round(regul, 2)
+        regul= f'{regul:0.2f}'
+        regul= regul.replace('.', 'd')
+        reguls[i] = regul
+        
     # Read bestfit of all tests
     for regul in reguls:
-        root_dir = find_regul(regul, filename_pattern=filename_pattern)
-        filename_rchi2 = os.path.join(root_dir, 'chi2.fits')
-        filename_dof = os.path.join(root_dir, 'goodpixels.fits')
-        filename_grid = os.path.join(root_dir, 'weights.fits')
-        filename_meta = os.path.join(root_dir, 'metadata.json')
+        directory = find_regul(regul, root_directory, filename_pattern=filename_pattern)
+        filename_rchi2 = os.path.join(directory, 'chi2.fits')
+        filename_dof = os.path.join(directory, 'goodpixels.fits')
+        filename_grid = os.path.join(directory, 'weights.fits')
+        filename_meta = os.path.join(directory, 'metadata.json')
         
         print(filename_rchi2, filename_dof, filename_grid, filename_meta,
               sep='\n', end='\n\n')
@@ -203,90 +254,44 @@ if __name__ == "__main__":
             locals()[f'regul{regul}_dof_filepath'],
             locals()[f'regul{regul}_grid_filepath'],
             locals()[f'regul{regul}_meta_filepath'])
-        
-    # Done    
-    # unreg_filepath_reduced_chi2 = '../../data_products/regularization_parameter/MilesAgeMh_unreg_sigma2d3/ppxf/chi2.fits'
-    # unreg_filepath_dof = '../../data_products/regularization_parameter/MilesAgeMh_unreg_sigma2d3/ppxf/goodpixels.fits'
-    # unreg_filepath_grid = '../../data_products/regularization_parameter/MilesAgeMh_unreg_sigma2d3/ppxf/weights.fits'
-    # unreg_filepath_meta = '../../data_products/regularization_parameter/MilesAgeMh_unreg_sigma2d3/ppxf/metadata.json'
-    
-    # Done
-    # unreg = Chi2Map(unreg_filepath_reduced_chi2, unreg_filepath_dof, unreg_filepath_dof, unreg_filepath_dof)
-
+  
     for regul in reguls:
         locals()[f'comp{regul}'] = Chi2Comparison(
-            reg=locals()[f'regul{regul}_chi2map'], unreg=locals()['regul0_chi2map'])
-        # comp0d1 = Chi2Comparison(reg = reg0d1, unreg = unreg)
-        # comp0d2 = Chi2Comparison(reg = reg0d2, unreg = unreg)
-        # comp0d3 = Chi2Comparison(reg = reg0d3, unreg = unreg)
-        # comp0d4 = Chi2Comparison(reg = reg0d4, unreg = unreg)
-        # comp0d5 = Chi2Comparison(reg = reg0d5, unreg = unreg)
-    
-    # plt.style.use('science')
-    
-    # def plot_percentage(maps:list, list_reg:list=None):
-    #     with plt.style.context('science'):
-    #         n_col = len(maps)
-    #         fig, ax = plt.subplots(1, n_col, figsize=(12,2.5), constrained_layout=True)
-    #         for i in range(n_col):
-    #             im = ax[i].imshow(maps[i], cmap='seismic',
-    #                               vmin = 1 - .05, vmax = 1 + .05,
-    #                               origin = 'lower')
-    #             if list_reg[i]:
-    #                 ax[i].set_title(f'regul = $1/{list_reg[i]}$', loc = 'left')
-    #                 ax[i].tick_params(labelleft=False, labeltop=False,
-    #                                   labelright=False, labelbottom=False)
-    #                 ax[i].text(0, -.05, 'left top',
-    #                         horizontalalignment='left',
-    #                         verticalalignment='top',
-    #                         transform=ax[i].transAxes)
-    #         cbar = fig.colorbar(im, ax = ax[:], use_gridspec=True,  pad = 0.01)
-    #         cbar.set_label(r'$ \dfrac{\chi^{2}_{\rm r}}{\chi^{2}_{\rm u} + \Delta \chi^{2}}$')
-            
-    # plot_percentage(maps = [comp0d5.data, comp0d4.data, comp0d3.data,
-    #                         comp0d2.data, comp0d1.data],
-    #                 list_reg=[0.5, 0.4, 0.3, 0.2, 0.1])
-    
- 
-    # def plot_grid_param(maps: list, x, y):
-    #     with plt.style.context('science'):
-    #         n_col = len(maps)
-    #         fig, ax = plt.subplots(1, n_col, figsize=(12,2.5), constrained_layout=True, sharex=True, sharey=True)
-    #         for i in range(n_col):
-    #             _, meta = maps[i].read_grid()
-    #             weights = maps[i].weights(i=x, j=y)
-    #             x_age, y_mh = np.meshgrid(np.log10(np.array(meta['model']['age_range'])*1e9).round(2),
-    #                                       meta['model']['mh_range'])
+            reg=locals()[f'regul{regul}_chi2map'], unreg=locals()['regul0d00_chi2map'])
+        
+    #%% Increase of chi**2 with regularization
 
-    #             grid = ax[i].pcolormesh(x_age, y_mh, weights.T, vmin=0, vmax=0.25)
-    #             points = ax[i].scatter(x_age, y_mh, marker='.', color='white', s=1)
-    #             # ax[i].set(aspect = 0.618)
-    #             ax[i].xaxis.set_major_locator(ticker.MultipleLocator(0.2))
-    #             ax[i].tick_params(axis='x', rotation=90)
-    #             ax[i].yaxis.set_major_locator(ticker.MultipleLocator(0.2))
-                
-    #         cbar = fig.colorbar(grid, ax = ax[:], use_gridspec=True,  pad = 0.01)
-    #         cbar.set_label(r'weights')
-    #         fig.supxlabel('$\log_{10}$ Age (yr)')
-    #         ax[0].set_ylabel('[Fe/H]')
+    plot_percentage(maps=[comp0d50.data, comp0d40.data, comp0d30.data,
+                          comp0d20.data, comp0d10.data, comp0d05.data],
+                    list_reg=[0.5, 0.4, 0.3, 0.2, 0.1, 0.05],
+                    save_title='sigma2d5')
     
-    # plot_grid_param(maps = [reg0d5, reg0d4, reg0d3, reg0d2, reg0d1],
-    #                 x=15, y=15)
+    #%%
     
+    plot_grid_param(maps=[regul0d00_chi2map, regul0d50_chi2map, regul0d40_chi2map,
+                          regul0d30_chi2map, regul0d20_chi2map, regul0d10_chi2map,
+                          regul0d05_chi2map],
+                    x=25, y=20,
+                    save_title='x25_y20')
     
+    plot_grid_param(maps=[regul0d00_chi2map, regul0d50_chi2map, regul0d40_chi2map,
+                          regul0d30_chi2map, regul0d20_chi2map, regul0d10_chi2map,
+                          regul0d05_chi2map],
+                    x=33, y=53,
+                    save_title='x33_y53')
+    
+    plot_grid_param(maps=[regul0d00_chi2map, regul0d50_chi2map, regul0d40_chi2map,
+                          regul0d30_chi2map, regul0d20_chi2map, regul0d10_chi2map,
+                          regul0d05_chi2map],
+                    x=32, y=33,
+                    save_title='x32_y33')
+    
+    plot_grid_param(maps=[regul0d00_chi2map, regul0d50_chi2map, regul0d40_chi2map,
+                          regul0d30_chi2map, regul0d20_chi2map, regul0d10_chi2map,
+                          regul0d05_chi2map],
+                    x=37, y=36,
+                    save_title='x37_y36')
 
-#%%
-    def plot_red_chi2_map(maps: list, unreg, list_reg=None):
-        n_col = len(maps)
-        fig, ax = plt.subplots(1,n_col)
-        for i in range(n_col):
-            im = ax[i].imshow(maps[i],
-                           vmin = 1 - .05, vmax = 1 + .05,
-                           origin = 'lower')
-            if list_reg:
-                ax[i].set_title(list_reg[i])
-        cbar = plt.colorbar(im, ax = ax[:])
-        cbar.set_label(label = '$\chi_{red}^2$')
 
-    plot_red_chi2_map(maps = [comp0d5.data, comp0d4.data, comp0d3.data,
-                              comp0d2.data])
+    # plot_red_chi2_map(maps = [comp0d50.data, comp0d40.data, comp0d30.data,
+    #                           comp0d20.data])    

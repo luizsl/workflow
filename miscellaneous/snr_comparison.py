@@ -64,7 +64,6 @@ class SnrMap:
         snr = signal / np.sqrt(noise)
         return snr
     
-    
 if __name__ == '__main__':
     # Read the file with the MUSE datacube. The redshift can be included when 
     # instantiating the object. That is useful when computing the 
@@ -83,11 +82,21 @@ if __name__ == '__main__':
     x = (col - xm)*pixsize
     y = (row - ym)*pixsize
     
+    #%%
     # First, we compute the S/N with the full spectral axis and with the slice
     # of the spectral axis between 5450 and 5550 A.
     plt.style.use('../src/fig_conf.mplstyle')
     
-    fig, ax = plt.subplots(1, 2, figsize=(12,4))
+    # fig, ax = plt.subplots(1, 2, figsize=(12,4))
+    ax = np.full((3,), fill_value=None, dtype=object)
+    fig = plt.figure(figsize=(10, 5))
+    gs = fig.add_gridspec(1, 3,  width_ratios=(15, 15, 1),
+                          left=0.05, right=0.94, bottom=0.1, top=0.9,
+                          wspace=0.15, hspace=0.05)
+    ax[0] = fig.add_subplot(gs[0, 0])
+    ax[1] = fig.add_subplot(gs[0, 1])
+    ax[2] = fig.add_subplot(gs[0, 2])
+    
     extent = [x[0]-pixsize, x[-1]-pixsize, y[0]-pixsize, y[-1]-pixsize]
     
     im0 = ax[0].imshow(t.full_axis(), origin='lower',
@@ -111,10 +120,10 @@ if __name__ == '__main__':
     ax[1].set_title('5450 - 5550 \AA')
 
     
-    cbar = plt.colorbar(im1, ax=ax[:])
+    cbar = plt.colorbar(im1, cax=ax[2])
     cbar.set_label('average signal-to-noise', fontsize=12,
                    rotation = 270, labelpad=20)
-    
+
     ax[0].set_xlim(-34, 33)
     ax[0].set_ylim(-34, 31)
     ax[0].set_xlabel('arcsec')
@@ -122,16 +131,25 @@ if __name__ == '__main__':
     ax[1].set_xlim(-34, 33)
     ax[1].set_ylim(-34, 31)
     ax[1].set_xlabel('arcsec')
-    ax[1].set_ylabel('arcsec')
+    # ax[1].set_ylabel('arcsec')
     
     plt.savefig('../plots/SNR_map_NGC613_without_minimal.pdf')
     plt.show()
 
-    # Also remove the spaxels with S/N <= 3 and redo the plot
+    #%% Also remove the spaxels with S/N <= 3 and redo the plot
 
     plt.style.use('../src/fig_conf.mplstyle')
 
-    fig, ax = plt.subplots(1, 2, figsize=(12,4))
+    # fig, ax = plt.subplots(1, 2, figsize=(12,4))
+    ax = np.full((3,), fill_value=None, dtype=object)
+    fig = plt.figure(figsize=(10, 5))
+    gs = fig.add_gridspec(1, 3,  width_ratios=(15, 15, 1),
+                          left=0.05, right=0.94, bottom=0.1, top=0.9,
+                          wspace=0.15, hspace=0.05)
+    ax[0] = fig.add_subplot(gs[0, 0])
+    ax[1] = fig.add_subplot(gs[0, 1])
+    ax[2] = fig.add_subplot(gs[0, 2])
+    
     extent = [x[0]-pixsize, x[-1]-pixsize, y[0]-pixsize, y[-1]-pixsize]
 
     gp_0 = np.where(t.full_axis() > 3, t.full_axis(), np.nan)
@@ -155,7 +173,7 @@ if __name__ == '__main__':
     ax[1].clabel(cont_1, fontsize=10, inline=True)
     ax[1].set_title('5450 - 5550 \AA')
     
-    cbar = plt.colorbar(im1, ax=ax[:])
+    cbar = plt.colorbar(im1, cax=ax[2])
     cbar.set_label('average signal-to-noise', fontsize=12,
                    rotation = 270, labelpad=20)
     
@@ -166,7 +184,7 @@ if __name__ == '__main__':
     ax[1].set_xlim(-34, 33)
     ax[1].set_ylim(-34, 31)
     ax[1].set_xlabel('arcsec')
-    ax[1].set_ylabel('arcsec')
+    # ax[1].set_ylabel('arcsec')
     plt.savefig('../plots/SNR_map_NGC613_with_minimal_3.pdf')
     plt.show()
     
@@ -182,3 +200,4 @@ if __name__ == '__main__':
     frac_slice = np.isfinite(t.range_axis([5450, 5550])).sum() / np.isfinite(gp_1).sum()
     frac_slice = (frac_slice - 1) * 100
     print(f'Only {frac_slice: .2f}% of spaxels are removed with S/N computed between 5450 and 5550 A')    
+

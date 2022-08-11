@@ -21,7 +21,7 @@ class PlotMap:
 
     def __init__(self, object_name):
         plt.style.use('fig_conf.mplstyle')
-        self.dir = f'../data_products/{object_name}/miles/ppxf/'
+        self.dir = f'../data_products/{object_name}/XSLAgeMh_2/ppxf/'
         self.object_name = object_name
         self.get_header()
         
@@ -259,7 +259,7 @@ class PlotMap:
         return mask
     
 if __name__ == "__main__":
-    ngc613_map = PlotMap('NGC613')
+    ngc613_map = PlotMap('NGC0613_DATACUBE_FINAL_clean')
 
     # ngc613_map.moment('velocity', vmin = -120., vmax = 120., n_tick = 7,
     #                   data_offset = 1480, unit = True, save = True)
@@ -274,15 +274,15 @@ if __name__ == "__main__":
     
     ngc613_map.moment_masked('velocity', limit = 20, vmin = -120., vmax = 120.,
                               n_tick = 7, data_offset = 1480, unit = True, 
-                              save = True, add_name = ['masked', 'v20'])
+                              save = False, add_name = ['masked', 'v20'])
     ngc613_map.moment_masked('sigma', limit = 20, vmin = 50., vmax = 140., 
-                              n_tick = 7, unit = True, save = True,
+                              n_tick = 7, unit = True, save = False,
                               add_name = ['masked', 'v20'])
     ngc613_map.moment_masked('h3', limit = 20, vmin = -0.13, vmax = 0.13,
-                              n_tick = 7, unit = False, save = True,
+                              n_tick = 7, unit = False, save = False,
                               add_name = ['masked', 'v20'])
     ngc613_map.moment_masked('h4', limit = 20, vmin = -0.14, vmax = 0.15,
-                              n_tick = 7, unit = False, save = True,
+                              n_tick = 7, unit = False, save = False,
                               add_name = ['masked', 'v20'])
     
     # ngc613_map.moment_rel_error('h4', vmin = 0, vmax = 60, n_tick = 7,

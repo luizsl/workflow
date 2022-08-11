@@ -249,7 +249,6 @@ def bestfit_and_degree(bestfit, galaxy, degree, degree_plot,
     
     ax[0,0].legend(legend_custom, legend_name, loc='center left',
                     bbox_to_anchor=(1., 0))
-    plt.savefig(f'../plots/polynomial_degree/bestfit_{save_title}.pdf')
     
     if not 'hb' in zoom:
         fig.delaxes(ax[1, 0])
@@ -257,7 +256,9 @@ def bestfit_and_degree(bestfit, galaxy, degree, degree_plot,
         fig.delaxes(ax[1, 1])
     if not 'cat' in zoom:
         fig.delaxes(ax[1, 2])
-     
+        
+    plt.savefig(f'../plots/polynomial_degree/bestfit_{save_title}.pdf')
+    
 def polyline_and_degree(polyline, galaxy, degree, degree_plot,
                         metadata, spectral_bounds=[4700, 9350], title=None,
                         save_title=None):
