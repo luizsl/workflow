@@ -18,6 +18,8 @@ exploration/run_ppxf/ppxf_test.py
 exploration/run_ppxf/*.fits
 exploration/test_conf/
 exploration/run_ppxf/test_voronoi.py
+exploration/run_ppxf/conf/*
+!exploration/run_ppxf/conf/.gitkeep
 
 miscellaneous/.ipynb_checkpoints
 miscellaneous/*.ipynb
@@ -25,7 +27,7 @@ miscellaneous/*.pdf
 
 plots/*pdf
 
-dporuvidas.md
+duvidas.md
 melhorias.md
 improvements.md
 
