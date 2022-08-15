@@ -256,7 +256,7 @@ class Muse(Observation):
             self.meta['wave_obs'] = wave
         else:
             self.meta['wave_obs'] = self.correct_z(wave=wave, z=z)
-            self.meta['o_obs_sampling_type'] = 'log'
+            self.meta['sampling_type'] = 'ln'
         self.meta['limit_obs'] = self.meta['wave_obs'][[0, -1]]
 
     def build_grid(self, min_valid_sn=0, snr_window=[-np.inf, np.inf]):

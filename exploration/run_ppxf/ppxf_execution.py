@@ -148,13 +148,14 @@ class ExecutePpxf:
                 
                 guess_goodpixels = self.data.obs.meta['guess_goodpixels']
                 fixed_goodpixels = self.data.obs.meta['fixed_goodpixels']
+                goodpixels = np.intersect1d(guess_goodpixels, fixed_goodpixels)
                 
                 if 'ppxf' in self.main_meta:
                     print(id_, 'Calling ppxf fit', end='\n\n')
                     pp = self.execute_ppxf(
-                        galaxy = flux_obs_slice, noise = flux_obs_unc_slice,
-                        goodpixels=guess_goodpixels,
-                        fixed_goodpixels = fixed_goodpixels,
+                        galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
+                        goodpixels=goodpixels,
+                        # fixed_goodpixels = fixed_goodpixels,
                         pp=pp, conf=self.main_meta['ppxf'])
                     print('*************', end='\n\n')
         
@@ -162,22 +163,25 @@ class ExecutePpxf:
                     print(id_, 'Calling refit with new spectral mask', end='\n\n')
                     # Determine actual goodpixels
                     goodpixels = self.clip_outliers(
-                        pp.galaxy, pp.bestfit, pp.goodpixels, fixed_goodpixels,
+                        pp.galaxy, pp.bestfit, pp.goodpixels,
+                        # fixed_goodpixels,
                         **self.main_meta['ppxf_refit']['mask'])
-        
+                    
+                    goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
+                    
                     pp = self.execute_ppxf(
-                        galaxy = flux_obs_slice, noise = flux_obs_unc_slice,
+                        galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
                         goodpixels=goodpixels,
-                        fixed_goodpixels=fixed_goodpixels,
+                        # fixed_goodpixels=fixed_goodpixels,
                         pp=pp, conf=self.main_meta['ppxf_dynamical_mask'])
                     print('*************', end='\n\n')
         
                 if 'ppxf_fit_reddening' in self.main_meta:
                     print(id_, 'Calling fit of reddening', end='\n\n')
                     pp = self.execute_ppxf(
-                        galaxy = flux_obs_slice, noise = flux_obs_unc_slice,
+                        galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
                         goodpixels=goodpixels,
-                        fixed_goodpixels=fixed_goodpixels,
+                        # fixed_goodpixels=fixed_goodpixels,
                         pp=pp, conf=self.main_meta['ppxf_fit_reddening'])
                     fly_reddening = pp.reddening
         
@@ -185,7 +189,8 @@ class ExecutePpxf:
                     flux_obs_slice = self.dered(
                         flux_obs_slice,
                         wave=self.data.obs.meta['wave_obs'],
-                        ebv = fly_reddening)
+                        ebv=fly_reddening)
+                    
                     flux_obs_unc_slice = self.dered(
                         flux_obs_unc_slice,
                         wave=self.data.obs.meta['wave_obs'],
@@ -195,9 +200,9 @@ class ExecutePpxf:
                 if 'ppxf_regularization' in self.main_meta:
                     print(id_, 'Calling refit with regulazired solution', end='\n\n')
                     pp = self.execute_ppxf(
-                        galaxy = flux_obs_slice, noise = flux_obs_unc_slice,
+                        galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
                         goodpixels=goodpixels,
-                        fixed_goodpixels=fixed_goodpixels,
+                        # fixed_goodpixels=fixed_goodpixels,
                         pp=pp, conf=self.main_meta['ppxf_regularization'])
                     print('*************', end='\n\n')
                     
@@ -213,7 +218,7 @@ class ExecutePpxf:
         
     def execute_ppxf(self,
                      galaxy=None, noise=None,
-                     goodpixels=None, fixed_goodpixels=None,
+                     goodpixels=None,
                      pp=None, conf=None):
         assert conf is not None
         assert galaxy is not None
@@ -232,13 +237,13 @@ class ExecutePpxf:
         else:
             start = pp.sol
 
-        if goodpixels is None:
-            goodpixels = np.arange(galaxy.size)
-        if fixed_goodpixels is None:
-            fixed_goodpixels = np.arange(galaxy.size)
+        # if goodpixels is None:
+        #     goodpixels = np.arange(galaxy.size)
+        # if fixed_goodpixels is None:
+        #     fixed_goodpixels = np.arange(galaxy.size)
 
-        goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
-
+        # goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
+        
         pp = ppxf(
             template, galaxy, noise, velscale, start,
             lam=self.data.obs.meta['wave_obs'],
@@ -265,7 +270,8 @@ class ExecutePpxf:
         return dered_spectrum
 
     @staticmethod
-    def clip_outliers(galaxy, bestfit, goodpixels, fixed_goodpixels=None,
+    def clip_outliers(galaxy, bestfit, goodpixels,
+                      # fixed_goodpixels=None,
                       sigma=3):
         """
         Adapted from Michele Cappellari's example
@@ -273,18 +279,17 @@ class ExecutePpxf:
         Repeat the fit after clipping bins deviants more than 3*sigma
         in relative error until the bad bins don't change any more.
         """
-        if fixed_goodpixels is None:
-            fixed_goodpixels = np.arange(galaxy.size)
+        # if fixed_goodpixels is None:
+        #     fixed_goodpixels = np.arange(galaxy.size)
         while True:
-            goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
             scale = galaxy[goodpixels] @ bestfit[goodpixels]/np.sum(bestfit[goodpixels]**2)
             resid = scale*bestfit[goodpixels] - galaxy[goodpixels]
             err = robust_sigma(resid, zero=1)
-            ok_old = goodpixels.copy()
+            ok_old = goodpixels
             goodpixels = np.flatnonzero(np.abs(bestfit - galaxy) < sigma*err)
-            goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
             if np.array_equal(goodpixels, ok_old):
                 break
+                
         return goodpixels
 
     def build_output_storage(self, out_obj=None):
@@ -381,6 +386,7 @@ class ExecutePpxf:
 
     @staticmethod
     def save_fits(data_param, name, directory='.', overwrite=True):
+        data_param = np.array(data_param, dtype=np.float32)
         hdu = fits.PrimaryHDU(data=data_param)
         hdul = fits.HDUList([hdu])
         full_path = os.path.join(directory, f'{name}.fits')
