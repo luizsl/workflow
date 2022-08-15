@@ -122,7 +122,7 @@ accomplish the task of fitting emission line kinematics. I will start testing wi
 Some improvements in the code that controls the ppxf execution was implemented. 
 This new features, such a .ini file, provides a more flexible ppxf execution control.
 
-## 2021-02-26
+## 2022-02-26
 
 ### Partial results of emission-line fit of NGC 613
 
@@ -170,4 +170,8 @@ This fit has an artefact in the velocity and dispersion map. This configuration 
 
 At this point it getting more clear quais devem ser as configurações finais, as configurações mais promissoras são **ifscube_4 , ifscube_5 and ifscube_16**
 
+## 2022-05-05
 
+### pPPXF with regularization, binning and dinamic masking
+
+The pipeline has support to include regularization. There's also support to tessalation done with vonoroi binning. Another important resource is the dinamic mask, it has a big impact on the reduced chi². This masking is based on some examples of IFU fitting done by Cappellari.

@@ -46,3 +46,21 @@ class Meta:
         self.ppxf_degree = int(configur.get('ppxf', 'degree'))
         self.ppxf_clean = configur.getboolean('ppxf', 'clean')
             
+
+if __name__ == '__main__':
+    Meta()
+
+# class MyParser(ConfigParser):
+
+#     def as_dict(self):
+#         d = dict(self._sections)
+#         for k in d:
+#             d[k] = dict(self._defaults, **d[k])
+#             d[k].pop('__name__', None)
+#         return d
+
+# parser = ConfigParser()
+# parser.read('test.ini')
+# confdict = {section: dict(parser.items(section)) for section in parser.sections()}
+
+# MyParser('test.ini')

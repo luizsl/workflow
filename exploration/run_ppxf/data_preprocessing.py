@@ -5,240 +5,163 @@ Created on Tue Aug 31 16:52:36 2021
 """
 
 import glob
+import os
+import logging
 from time import perf_counter as clock
 
-import _pickle as pickle
 import numpy as np
-import spectcube as sc
-from astropy.io import fits
 
-import compute_muse_lsf as lsf
-from convolve import convolve
-from normalize_median import normalize_median
+from model_processing import Model
+from observation_processing import Muse
 
 
 class DataPreprocessing:
+    def __init__(self, metadata={}):
+        assert metadata
 
-
-    def __init__(self, metadata_path):
-        with open(metadata_path, 'rb') as inp:
-            self.meta = pickle.load(inp)
-
+        self.main_meta = metadata
+        self.start_logging()
+        self.logger.info('\nStarting\n--------\n')
         self.pre_prepare()
-        self.prepare_model()
         self.prepare_observation()
-        self.data_to_mmap()
-
-        with open(metadata_path, 'wb') as out:
-            pickle.dump(self.meta, out)
-
+        self.prepare_model()
+        self.logger.info('\nFinished\n--------\n')
+        
+    def start_logging(self):
+        name_log_file = os.path.join(
+            self.main_meta['output_run_ppxf'],
+            'log_ppxf_preprocessing.log')
+        
+        formatter = logging.Formatter('%(message)s')
+        loglevel = logging.INFO
+    
+        file_handler = logging.FileHandler(name_log_file)
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(loglevel)
+    
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(formatter)
+        stream_handler.setLevel(loglevel)
+    
+        logger = logging.getLogger(__name__)
+        if logger.hasHandlers():
+            logger.handlers.clear()
+            
+        logger.setLevel(loglevel)
+        logger.addHandler(file_handler)
+        logger.addHandler(stream_handler)
+        
+        self.logger = logger
+        
     def pre_prepare(self):
-        print('''
-              Model pre-preparation
-              *********************''')
-        print('Starting\n--------\n')
+        self.logger.info('''Gathering Information\n*********************''')
 
         # Reading a single model to gather information
-        print('Reading model data:')
-        t = clock()
-
-        model_files = glob.glob(self.meta.model_path)
-        self.meta.model_files = model_files
-        with fits.open(model_files[0]) as hdu:
-            self.meta.o_first_wave_model = np.double(hdu['PRIMARY'].header['CRVAL1'])
-            self.meta.o_step_wave_model = np.double(hdu['PRIMARY'].header['CDELT1'])
-            self.meta.o_n_pixel_model = hdu['PRIMARY'].header['NAXIS1']
-
-        self.meta.o_n_model = len(model_files)
-
-        self.meta.o_wave_model = \
-            sc.util.build_wave_array([self.meta.o_first_wave_model, self.meta.o_step_wave_model],
-                                      sampling_type = self.meta.o_model_sampling,
-                                      size = self.meta.o_n_pixel_model)
-
-        self.meta.o_limit_model = self.meta.o_wave_model[[0,-1]]
-        print(f'{round(clock()-t,2)} s\n')
-
-
+        self.logger.info('Reading model data')
+        factory = Model()
+        self.model = factory.get_model(self.main_meta['model']['class_'])
+        self.logger.info(f"--{self.main_meta['model']['class_']}")
+        self.model.load(self.main_meta['resources']['model'])
+        self.logger.info('--log10 age: %s', self.model.meta['age_log10'])
+        
+        if 'remove' in self.main_meta['model']:
+            for key, value in self.main_meta['model']['remove'].items():
+                self.model.remove_param(key, value)
+        
         # Reading observations to gather information
-        print('Reading observations data:')
-        t = clock()
-
-        with fits.open(self.meta.obs_path) as hdu:
-            self.meta.o_first_wave_obs = np.double(hdu['DATA'].header['CRVAL3'])
-            self.meta.o_step_wave_obs = np.double(hdu['DATA'].header['CD3_3'])
-            self.meta.o_n_pixel_obs = hdu['DATA'].header['NAXIS3']
-        self.meta.o_wave_obs = \
-            sc.util.build_wave_array([self.meta.o_first_wave_obs, self.meta.o_step_wave_obs],
-                                      sampling_type = self.meta.o_obs_sampling,
-                                      size = self.meta.o_n_pixel_obs)
-
-        self.meta.o_obs_limit = self.meta.o_wave_obs[[0,-1]]
-        print(f'{round(clock()-t,2)} s\n')
-
-    def prepare_model(self, dtype = float):
-        print('''
-              Model preparation
-              *****************''')
-        print('Starting\n--------\n')
-
-        # Reading model data
-        print('Reading data:')
-        t = clock()
-
-        model_files = glob.glob(self.meta.model_path)
-
-        self.meta.wave_model = \
-            sc.util.fit_wave_interval(self.meta.o_wave_model,
-                                      old_sampling = self.meta.o_model_sampling,
-                                      new_sampling = 'log',
-                                      new_size = self.meta.o_n_pixel_model)
-
-        flux_model = np.zeros((self.meta.o_n_pixel_model, self.meta.o_n_model))
-        for j, file in enumerate(model_files):
-            with fits.open(model_files[j]) as hdu:
-                data = hdu['PRIMARY'].data
-                flux_model[:, j] = data
-        print(f'{round(clock()-t,2)} s\n')
-
-        # Convolution
-        print('Convolution:')
-        t = clock()
-
-        fwhm_obs = lsf.equation_lsf(self.meta.wave_model,
-                                    self.meta.o_obs_limit[0],
-                                    self.meta.o_obs_limit[1])
-        fwhm_dif = np.sqrt((fwhm_obs**2 - self.meta.model_lsf**2).clip(0))
-        sigma = fwhm_dif / (2.355 * self.meta.o_step_wave_model) # Sigma difference in pixels
-        flux_model = convolve(flux = flux_model, sigma = sigma)
-        print(f'{round(clock()-t,2)} s\n')
-
-        # Resampling
-        print('Resampling:')
-        t = clock()
-
-        flux_model, _, _ = sc.resampling(flux = flux_model,
-                                         old_wave = self.meta.o_wave_model,
-                                         old_sampling_type = self.meta.o_model_sampling,
-                                         new_wave = self.meta.wave_model,
-                                         new_sampling_type ='log')
-        self.meta.new_model_sampling = 'log'
-        print(f'{round(clock()-t,2)} s\n')
-
-
-        # Trimming wavelength range
-        print('Trimming to match wavelength range of the observations:')
-        t = clock()
-
-        mask_match = (self.meta.wave_model >= self.meta.o_obs_limit[0]) & \
-            (self.meta.wave_model <= self.meta.o_obs_limit[1])
-        flux_model = flux_model[mask_match, ...]
-        self.meta.wave_model = self.meta.wave_model[mask_match, ...]
-        print(f'{round(clock()-t,2)} s\n')
-
-        # Trimming with offset value to remove zeros added during convolution
-        print('Trimming to remove trailing and leading zeros:')
-        t = clock()
-        mask_zeros = (self.meta.wave_model >= self.meta.wave_model[0] + self.meta.model_wave_trim[0]) & \
-            (self.meta.wave_model <= self.meta.wave_model[-1] - self.meta.model_wave_trim[1])
-
-        flux_model = flux_model[mask_zeros, ...]
-        self.meta.wave_model = self.meta.wave_model[mask_zeros, ...]
-        print(f'{round(clock()-t,2)} s\n')
-
-        #Normalisation
-        t = clock()
-        print('Normalisation:')
-        flux_model, _ = normalize_median(flux_model)
-        print(f'{round(clock()-t,2)} s\n')
-
-        # Recording metadata
-        print('Recording metadata\n')
-        self.meta.n_pixel_model = flux_model.shape[0]
-        self.meta.limit_model = self.meta.wave_model[[0,-1]]
-        print('Finished\n--------\n')
-
-        self.flux_model = np.array(flux_model, dtype = dtype)
-
-    def prepare_observation(self, dtype = float):
-        print('''
-              Observation preparation
-              ***********************
-              ''')
-        print('Starting\n--------\n')
-
-        # Reading Data
-        print('Reading data:')
-        t = clock()
-        with fits.open(self.meta.obs_path, memmap = True, lazy_load_hdus = True,
-                       cache = False) as hdu:
-            flux_obs = np.array(hdu['DATA'].data,
-                                dtype = dtype)
-            del hdu['DATA'].data
-            flux_obs_unc = np.array(hdu['STAT'].data,
-                                    dtype = dtype)
-            flux_obs_unc = np.sqrt(flux_obs_unc)
-            del hdu['STAT'].data
-        print(f'{round(clock()-t,2)} s\n')
-
-        # Resampling
-        print('Resampling data:')
-        t = clock()
-
-        flux_obs, self.meta.wave_obs, flux_obs_unc = \
-            sc.resampling(flux = flux_obs,
-                          old_wave = self.meta.o_wave_obs,
-                          old_sampling_type =  self.meta.o_obs_sampling,
-                          new_wave = self.meta.wave_model,
-                          new_sampling_type = 'log',
-                          flux_err = flux_obs_unc)
-
-        flux_obs = np.array(flux_obs, dtype = dtype)
-        flux_obs_unc = np.array(flux_obs_unc, dtype = dtype)
-        self.meta.new_obs_sampling = 'log'
-        print(f'{round(clock()-t,2)} s\n')
-
-        # Normalising
-        print('Data normalisation:')
-        t = clock()
-
-        flux_obs, factor = normalize_median(flux_obs, save = True,
-                                            directory=self.meta.output_run_ppxf)
-        flux_obs_unc = flux_obs_unc/factor
-        print(f'{round(clock()-t,2)} s\n')
-
-        # Reshaping
-        print('Data reshaping:')
-        t = clock()
-
-        self.meta.shape_obs = flux_obs.shape[1:]
-
-        self.flux_obs = flux_obs.reshape((-1, np.array(flux_obs.shape[1:]).prod()))
-        self.flux_obs_unc = flux_obs_unc.reshape((-1, np.array(flux_obs_unc.shape[1:]).prod()))
-        print(f'{round(clock()-t,2)} s\n')
-
-        # Recording metadata
-        print('Recording metadata\n')
-        self.meta.n_pixel_obs = len(self.meta.wave_obs)
-        self.meta.limit_obs = self.meta.wave_obs[[0,-1]]
-        print('Finished\n--------\n')
+        self.logger.info('Reading observations data')
+        path = os.path.join(self.main_meta['resources']['observation'],
+                            self.main_meta['observation']['obs_name'])
+        files = glob.glob(path + '*')
+        self.logger.info('--' + f'{files[0]}')
+        assert len(files) == 1, "Multiple files match the observation name"
         
+        self.obs = Muse(
+            files[0],
+            self.main_meta['observation']['redshift'])
+
+    def prepare_model(self):
+        t = clock()
+        self.logger.info('''\nModel preparation\n*****************''')
+        self.model.build()
+        self.model.reshape()
         
-    def data_to_mmap(self):
+        try:
+            if self.main_meta['model']['convolve'] is True:
+                z = self.main_meta['observation']['redshift']
+                self.model.convolve(self.obs.meta['limit_obs'], z=z)
+                self.logger.info('--Broadening templates')
+            elif self.main_meta['model']['convolve'] is False:
+                self.logger.info('--Not broadening templates')
+        except KeyError:
+            self.logger.warning('--Not broadening templates, keyword not found')
         
-        temp_input = self.meta.temp_input_dir
+        oversample = self.main_meta['ppxf']['velscale_ratio']
+        log_step = np.log(
+            self.obs.meta['wave_obs'][1]/self.obs.meta['wave_obs'][0])
+        wave = np.exp(np.arange(
+            np.log(self.model.meta['o_wave_model'][0]),
+            np.log(self.model.meta['o_wave_model'][-1]),
+            log_step/oversample))
+        self.model.resample(wave)
+        
+        if 'normalization' in self.main_meta['common']:
+            limits = self.main_meta['common']['normalization']
+        self.model.normalize(limits=limits)
+        
+        self.model.convert_to_mmap()
+        self.logger.info(f'{round(clock()-t,2)} s')
+        
+    def prepare_observation(self):
+        t = clock()
+        self.logger.info('''\nObservation preparation\n***********************''')
+        self.obs.build_grid(
+            min_valid_sn=self.main_meta['observation']['snr']['min'], 
+            snr_window=self.main_meta['observation']['snr']['window'])
+
+        if (self.model.meta['o_limit_model'][0] > self.obs.meta['limit_obs'][0] - 100
+            or self.model.meta['o_limit_model'][1] < self.obs.meta['limit_obs'][1] + 100):
+            self.logger.info("--Observation's spectral axis needs to be trimmed")
+            lower, upper = self.model.meta['o_limit_model']
+            lower+=100
+            upper-=100
+            self.obs.trim_spectral_axis(lower, upper)
             
-        mmap_flux_obs = np.memmap(f'{temp_input}/flux_obs.dat',
-                                  dtype='float32', mode='w+',
-                                  shape= self.flux_obs.shape)
-        mmap_flux_obs[:] = self.flux_obs[:]
+        self.obs.resample()
+        if self.main_meta['vorbin']['apply'] is True:
+            target_sn=self.main_meta['vorbin']['target_sn']
+            self.logger.info('--Voronoi binning with target SNR:{}'.format(target_sn))
+            self.obs.vorbin(target_sn=target_sn)
+            
+        if 'normalization' in self.main_meta['common']:
+            limits = self.main_meta['common']['normalization']
+        self.obs.normalize(limits=limits)
+        
+        self.obs.convert_to_mmap()
+            
+        if 'spectral_mask' in self.main_meta['observation']:
+            self.logger.info('--Ansatz for masked pixels')
+            mask_list = self.main_meta['observation']['spectral_mask']
+            self.obs.mask_spectral_axis(mask_list, kind='guess')
+        else:
+            self.logger.info('--Ansatz for masked pixels not found')
+            mask_list = []
+            self.obs.mask_spectral_axis(mask_list, kind='guess')
+            
+        if 'fixed_spectral_mask' in self.main_meta['observation']:
+            self.logger.info('--Fixed masked pixels')
+            fixed_mask_list = self.main_meta['observation']['fixed_spectral_mask']
+            self.obs.mask_spectral_axis(fixed_mask_list, kind='fixed')
+        else:
+            self.logger.info('--Fixed masked pixels not found')
+            fixed_mask_list = []
+            self.obs.mask_spectral_axis(fixed_mask_list, kind='fixed')
+            
+        self.logger.info(f'{round(clock()-t,2)} s')
 
-        mmap_flux_obs_unc = np.memmap(f'{temp_input}/flux_obs_unc.dat', 
-                                      dtype='float32', mode='w+',
-                                      shape= self.flux_obs_unc.shape)
-        mmap_flux_obs_unc[:] = self.flux_obs_unc[:]
-
-        mmap_flux_model = np.memmap(f'{temp_input}/flux_model.dat', 
-                                    dtype='float32', mode='w+',
-                                    shape= self.flux_model.shape)
-        mmap_flux_model[:] = self.flux_model[:]
+        
+if __name__ == '__main__':
+    data = DataPreprocessing(ppxf_prep.meta)
+    
+    # plt.plot(data.model.meta['wave_model'], data.model.flux_grid[:, 0])
+    # plt.plot(data.obs.meta['wave_obs'], data.obs.flux_grid[:, 0])

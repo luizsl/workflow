@@ -1,0 +1,83 @@
+---
+resources:
+    # model: ../../data/models/tmpWzZ2t1
+    model: ../../data/models/XSL_SSP_PC_Kroupa/Kroupa
+    # model: ../../data/models/miles_Padova00_UN_baseFe_v10.0
+    observation: ../../data/
+
+common:
+    normalization: [5450, 5550]
+    n_process: 6
+    
+observation:
+    class: Muse
+    obs_name: fov_sample_1_5     # should not include extensions in the name
+    redshift: 0.004951
+    spectral_mask: [
+        [4000, 4770],
+        [4850, 4880],
+        [4950, 4970], 
+        [4990, 5025],
+        [5190, 5210],
+        [6250, 6380],
+        [6530, 6600],
+        [6700, 6750],
+        [7560, 7610],
+        [8710, 8725],
+        [9000, 9500]]
+    fixed_spectral_mask: [
+        [4000, 4780],
+        [9170, 9500]]    
+    snr:
+        window: [5450, 5550]
+        min: 3
+          
+model:
+    class_: XSLAgeMh
+    # class_: MilesAgeMh
+    remove:
+        age_range: []         # Must be a list, can be empty
+        mh_range: [-0.1, 0.1] # Must be a list, can be empty
+    convolve: True
+    
+ppxf:                         # This execution is mandatory 
+    moments : 4
+    degree : -1
+    mdegree : 8
+    velscale_ratio : 2        # Must keep this parameter in additional iterations, with the same value
+
+# ppxf_dynamical_mask:          # This execution is optional (the block can be commented or deleted)
+#     moments : 4
+#     degree : -1
+#     mdegree : 8
+#     velscale_ratio : 2
+
+# ppxf_fit_reddening:           # This execution is optional (the block can be commented or deleted)
+#     moments : 4
+#     degree : -1
+#     mdegree : -1
+#     reddening : 0
+#     velscale_ratio : 2        # Must keep this parameter in additional iterations, with the same value
+#     fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
+        
+# ppxf_regularization:          # This execution is optional (the block can be commented or deleted)
+#     moments : 4
+#     degree : -1
+#     mdegree : 8
+#     regul : 10                # 1/Delta
+#     velscale_ratio : 2        # Must keep this parameter in additional iterations, with the same value
+#     fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
+        
+ppxf_refit:
+    mask:
+        sigma : 2.5
+
+output:
+    output_root : ../../data_products/
+    to_save : ['bestfit', 'chi2', 'error', 'reddening', 'sol',
+        'weights', 'goodpixels']
+    secondary : mean_log_age_light, mean_mh_light   
+
+vorbin:
+    apply: True
+    target_sn: 100

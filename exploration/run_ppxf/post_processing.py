@@ -1,115 +1,138 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-Created on Sat Sep 25 17:52:07 2021
+Created on Sun May 15 18:04:13 2022
 
 @author: Luiz
 """
 
-import _pickle as pickle
+import json
+import os
+import warnings
+import logging
+
+import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
 
 
-class PostProcessing:
+class PopMeanProperties:
+    def __init__(self, datapath=None, metadatapath=None, age_log10=None):
+        assert metadatapath is not None
+        self.metadatapath = metadatapath
+        self.read_metadata()
+        
+        self.start_logging()
+        
+        assert isinstance(age_log10, bool)
+        self.age_log10 = age_log10
+        
+        assert datapath is not None
+        self.datapath = datapath
+        self.read_data()
+        
+        self.mh_range = self.meta['model']['mh_range']
+        self.logger.info('\nMH range:')
+        self.logger.info(self.mh_range)
+        
+        self.age_range = np.asarray(self.meta['model']['age_range'])
+        if self.age_log10 is False:
+            self.age_range = np.asarray(self.age_range) * 1e9
+            self.logger.info('\nAge range [yr]:') 
+            self.logger.info([''.join("{:0.2e}".format(i)) for i in self.age_range])
+            self.logger.info('\nAge is not on a logarithmic scale, it will be converted to:',)
+            self.age_range = np.log10(self.age_range)
+        self.logger.info('\nlog10 age range [yr]:')
+        self.logger.info(np.round(self.age_range, 3))
+          
+    def start_logging(self):
+        name_log_file = os.path.join(
+            self.meta['conf']['output_run_ppxf'],
+            'log_post_processing.log')
+        
+        formatter = logging.Formatter('%(message)s')
+        loglevel = logging.DEBUG
+        
+        file_handler = logging.FileHandler(name_log_file )
+        file_handler.setFormatter(formatter)
+        file_handler.setLevel(loglevel)
+        
+        stream_handler = logging.StreamHandler()
+        stream_handler.setFormatter(formatter)
+        stream_handler.setLevel(loglevel)
+        
+        logger = logging.getLogger(__name__)
+        if logger.hasHandlers():
+            logger.handlers.clear()
 
-    def __init__(self, metadata_path):
-        with open(metadata_path, 'rb') as inp:
-            self.meta = pickle.load(inp)
-        self.apoly()
-        self.bestfit()
-        self.chi2()
-        self.h3()
-        self.h3_error()
-        self.h4()
-        self.h4_error()
-        self.polyweights()
-        self.sigma()
-        self.sigma_error()
-        self.velocity()
-        self.velocity_error()
-        self.weights()
-
-    def save_fits(self, data_param, name):
-        hdu = fits.PrimaryHDU(data=data_param)
+        logger.setLevel(loglevel)
+        logger.addHandler(stream_handler)
+        logger.addHandler(file_handler)
+        
+        self.logger = logger
+        
+    def read_data(self):
+        with fits.open(self.datapath) as hdul:
+            self.data = hdul[0].data
+            
+        if self.data.ndim==1:
+            self.data = np.expand_dims(self.data, axis=(1,2))
+        
+    def read_metadata(self):
+        with open(self.metadatapath) as f:
+            self.meta = json.load(f)
+            
+    @property
+    def mh_light(self):
+        reg_dim = self.meta['model']['reg_dim']
+        shape_out = self.data.shape[1:]
+        out = np.full(shape_out, fill_value=np.nan)
+        mh, age = np.meshgrid(self.mh_range,
+                              self.age_range)
+        for i, j in np.ndindex(out.shape):
+            weight = self.data[:, i, j].reshape(reg_dim)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                out[i,j] = np.nansum(weight*mh)/np.nansum(weight)
+        return out
+    
+    @property
+    def log10_age_light(self):
+        reg_dim = self.meta['model']['reg_dim']
+        shape_out = self.data.shape[1:]
+        out = np.full(shape_out, fill_value=np.nan)
+        mh, age = np.meshgrid(self.mh_range,
+                              self.age_range)
+        for i, j in np.ndindex(out.shape):
+            weight = self.data[:, i, j].reshape(reg_dim)
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                out[i,j] = np.nansum(weight*age)/np.nansum(weight)
+        return out
+    
+    def save(self, data, param:str, output_path:str):
+        hdu = fits.PrimaryHDU(data)
         hdul = fits.HDUList([hdu])
-        hdul.writeto(f'{self.meta.output_run_ppxf}/{name}.fits', overwrite=True)
+        name = os.path.join(output_path, f'{param}.fits')
+        hdul.writeto(name, overwrite=True)
 
-    def velocity(self):
-        out = np.memmap(filename = f'{self.meta.temp_output_dir}/velocity.dat', dtype = float, mode='r',
-                        shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        out = out.reshape(self.meta.shape_obs)
-        self.save_fits(out, 'velocity')
 
-    def sigma(self):
-        out = np.memmap(filename = f'{self.meta.temp_output_dir}/sigma.dat', dtype = float, mode='r',
-                        shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        out = out.reshape(self.meta.shape_obs)
-        self.save_fits(out, 'sigma')
+if __name__ == '__main__':
+    
+    # datapath = '../../data_products/NGC0613_full_stacked_spectrum/MilesAgeMh_31/ppxf/weights.fits'
+    # metadatapath = '../../data_products/NGC0613_full_stacked_spectrum/MilesAgeMh_31/ppxf/metadata.json'
+    
+    # datapath = '../../data_products/fov_sample_1_5/MilesAgeMh/ppxf/weights.fits'
+    # metadatapath = '../../data_products/fov_sample_1_5/MilesAgeMh/ppxf/metadata.json'
 
-    def h3(self):
-
-        out = np.memmap(filename = f'{self.meta.temp_output_dir}/h3.dat', dtype = float, mode='r',
-                        shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        out = out.reshape(self.meta.shape_obs)
-        self.save_fits(out, 'h3')
-
-    def h4(self):
-        out = np.memmap(filename = f'{self.meta.temp_output_dir}/h4.dat', dtype = float, mode='r',
-                        shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        out = out.reshape(self.meta.shape_obs)
-        self.save_fits(out, 'h4')
-
-    def velocity_error(self):
-        out = np.memmap(filename = f'{self.meta.temp_output_dir}/velocity_error.dat', dtype = float, mode='r',
-                        shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        out = out.reshape(self.meta.shape_obs)
-        self.save_fits(out, 'velocity_error')
-
-    def sigma_error(self):
-        out = np.memmap(filename = f'{self.meta.temp_output_dir}/sigma_error.dat', dtype = float, mode='r',
-                        shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        out = out.reshape(self.meta.shape_obs)
-        self.save_fits(out, 'sigma_error')
-
-    def h3_error(self):
-        out = np.memmap(filename = f'{self.meta.temp_output_dir}/h3_error.dat', dtype = float, mode='r',
-                        shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        out = out.reshape(self.meta.shape_obs)
-        self.save_fits(out, 'h3_error')
-
-    def h4_error(self):
-        out = np.memmap(filename = f'{self.meta.temp_output_dir}/h4_error.dat', dtype = float, mode='r',
-                        shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        out = out.reshape(self.meta.shape_obs)
-        self.save_fits(out, 'h4_error')
-
-    def chi2(self):
-        out = np.memmap(filename = f'{self.meta.temp_output_dir}/chi2.dat', dtype = float, mode='r',
-                        shape = (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        out = out.reshape(self.meta.shape_obs)
-        self.save_fits(out, 'chi2')
-
-    def polyweights(self):
-        out = np.memmap(filename = f'{self.meta.temp_output_dir}/polyweights.dat', dtype = float, mode='r',
-                        shape = (13,) + (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        out = out.reshape((-1,) + self.meta.shape_obs)
-        self.save_fits(out, 'polyweights')
-
-    def weights(self):
-        out = np.memmap(filename = f'{self.meta.temp_output_dir}/apoly.dat', dtype = float, mode='r',
-                        shape = (self.meta.o_n_model,) + (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        out = out.reshape((-1,) + self.meta.shape_obs)
-        self.save_fits(out, 'weights')
-
-    def apoly(self):
-        out = np.memmap(filename = f'{self.meta.temp_output_dir}/apoly.dat', dtype = float, mode='r',
-                        shape = (self.meta.n_pixel_obs,) + (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        out = out.reshape((-1,) + self.meta.shape_obs)
-        self.save_fits(out, 'apoly')
-
-    def bestfit(self):
-        out = np.memmap(filename = f'{self.meta.temp_output_dir}/bestfit.dat', dtype = float, mode='r',
-                        shape = (self.meta.n_pixel_obs,) + (self.meta.shape_obs[0] * self.meta.shape_obs[1],))
-        out = out.reshape((-1,) + self.meta.shape_obs)
-        self.save_fits(out, 'bestfit')
+    datapath = '../../data_products/fov_sample_1_5/XSLAgeMh_1/ppxf/weights.fits'
+    metadatapath = '../../data_products/fov_sample_1_5/XSLAgeMh_1/ppxf/metadata.json'
+        
+    t = PopMeanProperties(datapath, metadatapath, age_log10=True)
+    fig, ax = plt.subplots(1,2)
+    ax[0].imshow(10**(t.log10_age_light - 9), origin='lower', cmap='jet', vmin=3, vmax=7)
+    ax[1].imshow(t.mh_light, origin='lower', cmap='jet', vmin=0, vmax=0.18)
+    # t.save(t.mh, 'mean_mh',  '../../data_products/ngc613/regul_50_sn_100/')
+    # t.save(t.age, 'mean_log_age',  '../../data_products/ngc613/regul_50_sn_100/')
+    
+    # plt.imshow(t.data[:, 169, 155].reshape((24, 6)))
