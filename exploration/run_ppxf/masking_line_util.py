@@ -10,7 +10,7 @@ from scipy.constants import physical_constants
 
 C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
 
-linewidth = 750 # km/s
+linewidth = 1200 # km/s
 
 wave_list = [     # air
     4861.333, 	# Hβ
