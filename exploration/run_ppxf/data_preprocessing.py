@@ -96,7 +96,11 @@ class DataPreprocessing:
         except KeyError:
             self.logger.warning('--Not broadening templates, keyword not found')
         
-        oversample = self.main_meta['ppxf']['velscale_ratio']
+        if 'velscale_ratio' in self.main_meta['ppxf']:
+            oversample = self.main_meta['ppxf']['velscale_ratio']
+        else:
+            oversample = 1
+            
         log_step = np.log(
             self.obs.meta['wave_obs'][1]/self.obs.meta['wave_obs'][0])
         wave = np.exp(np.arange(

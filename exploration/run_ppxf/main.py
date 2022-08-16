@@ -128,6 +128,8 @@ if __name__ == '__main__':
   
    	# ppxf_prep = Main(conf)
    	# ppxf_prep.read_config()
+    # ppxf_prep.create_output_folder()
+    # ppxf_prep.keep_conf_copy()
    	# ppxf_prep.run_all()
 
     # import matplotlib.pyplot as plt

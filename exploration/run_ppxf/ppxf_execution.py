@@ -40,8 +40,6 @@ class ExecutePpxf:
         self.storage = False
         self.process_manager = mp.Manager()
         
-        # self.shared_space = self.process_manager.Namespace()
-        
         self.start_logging()
         # self.ppxf = PpxfResults()
         # NOTE: Adding an exception to deal with a single spectrum
@@ -155,24 +153,20 @@ class ExecutePpxf:
                     pp = self.execute_ppxf(
                         galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
                         goodpixels=goodpixels,
-                        # fixed_goodpixels = fixed_goodpixels,
                         pp=pp, conf=self.main_meta['ppxf'])
+                    
+                    # Determine actual goodpixels
+                    goodpixels = self.clip_outliers(
+                        pp.galaxy, pp.bestfit, pp.goodpixels,
+                        **self.main_meta['ppxf_refit']['mask'])
+                    goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
                     print('*************', end='\n\n')
         
                 if 'ppxf_dynamical_mask' in self.main_meta:
                     print(id_, 'Calling refit with new spectral mask', end='\n\n')
-                    # Determine actual goodpixels
-                    goodpixels = self.clip_outliers(
-                        pp.galaxy, pp.bestfit, pp.goodpixels,
-                        # fixed_goodpixels,
-                        **self.main_meta['ppxf_refit']['mask'])
-                    
-                    goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
-                    
                     pp = self.execute_ppxf(
                         galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
                         goodpixels=goodpixels,
-                        # fixed_goodpixels=fixed_goodpixels,
                         pp=pp, conf=self.main_meta['ppxf_dynamical_mask'])
                     print('*************', end='\n\n')
         
@@ -181,7 +175,6 @@ class ExecutePpxf:
                     pp = self.execute_ppxf(
                         galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
                         goodpixels=goodpixels,
-                        # fixed_goodpixels=fixed_goodpixels,
                         pp=pp, conf=self.main_meta['ppxf_fit_reddening'])
                     fly_reddening = pp.reddening
         
@@ -202,7 +195,6 @@ class ExecutePpxf:
                     pp = self.execute_ppxf(
                         galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
                         goodpixels=goodpixels,
-                        # fixed_goodpixels=fixed_goodpixels,
                         pp=pp, conf=self.main_meta['ppxf_regularization'])
                     print('*************', end='\n\n')
                     
@@ -236,13 +228,6 @@ class ExecutePpxf:
             start = [0., 2*velscale] # (km/s), starting guess for [V, sigma]
         else:
             start = pp.sol
-
-        # if goodpixels is None:
-        #     goodpixels = np.arange(galaxy.size)
-        # if fixed_goodpixels is None:
-        #     fixed_goodpixels = np.arange(galaxy.size)
-
-        # goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
         
         pp = ppxf(
             template, galaxy, noise, velscale, start,
@@ -271,7 +256,6 @@ class ExecutePpxf:
 
     @staticmethod
     def clip_outliers(galaxy, bestfit, goodpixels,
-                      # fixed_goodpixels=None,
                       sigma=3):
         """
         Adapted from Michele Cappellari's example
@@ -279,8 +263,6 @@ class ExecutePpxf:
         Repeat the fit after clipping bins deviants more than 3*sigma
         in relative error until the bad bins don't change any more.
         """
-        # if fixed_goodpixels is None:
-        #     fixed_goodpixels = np.arange(galaxy.size)
         while True:
             scale = galaxy[goodpixels] @ bestfit[goodpixels]/np.sum(bestfit[goodpixels]**2)
             resid = scale*bestfit[goodpixels] - galaxy[goodpixels]
