@@ -292,63 +292,6 @@ if __name__ == '__main__':
     initialization_file = sys.argv[1]
     RunIFScube(initialization_file)
 
-    # t = IFSCubeInput(initialization_file = 'test_ifscube.ini')
+    t = IFSCubeInput(initialization_file = 'test_ifscube.ini')
     # a = RunIFScube(initialization_file = 'test_ifscube.ini')
 
-#%%
-# import matplotlib.pyplot as plt
-
-# plt.plot(old_wave, flux[:, 20, 0])
-
-# plt.plot(old_wave, flux[:, 50, 0])
-# plt.plot(old_wave2, flux_n[:, 50, 0])
-# plt.plot(old_wave2/ (1. + (t.velocity_map[50,0]/299792)), flux_n[:, 50, 0])
-# plt.plot(flux[:, 50, 0])
-
-# plt.plot(t.commom_wave, t.hdul_out['sci'].data[:, ::2, 0])
-#%%
-# cube = RunIFScube(initialization_file = 'test_ifscube.ini')
-
-# input_cube = IFSCubeInput(
-#     obs_path = cube.meta['obs_path'],
-#     metadata_path = os.path.join(cube.meta['output_run_ppxf'], 'metadata.json'),
-#     output_dir = cube.meta['output_run_ifscube'],
-#     count = cube.count)
-
-# # plt.plot(input_cube.commom_wave, input_cube.hdul_out['sci'].data[:, 0,0])
-# # plt.plot(input_cube.commom_wave, input_cube.hdul_out['stellar'].data[:, 0,0])
-
-
-# # input_cube.hdul_out.info()
-# # flux = input_cube.hdul_out['sci'].data
-
-# # plt.plot(flux[:, 0, 0])
-
-# from astropy.io import fits
-# cube = fits.open('../../data_products/toy_50x50/miles/ifscube_7/input_cube_7.fits')
-# rest = input_cube.rest_wave_grid
-# a = cube[1].
-
-# with fits.open(input_cube.meta['obs_path']) as hdul:
-#     flux = np.single(hdul['data'].data)
-#     uncertainty = np.single(hdul['stat'].data)
-#     flux, wave, uncertainty = sc.resampling(
-#         flux = flux,
-#         old_wave = np.array(input_cube.meta['o_wave_obs']),
-#         old_sampling_type = 'linear',
-#         new_wave = np.array(input_cube.meta['wave_obs']),
-#         new_sampling_type = 'log',
-#         flux_err = uncertainty)
-
-
-# import matplotlib.pyplot as plt
-
-# # plt.plot(input_cube.commom_wave, input_cube.hdul_out['sci'].data[:, 30, 40])
-# # plt.plot(input_cube.commom_wave, input_cube.hdul_out['sci'].data[:, 2, 0])
-
-# # plt.plot(input_cube.meta['wave_obs'], flux[:, 30, 40])
-# plt.plot(np.asarray(input_cube.meta['wave_obs']), flux[:, 2, 0])
-# plt.plot(np.asarray(input_cube.meta['wave_obs']) / (1. + 1369.8646841041664/299792.458) , flux[:, 2, 0])
-# plt.plot(input_cube.commom_wave, input_cube.hdul_out['sci'].data[:, 2, 0])
-
-# plt.imshow(input_cube.velocity_map)
