@@ -25,12 +25,12 @@ class IFSCubeInput:
         self.create_output_dir()
         self.get_headers()
         self.hdul_out = fits.HDUList()
-        self.normalization_factor = self.recover_norm_factor()
-        self.velocity_map = self.recover_kinematics()
-        self.rest_wave_grid = self.build_rest_wave_grid(self.meta['obs']['wave_obs'],
-                                                        self.velocity_map)
-        self.commom_wave = self.find_commom_range(self.rest_wave_grid,
-                                                  self.velocity_map)
+        # self.normalization_factor = self.recover_norm_factor()
+        # self.velocity_map = self.recover_kinematics()
+        # self.rest_wave_grid = self.build_rest_wave_grid(self.meta['obs']['wave_obs'],
+        #                                                 self.velocity_map)
+        # self.commom_wave = self.find_commom_range(self.rest_wave_grid,
+        #                                           self.velocity_map)
         self.add_muse_data()
         self.add_bestfit_ssp()
         self.save_cube()
@@ -100,16 +100,11 @@ class IFSCubeInput:
         return parameter
 
     def recover_norm_factor(self):
-        # normalization_factor_path = os.path.join(
-        #     self.meta['meta']['output_run_ppxf'],'normalization_factor.fits')
-
-        # with fits.open(normalization_factor_path) as hdul:
-        #     normalization_factor = hdul['PRIMARY'].data
         normalization_factor = self.meta['model']['model_norm_factor']
         return normalization_factor
 
     def add_muse_data(self):
-        global flux, old_wave, wave
+        # global flux, wave, first, z
         primary_hdu = fits.PrimaryHDU(header = self.header_primary)
         self.hdul_out.append(primary_hdu)
 
@@ -129,58 +124,60 @@ class IFSCubeInput:
             step = hdul['DATA'].header['CD3_3']
             size =  hdul['DATA'].header['NAXIS3']
             
-            old_wave = sc.util.build_wave_array(
-                wave = [first, step],
-                sampling_type='linear',
-                size = size)
-            old_wave = old_wave/(1. + z)
+        wave = sc.util.build_wave_array(
+            wave = [first, step],
+            sampling_type='linear',
+            size = size)
+        wave = wave / (1. + z)
+        self.wave = wave
         
-            flux, wave, uncertainty = sc.resampling(
-                flux = flux,
-                old_wave = old_wave,
-                old_sampling_type = 'log',
-                new_wave = np.array(self.meta['obs']['wave_obs']),
-                new_sampling_type = 'ln',
-                flux_err = uncertainty)
+        # flux, wave, uncertainty = sc.resampling(
+        #     flux = old_flux,
+        #     old_wave = old_wave,
+        #     old_sampling_type = 'linear',
+        #     new_wave = np.array(self.meta['obs']['wave_obs']),
+        #     new_sampling_type = 'ln',
+        #     flux_err = old_uncertainty)
+
+        # flux_new = np.full(self.commom_wave.shape + self.rest_wave_grid.shape[1:],
+        #                     fill_value=np.nan)
+        # uncertainty_new = np.full(self.commom_wave.shape + self.rest_wave_grid.shape[1:],
+        #                     fill_value=np.nan)
         
-        flux_new = np.full(self.commom_wave.shape + self.rest_wave_grid.shape[1:],
-                            fill_value=np.nan)
-        uncertainty_new = np.full(self.commom_wave.shape + self.rest_wave_grid.shape[1:],
-                            fill_value=np.nan)
-        
-        for i, j in np.ndindex(self.rest_wave_grid.shape[1:]):
-            flux_new[:, i, j], _, uncertainty_new[:, i, j] = sc.resampling(
-                flux = flux[:, i, j],
-                old_wave = self.wave_to_rest(wave, v=self.velocity_map[i, j]),
-                old_sampling_type = 'ln',
-                new_wave = np.array(self.commom_wave),
-                new_sampling_type = 'linear',
-                flux_err = uncertainty[:, i, j])
+        # for i, j in np.ndindex(self.rest_wave_grid.shape[1:]):
+        #     flux_new[:, i, j], _, uncertainty_new[:, i, j] = sc.resampling(
+        #         flux = flux[:, i, j],
+        #         old_wave = self.wave_to_rest(wave, v=self.velocity_map[i, j]),
+        #         old_sampling_type = 'ln',
+        #         new_wave = np.array(self.commom_wave),
+        #         new_sampling_type = 'linear',
+        #         flux_err = uncertainty[:, i, j])
         
         sci_hdu = fits.ImageHDU(
-            np.single(flux_new), name = 'SCI', header = self.header_sci)
+            np.single(flux), name = 'SCI', header = self.header_sci)
         sci_hdu.header['CTYPE3'] = 'AWAV'
-        sci_hdu.header['CRVAL3'] = self.commom_wave[0]
-        sci_hdu.header['CD3_3'] = self.commom_wave[1] - self.commom_wave[0]
+        sci_hdu.header['CRVAL3'] = self.wave[0]
+        sci_hdu.header['CD3_3'] = self.wave[1] - self.wave[0]
         self.hdul_out.append(sci_hdu)
 
         err_hdu = fits.ImageHDU(
-            np.single(uncertainty_new), name = 'ERR', header = self.header_err)
+            np.single(uncertainty), name = 'ERR', header = self.header_err)
         err_hdu.header['CTYPE3'] = 'AWAV'
-        err_hdu.header['CRVAL3'] = self.commom_wave[0]
-        err_hdu.header['CD3_3'] = self.commom_wave[1] - self.commom_wave[0]
+        err_hdu.header['CRVAL3'] = self.wave[0]
+        err_hdu.header['CD3_3'] = self.wave[1] - self.wave[0]
         self.hdul_out.append(err_hdu)
 
-        mask = np.any(np.isnan(flux_new[:, ...]), axis = 0)
+        mask = np.any(np.isnan(flux[:, ...]), axis = 0)
         mask = np.array(mask, dtype = int)
         mask_hdu = fits.ImageHDU(
             mask, name = 'MASK', header = self.header_sci)
         mask_hdu.header['CTYPE3'] = 'AWAV'
-        mask_hdu.header['CRVAL3'] = self.commom_wave[0]
-        mask_hdu.header['CD3_3'] = self.commom_wave[1] - self.commom_wave[0]
+        mask_hdu.header['CRVAL3'] = self.wave[0]
+        mask_hdu.header['CD3_3'] = self.wave[1] - self.wave[0]
         self.hdul_out.append(mask_hdu)
 
     def add_bestfit_ssp(self):
+        # global stellar
         bestfit_path = os.path.join(
             self.meta['conf']['output_run_ppxf'],'bestfit.fits')
 
@@ -188,9 +185,9 @@ class IFSCubeInput:
             stellar = hdul['PRIMARY'].data
             stellar, _, _ = sc.resampling(
                 flux = stellar,
-                old_wave = self.rest_wave_grid,
+                old_wave = np.array(self.meta['obs']['wave_obs']),
                 old_sampling_type = 'ln',
-                new_wave = np.array(self.commom_wave),
+                new_wave = self.wave,
                 new_sampling_type = 'linear')
 
         scale = np.nanmedian(self.hdul_out['SCI'].data, axis = 0) / np.nanmedian(stellar, axis = 0)
@@ -200,8 +197,8 @@ class IFSCubeInput:
         stellar_hdu = fits.ImageHDU(
             np.single(stellar), name = 'STELLAR', header = self.header_sci)
         stellar_hdu.header['CTYPE3'] = 'AWAV'
-        stellar_hdu.header['CRVAL3'] = self.commom_wave[0]
-        stellar_hdu.header['CD3_3'] = self.commom_wave[1] - self.commom_wave[0]
+        stellar_hdu.header['CRVAL3'] = self.wave[0]
+        stellar_hdu.header['CD3_3'] = self.wave[1] - self.wave[0]
         self.hdul_out.append(stellar_hdu)
 
     def build_rest_wave_grid(self, wave, velocity_map):
@@ -287,11 +284,11 @@ class RunIFScube:
         except FileNotFoundError:
             pass
 
-#%%
+
 if __name__ == '__main__':
     initialization_file = sys.argv[1]
     RunIFScube(initialization_file)
 
-    t = IFSCubeInput(initialization_file = 'test_ifscube.ini')
+    # t = IFSCubeInput(initialization_file = 'test_ifscube.ini')
     # a = RunIFScube(initialization_file = 'test_ifscube.ini')
 
