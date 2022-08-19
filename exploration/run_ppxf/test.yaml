@@ -40,33 +40,33 @@ model:
         mh_range: [-0.1, 0.1] # Must be a list, can be empty
     convolve: True
     
-ppxf:                         # This execution is mandatory 
+ppxf_optimise_mask:           # This execution is optional (the block can be commented or deleted) 
+    moments : 4
+    degree : 8
+    mdegree : -1
+
+ppxf_kinematics:              # This execution is optional (the block can be commented or deleted)
+    moments : 4
+    degree : 8
+    mdegree : -1
+
+ppxf_fit_reddening:           # This execution is optional (the block can be commented or deleted)
+    moments : 4
+    degree : -1
+    mdegree : -1
+    reddening : 0
+    fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
+
+ppxf_regularization:          # This execution is optional (the block can be commented or deleted)
     moments : 4
     degree : -1
     mdegree : 8
-
-# ppxf_dynamical_mask:          # This execution is optional (the block can be commented or deleted)
-#     moments : 4
-#     degree : -1
-#     mdegree : 8
-
-# ppxf_fit_reddening:           # This execution is optional (the block can be commented or deleted)
-#     moments : 4
-#     degree : -1
-#     mdegree : -1
-#     reddening : 0
-#     fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
-        
-# ppxf_regularization:          # This execution is optional (the block can be commented or deleted)
-#     moments : 4
-#     degree : -1
-#     mdegree : 8
-#     regul : 10                # 1/Delta
-#     fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
+    regul : 5                # 1/Delta
+    fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
         
 ppxf_refit:
     mask:
-        sigma : 2.5
+        sigma : 3
 
 output:
     output_root : ../../data_products/
@@ -76,4 +76,4 @@ output:
 
 vorbin:
     apply: True
-    target_sn: 100
+    target_sn: 200

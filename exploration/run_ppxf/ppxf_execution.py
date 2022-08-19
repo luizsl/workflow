@@ -148,12 +148,12 @@ class ExecutePpxf:
                 fixed_goodpixels = self.data.obs.meta['fixed_goodpixels']
                 goodpixels = np.intersect1d(guess_goodpixels, fixed_goodpixels)
                 
-                if 'ppxf' in self.main_meta:
-                    print(id_, 'Calling ppxf fit', end='\n\n')
+                if 'ppxf_optimise_mask' in self.main_meta:
+                    print(id_, 'Trying to optimise mask', end='\n\n')
                     pp = self.execute_ppxf(
                         galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
                         goodpixels=goodpixels,
-                        pp=pp, conf=self.main_meta['ppxf'])
+                        pp=pp, conf=self.main_meta['ppxf_optimise_mask'])
                     
                     # Determine actual goodpixels
                     goodpixels = self.clip_outliers(
@@ -162,12 +162,12 @@ class ExecutePpxf:
                     goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
                     print('*************', end='\n\n')
         
-                if 'ppxf_dynamical_mask' in self.main_meta:
-                    print(id_, 'Calling refit with new spectral mask', end='\n\n')
+                if 'ppxf_kinematics' in self.main_meta:
+                    print(id_, 'Calling fit of kinematics', end='\n\n')
                     pp = self.execute_ppxf(
                         galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
                         goodpixels=goodpixels,
-                        pp=pp, conf=self.main_meta['ppxf_dynamical_mask'])
+                        pp=pp, conf=self.main_meta['ppxf_kinematics'])
                     print('*************', end='\n\n')
         
                 if 'ppxf_fit_reddening' in self.main_meta:
@@ -191,7 +191,7 @@ class ExecutePpxf:
                     print('*************', end='\n\n')
         
                 if 'ppxf_regularization' in self.main_meta:
-                    print(id_, 'Calling refit with regulazired solution', end='\n\n')
+                    print(id_, 'Calling fit with regulazired solution', end='\n\n')
                     pp = self.execute_ppxf(
                         galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
                         goodpixels=goodpixels,

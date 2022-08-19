@@ -96,8 +96,14 @@ class DataPreprocessing:
         except KeyError:
             self.logger.warning('--Not broadening templates, keyword not found')
         
-        if 'velscale_ratio' in self.main_meta['ppxf']:
-            oversample = self.main_meta['ppxf']['velscale_ratio']
+        if 'velscale_ratio' in self.main_meta['ppxf_optimise_mask']:
+            oversample = self.main_meta['ppxf_optimise_mask']['velscale_ratio']
+        elif 'velscale_ratio' in self.main_meta['ppxf_kinematics']:
+            oversample = self.main_meta['ppxf_kinematics']['velscale_ratio']
+        elif 'velscale_ratio' in self.main_meta['ppxf_fit_reddening']:
+            oversample = self.main_meta['ppxf_fit_reddening']['velscale_ratio']
+        elif 'velscale_ratio' in self.main_meta['ppxf_regularization']:
+            oversample = self.main_meta['ppxf_regularization']['velscale_ratio']
         else:
             oversample = 1
             

@@ -29,8 +29,7 @@ class Observation(ABC):
     def build_grid(self):
         pass
 
-    def resample(self, new_wave = None):
-        self.meta['new_obs_sampling'] = 'ln'
+    def resample(self, new_wave=None):
         old_wave = self.meta['wave_obs']
 
         if new_wave is None:
@@ -40,6 +39,7 @@ class Observation(ABC):
                 new_sampling = 'ln')
         else:
             self.meta['wave_obs'] = new_wave
+            
         self.meta['new_obs_sampling'] = 'ln'
 
         self.flux_grid, _, self.flux_grid_unc = \
@@ -256,7 +256,6 @@ class Muse(Observation):
             self.meta['wave_obs'] = wave
         else:
             self.meta['wave_obs'] = self.correct_z(wave=wave, z=z)
-            self.meta['sampling_type'] = 'ln'
         self.meta['limit_obs'] = self.meta['wave_obs'][[0, -1]]
 
     def build_grid(self, min_valid_sn=0, snr_window=[-np.inf, np.inf]):
