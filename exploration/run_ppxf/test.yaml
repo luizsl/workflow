@@ -11,7 +11,7 @@ common:
     
 observation:
     class: Muse
-    obs_name: fov_sample_1_5     # should not include extensions in the name
+    obs_name: fov_sample_1_3     # should not include extensions in the name
     redshift: 0.004951
     spectral_mask: [
         [4000, 4770],
@@ -71,9 +71,9 @@ ppxf_refit:
 output:
     output_root : ../../data_products/
     to_save : ['bestfit', 'chi2', 'error', 'reddening', 'sol',
-        'weights', 'goodpixels']
+        'weights', 'goodpixels', 'galaxy', 'noise']
     secondary : mean_log_age_light, mean_mh_light   
 
 vorbin:
     apply: True
-    target_sn: 200
+    target_sn: 40

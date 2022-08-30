@@ -13,6 +13,7 @@ import spectcube as sc
 from astropy.io import fits
 import json
 from ppxf.ppxf import ppxf
+from time import perf_counter as clock
 
 C = 299792.458  # speed of light in km/s
 
@@ -49,7 +50,7 @@ gas_templates, gas_names, line_wave = util.emission_lines(
 #%% ppxf
 data = ppxf_prep.data
 
-i = 80
+i = (79-1)*89+31
 
 galaxy = data.obs.flux_grid[:, i]
 noise = data.obs.flux_grid_unc[:, i]
@@ -79,12 +80,18 @@ start = [[0, 0],
          [stellar_kinematics[0, i], stellar_kinematics[1, i]],
          [stellar_kinematics[0, i], stellar_kinematics[1, i]]]
 
+A_ineq = np.array([[0, 0, 0, 1, 0, -1]])
+b_ineq = np.array([0])/velscale
+constr_kinem = {"A_ineq": A_ineq, "b_ineq": b_ineq}    
+        
 vlim = lambda x: stellar_kinematics[0, i] + x*np.array([-100, 100])
 bounds = [[vlim(2), [20, 300]],       # Bounds are ignored for the stellar component=0 which has fixed kinematic
-          [vlim(2), [20, 100]],       # I force the narrow component=1 to lie +/-200 km/s from the stellar velocity
+          [vlim(2), [20, 200]],       # I force the narrow component=1 to lie +/-200 km/s from the stellar velocity
           [vlim(6), [20, 400]]]      # I force the broad component=3 to lie +/-200 km/s from the stellar velocity
 
 pp = ppxf(stars_gas_templates, galaxy, noise, velscale, start,
-          plot=1, moments=moments, degree=2, mdegree=-1, component=component, 
-          gas_component=gas_component, gas_names=gas_names,
+          plot=1, moments=moments, degree=3, mdegree=-1, component=component, 
+          gas_component=gas_component, gas_names=gas_names, ftol=1e-4,
+          bounds=bounds,
+          constr_kinem=constr_kinem,
           lam=lam, vsyst=0, global_search=True)

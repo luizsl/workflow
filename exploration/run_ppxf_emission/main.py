@@ -17,7 +17,6 @@ import yaml
 from astropy.utils.misc import JsonCustomEncoder
 
 from data_preprocessing import DataPreprocessing
-# from post_processing import PopMeanProperties
 from ppxf_execution import ExecutePpxf
 
 
@@ -49,7 +48,6 @@ class Main:
         self.keep_conf_copy()
 
         self.data = DataPreprocessing(self.meta)
-        # self.ppxf_out = 
         ExecutePpxf(self.data, self.meta)
 
         # self.meta_to_json()
@@ -96,38 +94,17 @@ class Main:
         with open(path, 'w') as out:
             json.dump(meta, fp=out, indent=4, cls=JsonCustomEncoder)
 
-    # def compute_secondary(self):
-    #     base = self.meta['output_run_ppxf']
-    #     datapath = os.path.join(base, 'weights.fits')
-    #     metadatapath = os.path.join(base, 'metadata.json')
-    #     stellar = PopMeanProperties(
-    #         datapath=datapath,
-    #         metadatapath=metadatapath,
-    #         age_log10=self.data.model.meta['age_log10'])
-
-    #     if 'mean_log_age_light' in self.meta['output']['secondary']:
-    #         stellar.save(stellar.log10_age_light, 'mean_log10_age_light', 
-    #                      self.meta['output_run_ppxf'])
-
-    #     if 'mean_mh_light' in self.meta['output']['secondary']:
-    #         stellar.save(stellar.mh_light, 'mean_mh_light', 
-    #                      self.meta['output_run_ppxf'])
-
-            
 #
 if __name__ == '__main__':
-#     conf = sys.argv[1]
-#     ppxf_control = Main(conf)
-#     ppxf_control.run_all()
+    # conf = sys.argv[1]
+    # ppxf_control = Main(conf)
+    # ppxf_control.run_all()
 
 #  Debug
 
    	conf = 'test.yaml'
   
    	ppxf_prep = Main(conf)
-   	# ppxf_prep.read_config()
-    # ppxf_prep.create_output_folder()
-    # ppxf_prep.keep_conf_copy()
    	ppxf_prep.run_all()
 
     # import matplotlib.pyplot as plt

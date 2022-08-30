@@ -25,8 +25,13 @@ class DataPreprocessing:
         self.logger.info('\nStarting\n--------\n')
         self.pre_prepare()
         self.prepare_observation()
-        self.prepare_model()
-        # self.logger.info('\nFinished\n--------\n')
+        self.prepare_stellar_continuum()
+        self.prepare_emission_model()
+        self.validate()
+        self.logger.info('\nFinished\n--------\n')
+    
+    def validate(self):
+        assert self.obs.flux_grid.shape == self.stellar.flux_grid.shape
         
     def start_logging(self):
         name_log_file = os.path.join(
@@ -55,6 +60,9 @@ class DataPreprocessing:
         self.logger = logger
         
     def pre_prepare(self):
+        t = clock()
+        
+        # Reading metadata of pPXF execution
         self.logger.info('''Gathering Information\n*********************''')
         path_stellar_fit_metadata = os.path.join(
             self.main_meta['resources']['ppxf_stellar_dir'],
@@ -62,44 +70,96 @@ class DataPreprocessing:
         
         with open(path_stellar_fit_metadata) as f:
             self.stellar_fit_metadata = json.load(f)
-            
-    def prepare_model(self):
+        
+        # Reading observations to gather information
+        self.logger.info('Reading observations data')
+        path = os.path.join(self.main_meta['resources']['observation'],
+                            self.main_meta['observation']['obs_name'])
+        files = glob.glob(path + '*')
+        self.logger.info('--' + f'{files[0]}')
+        assert len(files) == 1, "Multiple files match the observation name"
+        
+        self.obs = Muse(
+            files[0],
+            self.main_meta['observation']['redshift'])
+        self.logger.info(f'{round(clock()-t,2)} s')
+        
+    def prepare_emission_model(self):
         t = clock()
-        self.logger.info('''\nModel preparation\n*****************''')
+        self.logger.info('''\nEmission model preparation\n**************************''')
 
         wave = np.array(self.stellar_fit_metadata['obs']['wave_obs'])
-        # z = self.main_meta['observation']['redshift']
                                           
         self.em_model = Model()
         self.em_model.build_model(wave, z=0)
-
+        
         self.logger.info(f'{round(clock()-t,2)} s')
         
     def prepare_observation(self):
         t = clock()
         self.logger.info('''\nObservation preparation\n***********************''')
+        self.obs.build_grid(
+            min_valid_sn=self.main_meta['observation']['snr']['min'], 
+            snr_window=self.main_meta['observation']['snr']['window'])
 
-        # Read observation as used in ppxf input
-        path_obs_flux = os.path.join(
-            self.main_meta['resources']['ppxf_stellar_dir'], 'galaxy.fits')
-        path_obs_flux_unc = os.path.join(
-            self.main_meta['resources']['ppxf_stellar_dir'], 'noise.fits')
+        # if (self.model.meta['o_limit_model'][0] > self.obs.meta['limit_obs'][0] - 100
+        #     or self.model.meta['o_limit_model'][1] < self.obs.meta['limit_obs'][1] + 100):
+        #     self.logger.info("--Observation's spectral axis needs to be trimmed")
+        #     lower, upper = self.model.meta['o_limit_model']
+        #     lower+=100
+        #     upper-=100
+        #     self.obs.trim_spectral_axis(lower, upper)
         
         wave = np.array(self.stellar_fit_metadata['obs']['wave_obs'])
+        self.obs.resample(wave)
+        if self.main_meta['vorbin']['apply'] is True:
+            target_sn=self.main_meta['vorbin']['target_sn']
+            self.logger.info('--Voronoi binning with target SNR:{}'.format(target_sn))
+            self.obs.vorbin(target_sn=target_sn)
+            
+        if 'normalization' in self.main_meta['common']:
+            limits = self.main_meta['common']['normalization']
+            self.obs.normalize(limits=limits)
         
-        self.obs = Muse(path_obs_flux, path_obs_flux_unc, wave)
-        self.obs.build_grid(min_valid_sn=3, snr_window=[5450, 5550])
         self.obs.convert_to_mmap()
+            
+        if 'spectral_mask' in self.main_meta['observation']:
+            self.logger.info('--Ansatz for masked pixels')
+            mask_list = self.main_meta['observation']['spectral_mask']
+            self.obs.mask_spectral_axis(mask_list, kind='guess')
+        else:
+            self.logger.info('--Ansatz for masked pixels not found')
+            mask_list = []
+            self.obs.mask_spectral_axis(mask_list, kind='guess')
+            
+        if 'fixed_spectral_mask' in self.main_meta['observation']:
+            self.logger.info('--Fixed masked pixels')
+            fixed_mask_list = self.main_meta['observation']['fixed_spectral_mask']
+            self.obs.mask_spectral_axis(fixed_mask_list, kind='fixed')
+        else:
+            self.logger.info('--Fixed masked pixels not found')
+            fixed_mask_list = []
+            self.obs.mask_spectral_axis(fixed_mask_list, kind='fixed')
+            
+        self.logger.info(f'{round(clock()-t,2)} s')
+    
+    def prepare_stellar_continuum(self):
+        t = clock()
         
         # Read stellar continuum and stellar kinematics 
+        self.logger.info('''\nStellar continuum preparation\n**************************''')
         path_stellar_continuum = os.path.join(
             self.main_meta['resources']['ppxf_stellar_dir'], 'bestfit.fits')
         path_stellar_kinematics = os.path.join(
             self.main_meta['resources']['ppxf_stellar_dir'], 'sol.fits')
         
+        wave = np.array(self.stellar_fit_metadata['obs']['wave_obs'])
+        
         self.stellar = StellarContinuum(path_stellar_continuum, wave)
         self.stellar.build_grid()
         self.stellar.convert_to_mmap()
+        
+        self.logger.info('''--Gather stellar kinematics''')
         self.stellar.gather_kinematics(path_stellar_kinematics)
             
         self.logger.info(f'{round(clock()-t,2)} s')

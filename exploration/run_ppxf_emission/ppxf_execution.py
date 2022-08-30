@@ -52,11 +52,13 @@ class ExecutePpxf:
 
         self.size = self.data.obs.flux_grid[0, ...].size
 
-        par = ['gas_reddening', 'reddening', 'status', 'gas_flux', 'gas_any',
-               'gas_flux_error', 'gas_bestfit', 'phot_npix', 'gas_any_zero',
-               'weights', 'bestfit','mpoly', 'gas_mpoly', 'dof', 'chi2',
-               'sol', 'error', 'polyweights', 'apoly','goodpixels']
-
+        # par = ['gas_reddening', 'reddening', 'status', 'gas_flux', 'gas_any',
+        #        'gas_flux_error', 'gas_bestfit', 'phot_npix', 'gas_any_zero',
+        #        'weights', 'bestfit','mpoly', 'gas_mpoly', 'dof', 'chi2',
+        #        'sol', 'error', 'polyweights', 'apoly','goodpixels']
+        
+        par =[]
+        
         # NOTE: Saving output unforeseen
         new_par = self.main_meta['output']['to_save']
         self.par = list(set(par) | set(new_par))
@@ -115,17 +117,18 @@ class ExecutePpxf:
         for _ in range(N_PROCESS): 
             input_queue.put(None)
         
-        return_dict = self.process_manager.dict()
-        p_out = mp.Process(target=self.store_output, args=[output_queue, return_dict])
+        # return_dict = self.process_manager.dict()
+        p_out = mp.Process(target=self.store_output, args=[output_queue])
         p_out.start()
         
         for p in ps: 
             p.join()
+            
         output_queue.put(None)
         p_out.join()
         
-        for p in ps:
-            p.join()
+        # for p in ps:
+        #     p.join()
             
         # keep end time
         end_time = datetime.now().strftime("%d/%m/%Y %H:%M")
@@ -143,8 +146,8 @@ class ExecutePpxf:
                 
                 galaxy = self.data.obs.flux_grid[:, i]
                 noise = self.data.obs.flux_grid_unc[:, i]
-                star_continuum_template = self.data.stellar.flux_grid[:, i]
-                if np.any(np.isnan(galaxy) | np.isnan(noise)):
+                stellar = self.data.stellar.flux_grid[:, i]
+                if np.any(np.isnan(galaxy) | np.isnan(noise) | np.isnan(stellar)):
                     print('nan')
                     pack = [i, pp]
                     data_out = pickle.dumps(pack)
@@ -154,18 +157,20 @@ class ExecutePpxf:
                     print(id_, 'Fitting emission', end='\n\n')
                     pp = self.execute_ppxf(
                         galaxy=galaxy, noise=noise,
-                        star_continuum_template=star_continuum_template,
+                        stellar=stellar,
                         index=i,
                         pp=pp, conf=self.main_meta['ppxf_emission_fit'])
 
                 out_log = f.getvalue()
+                
             self.logger.info(out_log)
             pack = [i, pp]
             data_out = pickle.dumps(pack)
             output_queue.put(data_out)
-        
+            # print(output_queue.qsize())
+            
     def execute_ppxf(self,
-                     galaxy=None, noise=None, star_continuum_template=None,
+                     galaxy=None, noise=None, stellar=None,
                      index=None,
                      # goodpixels=None,
                      pp=None, 
@@ -193,7 +198,7 @@ class ExecutePpxf:
         gas_component = np.array(component) > 0
         moments = [-2, 2, 2]
         
-        stars_gas_templates = np.column_stack([star_continuum_template, gas_templates])
+        stars_gas_templates = np.column_stack([stellar, gas_templates])
         
         velscale = self.C*np.diff(np.log(lam[-2:]))
         
@@ -201,20 +206,19 @@ class ExecutePpxf:
                  [stellar_kinematics[0, index], stellar_kinematics[1, index]],
                  [stellar_kinematics[0, index], stellar_kinematics[1, index]]]
         
-        
         vlim = lambda x: stellar_kinematics[0, index] + x*np.array([-100, 100])
-        bounds = [[vlim(2), [20, 300]],       # Bounds are ignored for the stellar component=0 which has fixed kinematic
-                  [vlim(1), [30, 150]],       # I force the narrow component=1 to lie +/-200 km/s from the stellar velocity
-                  [vlim(4), [30, 400]],]       # I force the narrow component=2 to lie +/-600 km/s from the stellar velocity
+        bounds = [[vlim(1), [20, 300]],       # Bounds are ignored for the stellar component=0 which has fixed kinematic
+                  [vlim(2), [20, 200]],       # I force the narrow component=1 to lie +/-200 km/s from the stellar velocity
+                  [vlim(6), [20, 400]],]       # I force the narrow component=2 to lie +/-600 km/s from the stellar velocity
                   # [vlim(2), [20, 1000]]]      # I force the broad component=3 to lie +/-200 km/s from the stellar velocity
           
         A_ineq = np.array([[0, 0, 0, 1, 0, -1]])
-        b_ineq = np.array([-50])/velscale
+        b_ineq = np.array([0])/velscale
         constr_kinem = {"A_ineq": A_ineq, "b_ineq": b_ineq}    
         
         pp = ppxf(stars_gas_templates, galaxy, noise, velscale, start,
                   plot=False, moments=moments, degree=3, mdegree=-1,
-                  component=component, bounds=bounds, ftol=1e-6,
+                  component=component, bounds=bounds, ftol=1e-4,
                   gas_component=gas_component, gas_names=gas_names,
                   lam=lam, vsyst=0, constr_kinem=constr_kinem,
                   global_search=True)
@@ -255,8 +259,9 @@ class ExecutePpxf:
                 self.ppxf.__setattr__(_p, arr)
         self.storage = True
 
-    def store_output(self, output_queue, return_dict):
+    def store_output(self, output_queue):
         for serial_out in iter(output_queue.get, None):
+            t = clock()
             index, out_obj = pickle.loads(serial_out)
             
             if out_obj is None:
@@ -273,12 +278,13 @@ class ExecutePpxf:
                 
                 try:
                     self.ppxf.__getattribute__(_p)[..., index] = _obj
-                    self.ppxf.__getattribute__(_p).flush()
                 except ValueError:
                     shape = _obj.shape[0]
                     self.ppxf.__getattribute__(_p)[..., :shape, index] = _obj
-                    self.ppxf.__getattribute__(_p).flush()
                     
+            self.ppxf.__getattribute__(_p).flush()   
+            # print('Elapsed time to save: %.5f s' % (clock() - t))
+            
         self.reconstruct_map(data=self.data, 
                               parameter=self.main_meta['output']['to_save'])
         

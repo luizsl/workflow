@@ -1,16 +1,19 @@
 ---
 resources:
-    ppxf_stellar_dir: ../../data_products/fov_sample_1_5/XSLAgeMh/ppxf
+    # ppxf_stellar_dir: ../../data_products/fov_sample_1_3/XSLAgeMh/ppxf
+    ppxf_stellar_dir: ../../data_products/toy_trick/MilesAgeMh/ppxf
+
 #    ppxf_stellar_dir: ../../data_products/toy_10x10/XSLAgeMh/ppxf
-    
-#    observation: ../../data/
+    observation: ../../data/
 
 common:
-    n_process: 4
+    normalization: [5450, 5550]
+    n_process: 6
     
 observation:
     class: Muse
-    obs_name: toy_10x10     # should not include extensions in the name
+    obs_name: toy_trick     # should not include extensions in the name
+#    obs_name: toy_10x10    # should not include extensions in the name
     redshift: 0.004951
     snr:
         window: [5450, 5550]
