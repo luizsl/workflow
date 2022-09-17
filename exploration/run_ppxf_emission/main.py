@@ -50,11 +50,7 @@ class Main:
         self.data = DataPreprocessing(self.meta)
         ExecutePpxf(self.data, self.meta)
 
-        # self.meta_to_json()
-
-        # if 'secondary' in self.meta['output']:
-        #     self.logger.info(f'\nComputing secondary properties\n{30*"-"}')
-        #     self.compute_secondary()
+        self.meta_to_json()
     
     def read_config(self):
         with open(self.conf_file) as f:
@@ -87,31 +83,23 @@ class Main:
         meta={}
         meta.update({'conf' : self.meta})
         meta.update({'obs' : self.data.obs.meta})
-        meta.update({'model' : self.data.model.meta})
+        meta.update({'stellar' : self.data.stellar.meta})
+        meta.update({'stellar_kinematics' : self.data.stellar_kinematics.meta})
 
-        path = os.path.join(self.meta['output_run_ppxf'], 'metadata.json')
+        path = os.path.join(self.meta['output_run'], 'metadata.json')
 
         with open(path, 'w') as out:
             json.dump(meta, fp=out, indent=4, cls=JsonCustomEncoder)
 
 #
 if __name__ == '__main__':
-    # conf = sys.argv[1]
-    # ppxf_control = Main(conf)
-    # ppxf_control.run_all()
+    conf = sys.argv[1]
+    ppxf_control = Main(conf)
+    ppxf_control.run_all()
 
-#  Debug
+#%%  Debug
 
-   	conf = 'test.yaml'
+   	# conf = 'test.yaml'
   
-   	ppxf_prep = Main(conf)
-   	ppxf_prep.run_all()
-
-    # import matplotlib.pyplot as plt
-
-    # fig, ax = plt.subplots(1, 3)
-    # ax[0].imshow(10**(age-9), origin='lower')
-    # ax[1].imshow(mh, origin='lower')
-
-    # w = ppxf_prep.ppxf_out.ppxf.weights
-    # ax[2].imshow(w[:, 0].reshape(24,6))
+   	# ppxf_prep = Main(conf)
+   	# ppxf_prep.run_all()

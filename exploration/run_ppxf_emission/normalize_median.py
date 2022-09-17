@@ -16,7 +16,7 @@ def normalize_band(flux=None, wave=None, limits=[-np.inf, np.inf]):
     else:
         band = flux > 0
 
-    factor = np.nanmedian(flux[band])
+    factor = np.nanmean(flux[band])
     flux = flux/factor
         
     return flux, factor

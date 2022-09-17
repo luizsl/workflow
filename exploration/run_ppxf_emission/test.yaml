@@ -2,36 +2,45 @@
 resources:
     # ppxf_stellar_dir: ../../data_products/fov_sample_1_3/XSLAgeMh/ppxf
     ppxf_stellar_dir: ../../data_products/toy_trick/MilesAgeMh/ppxf
-
-#    ppxf_stellar_dir: ../../data_products/toy_10x10/XSLAgeMh/ppxf
+    # ppxf_stellar_dir: ../../data_products/toy_10x10/XSLAgeMh/ppxf
     observation: ../../data/
 
 common:
     normalization: [5450, 5550]
-    n_process: 6
+    n_process: 10
     
 observation:
     class: Muse
-    obs_name: toy_trick     # should not include extensions in the name
-#    obs_name: toy_10x10    # should not include extensions in the name
+    # obs_name: fov_sample_1_3     # should not include extensions in the name
+    obs_name: toy_trick    # should not include extensions in the name
     redshift: 0.004951
+    spectral_negative_mask: [
+        [4850, 4880],
+        [4950, 4970], 
+        [4990, 5025],
+        # [5190, 5210],
+        [6285, 6380],
+        [6530, 6600],
+        [6700, 6750],
+        [8000, 9000]
+        ]
     snr:
         window: [5450, 5550]
         min: 3
     
 ppxf_emission_fit:           # This execution is optional (the block can be commented or deleted) 
     moments : 4
-    degree : 8
+    degree : 2
     mdegree : -1
 
-#ppxf_refit:
-#    mask:
-#        sigma : 3
-
+ppxf_refit:
+    kinematics_guess:
+    kinematics_bounds:
+    
 output:
     output_root : ../../data_products/
     to_save : ['bestfit', 'sol', 'chi2', 'gas_bestfit', 'gas_flux', 'gas_flux_error']
 
 vorbin:
-    apply: False
-    target_sn: 200
+    apply: True
+    target_sn: 300

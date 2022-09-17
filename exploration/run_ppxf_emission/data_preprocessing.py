@@ -13,7 +13,7 @@ from time import perf_counter as clock
 import numpy as np
 
 from emission_modelling import Model
-from observation_processing import Muse, StellarContinuum
+from observation_processing import Muse, StellarContinuum, StellarKinematics
 
 
 class DataPreprocessing:
@@ -26,8 +26,9 @@ class DataPreprocessing:
         self.pre_prepare()
         self.prepare_observation()
         self.prepare_stellar_continuum()
+        self.prepare_stellar_kinematics()
         self.prepare_emission_model()
-        self.validate()
+        # self.validate()
         self.logger.info('\nFinished\n--------\n')
     
     def validate(self):
@@ -82,6 +83,7 @@ class DataPreprocessing:
         self.obs = Muse(
             files[0],
             self.main_meta['observation']['redshift'])
+        
         self.logger.info(f'{round(clock()-t,2)} s')
         
     def prepare_emission_model(self):
@@ -117,24 +119,24 @@ class DataPreprocessing:
             self.logger.info('--Voronoi binning with target SNR:{}'.format(target_sn))
             self.obs.vorbin(target_sn=target_sn)
             
-        if 'normalization' in self.main_meta['common']:
-            limits = self.main_meta['common']['normalization']
-            self.obs.normalize(limits=limits)
+        # if 'normalization' in self.main_meta['common']:
+        #     limits = self.main_meta['common']['normalization']
+        #     self.obs.normalize(limits=limits)
         
         self.obs.convert_to_mmap()
             
-        if 'spectral_mask' in self.main_meta['observation']:
-            self.logger.info('--Ansatz for masked pixels')
-            mask_list = self.main_meta['observation']['spectral_mask']
-            self.obs.mask_spectral_axis(mask_list, kind='guess')
-        else:
-            self.logger.info('--Ansatz for masked pixels not found')
-            mask_list = []
-            self.obs.mask_spectral_axis(mask_list, kind='guess')
+        # if 'spectral_negative_mask' in self.main_meta['observation']:
+        #     self.logger.info('--Ansatz for masked pixels')
+        #     mask_list = self.main_meta['observation']['spectral_mask']
+        #     self.obs.mask_spectral_axis(mask_list, kind='guess')
+        # else:
+        #     self.logger.info('--Ansatz for masked pixels not found')
+        #     mask_list = []
+        #     self.obs.mask_spectral_axis(mask_list, kind='guess')
             
-        if 'fixed_spectral_mask' in self.main_meta['observation']:
+        if 'spectral_negative_mask' in self.main_meta['observation']:
             self.logger.info('--Fixed masked pixels')
-            fixed_mask_list = self.main_meta['observation']['fixed_spectral_mask']
+            fixed_mask_list = self.main_meta['observation']['spectral_negative_mask']
             self.obs.mask_spectral_axis(fixed_mask_list, kind='fixed')
         else:
             self.logger.info('--Fixed masked pixels not found')
@@ -146,10 +148,11 @@ class DataPreprocessing:
     def prepare_stellar_continuum(self):
         t = clock()
         
-        # Read stellar continuum and stellar kinematics 
         self.logger.info('''\nStellar continuum preparation\n**************************''')
+        # Path stellar continuum
         path_stellar_continuum = os.path.join(
             self.main_meta['resources']['ppxf_stellar_dir'], 'bestfit.fits')
+        # Path stellar kinematics
         path_stellar_kinematics = os.path.join(
             self.main_meta['resources']['ppxf_stellar_dir'], 'sol.fits')
         
@@ -157,13 +160,51 @@ class DataPreprocessing:
         
         self.stellar = StellarContinuum(path_stellar_continuum, wave)
         self.stellar.build_grid()
-        self.stellar.convert_to_mmap()
         
-        self.logger.info('''--Gather stellar kinematics''')
-        self.stellar.gather_kinematics(path_stellar_kinematics)
+        if self.main_meta['vorbin']['apply'] is True:
+            self.logger.info('--Applying same binning of observations')
+            valid = self.obs.meta['valid']
+            npixels = self.obs.meta['nPixels']
+            bin_num = self.obs.meta['bin_num']
+            self.stellar.apply_binning(bin_num, npixels, valid)
+        
+        if 'normalization' in self.main_meta['common']:
+            limits = self.main_meta['common']['normalization']
+            wave = self.stellar.meta['wave']
+            self.logger.info('--Normalising')
+            self.stellar.normalize(limits=limits)
+            
+            self.logger.info('--Rescaling')
+            self.stellar.flux_grid = self.stellar.rescale(
+                scale_template = self.obs.flux_grid,
+                wave=wave,
+                limits=limits)
+        
+        self.stellar.convert_to_mmap()
             
         self.logger.info(f'{round(clock()-t,2)} s')
 
+    def prepare_stellar_kinematics(self):
+        t = clock()
+        
+        self.logger.info('''\nStellar kinematics preparation\n**************************''')
+
+        # Path stellar kinematics
+        path_stellar_kinematics = os.path.join(
+            self.main_meta['resources']['ppxf_stellar_dir'], 'sol.fits')
+        
+        # Instantiate stellar Kinematics
+        self.stellar_kinematics = StellarKinematics(path_stellar_kinematics)
+        self.stellar_kinematics.gather_kinematics()
+        
+        if self.main_meta['vorbin']['apply'] is True:
+            self.logger.info('--Average with the same binning of observations')
+            valid = self.obs.meta['valid']
+            npixels = self.obs.meta['nPixels']
+            bin_num = self.obs.meta['bin_num']
+            self.stellar_kinematics.apply_mean_binning(bin_num, npixels, valid)
+        
+        self.logger.info(f'{round(clock()-t,2)} s')
         
 if __name__ == '__main__':
     data = DataPreprocessing(ppxf_prep.meta)

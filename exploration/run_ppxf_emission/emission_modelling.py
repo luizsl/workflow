@@ -41,7 +41,7 @@ class Model(AbstractModel):
                 ln_lam_temp=np.log(self.meta['wave']),
                 lam_range_gal=lam_range_gal, FWHM_gal=lsf_muse,
                 pixel=True, tie_balmer=False, 
-                limit_doublets=False, vacuum=False)
+                limit_doublets=True, vacuum=False)
 
 
 if __name__ == '__main__':

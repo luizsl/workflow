@@ -104,7 +104,7 @@ class ExecutePpxf:
             N_PROCESS = mp.cpu_count()
         
         input_queue = self.process_manager.Queue()
-        output_queue = self.process_manager.Queue()
+        output_queue = self.process_manager.Queue(maxsize=10)
         
         ps = [mp.Process(target=self.worker, args=[input_queue, output_queue]) 
               for _ in range(N_PROCESS)]
@@ -147,6 +147,8 @@ class ExecutePpxf:
                 galaxy = self.data.obs.flux_grid[:, i]
                 noise = self.data.obs.flux_grid_unc[:, i]
                 stellar = self.data.stellar.flux_grid[:, i]
+                goodpixels = self.data.obs.meta['fixed_goodpixels']
+
                 if np.any(np.isnan(galaxy) | np.isnan(noise) | np.isnan(stellar)):
                     print('nan')
                     pack = [i, pp]
@@ -159,6 +161,7 @@ class ExecutePpxf:
                         galaxy=galaxy, noise=noise,
                         stellar=stellar,
                         index=i,
+                        goodpixels=goodpixels,
                         pp=pp, conf=self.main_meta['ppxf_emission_fit'])
 
                 out_log = f.getvalue()
@@ -172,7 +175,7 @@ class ExecutePpxf:
     def execute_ppxf(self,
                      galaxy=None, noise=None, stellar=None,
                      index=None,
-                     # goodpixels=None,
+                     goodpixels=None,
                      pp=None, 
                      conf=None):
         assert conf is not None
@@ -180,47 +183,109 @@ class ExecutePpxf:
         assert noise is not None
         
         t = clock()
-
-        stellar_kinematics = self.data.stellar.stellar_kinematics
         
+        vlim = lambda x: stellar_kinematics[0, index] + x*np.array([-100, 100])
+
+        stellar_kinematics = self.data.stellar_kinematics.kinematics_grid
         gas_templates = self.data.em_model.gas_templates
         gas_names = self.data.em_model.gas_names
         line_wave = self.data.em_model.line_wave
+        lam = self.data.obs.meta['wave_obs']
+        velscale = self.C*np.diff(np.log(lam[-2:]))
+
+        ### 1 Component
+        ngas_comp = 1
+        component = np.array([0] + [1]*7)
+        moments = [-2, 2]
         
-        ngas_comp = 2
+        start = [[0, 0],
+                  [stellar_kinematics[0, index], stellar_kinematics[1, index]]]
+        
+        bounds = [[vlim(1), [20, 100]],       # Bounds are ignored for the stellar component=0 which has fixed kinematic
+                  [vlim(6), [20, 300]],]     # I force the component=2 to lie +/-600 km/s from the stellar velocity
+          
+        A_ineq_kin = np.array([[0, 0, 0, 0]])
+        b_ineq_kin = np.array([0])/velscale
+
+        # NOTE: It seem the minimisation functions used on ppxf have some
+        # limitation on the adoption of constraits for multiple components <>.
+        A_ineq_templ = np.array([[0, 0, -1, 0.42, 0, 0, 0, 0],
+                                  [0, 0, 1, -1.45, 0, 0, 0, 0],])
+        b_ineq_templ = np.array([0, 0])
+        
+        ### 2 Component
+        # ngas_comp = 2
+        # component = np.array([0] + [1]*7 + [2]*7)
+        # moments = [-2, 2, 2]
+
+        # start = [[0, 0],
+        #           [stellar_kinematics[0, index], stellar_kinematics[1, index]],
+        #           [stellar_kinematics[0, index], stellar_kinematics[1, index]]]
+
+        # bounds = [[vlim(1), [20, 300]],       # Bounds are ignored for the stellar component=0 which has fixed kinematic
+        #           [vlim(2), [20, 100]],       # I force the component=1 to lie +/-200 km/s from the stellar velocity
+        #           [vlim(6), [20, 400]],]       # I force the component=2 to lie +/-600 km/s from the stellar velocity
+          
+        # A_ineq_kin = np.array([[0, 0, 0, 1, 0, -1]])
+        # b_ineq_kin = np.array([0])/velscale
+
+        #                           #star  #Hb   Ha  [SII]   [SII] [OIII] [OI] [NII]   Hb   Ha [SII]  [SII] [OIII] [OI] [NII]
+        # A_ineq_templ = np.array([[0,      0,    0,  -1,    0.42,   0,    0,     0,   0,   0,   0,     0,    0,    0,    0],
+        #                           [0,      0,    0,   1,   -1.45,   0,    0,     0,   0,   0,   0,     0,    0,    0,    0],
+        #                           [0,      0,    0,   0,       0,   0,    0,     0,   0,   0,  -1,  0.42,    0,    0,    0],
+        #                           [0,      0,    0,   0,       0,   0,    0,     0,   0,   0,   1, -1.45,    0,    0,    0],
+        #                           ])
+        # b_ineq_templ = np.array([0, 0, 0, 0])
+        
+        # ## 3 Component
+        # ngas_comp = 3
+        # component = np.array([0] + [1]*7 + [2]*7 + [3]*7)
+        # moments = [-2, 2, 2, 2]
+
+        # start = [[0, 0],
+        #           [stellar_kinematics[0, index], stellar_kinematics[1, index]],
+        #           [stellar_kinematics[0, index], stellar_kinematics[1, index]],
+        #           [stellar_kinematics[0, index], stellar_kinematics[1, index]]]
+
+        # bounds = [[vlim(1), [20, 100]],       # Bounds are ignored for the stellar component=0 which has fixed kinematic
+        #           [vlim(2), [20, 100]],       # I force the component=1 to lie +/-200 km/s from the stellar velocity
+        #           [vlim(10), [20, 300]],  
+        #           [vlim(10), [20, 300]],]       # I force the component=2 to lie +/-600 km/s from the stellar velocity
+          
+        # A_ineq_kin = np.array([[0, 0, 0, 1, 0, -1, 0, 0],
+        #                       [0, 0, 0, 0, 0, 1, 0, -1]])
+        # b_ineq_kin = np.array([0, 0])/velscale
+
+        #                           #star  #Hb   Ha  [SII]   [SII] [OIII] [OI] [NII]   Hb   Ha [SII]  [SII] [OIII] [OI] [NII]  Hb   Ha [SII]  [SII] [OIII] [OI] [NII]
+        # A_ineq_templ = np.array([[0,      0,    0,  -1,    0.42,   0,    0,     0,   0,   0,   0,     0,    0,    0,    0,    0,   0,   0,     0,    0,    0,    0],
+        #                          [0,      0,    0,   1,   -1.45,   0,    0,     0,   0,   0,   0,     0,    0,    0,    0,    0,   0,   0,     0,    0,    0,    0],
+        #                          [0,      0,    0,   0,       0,   0,    0,     0,   0,   0,  -1,  0.42,    0,    0,    0,    0,   0,   0,     0,    0,    0,    0],
+        #                          [0,      0,    0,   0,       0,   0,    0,     0,   0,   0,   1, -1.45,    0,    0,    0,    0,   0,   0,     0,    0,    0,    0],
+        #                          # [0,      0,    0,   0,       0,   0,    0,     0,   0,   0,   0,     0,    0,    0,    0,    0,   0,  -1,  0.42,    0,    0,    0],
+        #                          # [0,      0,    0,   0,       0,   0,    0,     0,   0,   0,   0,     0,    0,    0,    0,    0,   0,   1, -1.45,    0,    0,    0],
+        #                          ])
+        # b_ineq_templ = np.array([0, 0, 0, 0])        
+
+        ###
+        
+        constr_kinem = {"A_ineq": A_ineq_kin, "b_ineq": b_ineq_kin}    
+        constr_templ = {"A_ineq": A_ineq_templ, "b_ineq": b_ineq_templ}
+
         gas_templates = np.tile(gas_templates, ngas_comp)
         gas_names = np.asarray([a + f"_({p+1})" for p in range(ngas_comp) for a in gas_names])
         line_wave = np.tile(line_wave, ngas_comp)
-        
-        lam = self.data.obs.meta['wave_obs']
-        
-        component = np.array([0] + [1]*7 + [2]*7)
         gas_component = np.array(component) > 0
-        moments = [-2, 2, 2]
-        
         stars_gas_templates = np.column_stack([stellar, gas_templates])
         
-        velscale = self.C*np.diff(np.log(lam[-2:]))
-        
-        start = [[0, 0],
-                 [stellar_kinematics[0, index], stellar_kinematics[1, index]],
-                 [stellar_kinematics[0, index], stellar_kinematics[1, index]]]
-        
-        vlim = lambda x: stellar_kinematics[0, index] + x*np.array([-100, 100])
-        bounds = [[vlim(1), [20, 300]],       # Bounds are ignored for the stellar component=0 which has fixed kinematic
-                  [vlim(2), [20, 200]],       # I force the narrow component=1 to lie +/-200 km/s from the stellar velocity
-                  [vlim(6), [20, 400]],]       # I force the narrow component=2 to lie +/-600 km/s from the stellar velocity
-                  # [vlim(2), [20, 1000]]]      # I force the broad component=3 to lie +/-200 km/s from the stellar velocity
-          
-        A_ineq = np.array([[0, 0, 0, 1, 0, -1]])
-        b_ineq = np.array([0])/velscale
-        constr_kinem = {"A_ineq": A_ineq, "b_ineq": b_ineq}    
-        
         pp = ppxf(stars_gas_templates, galaxy, noise, velscale, start,
-                  plot=False, moments=moments, degree=3, mdegree=-1,
-                  component=component, bounds=bounds, ftol=1e-4,
+                  plot=False, moments=moments, degree=2, mdegree=-1,
+                  component=component,
                   gas_component=gas_component, gas_names=gas_names,
-                  lam=lam, vsyst=0, constr_kinem=constr_kinem,
+                  lam=lam, vsyst=0,
+                  goodpixels=goodpixels,
+                  bounds=bounds,
+                  constr_kinem=constr_kinem,
+                  # constr_templ=constr_templ,
                   global_search=True)
         
         print('Elapsed time in PPXF: %.2f s' % (clock() - t))
@@ -261,7 +326,7 @@ class ExecutePpxf:
 
     def store_output(self, output_queue):
         for serial_out in iter(output_queue.get, None):
-            t = clock()
+            # t = clock()
             index, out_obj = pickle.loads(serial_out)
             
             if out_obj is None:
