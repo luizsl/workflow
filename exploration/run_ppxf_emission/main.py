@@ -91,13 +91,13 @@ class Main:
 
 #
 if __name__ == '__main__':
-    # conf = sys.argv[1]
-    # ppxf_control = Main(conf)
-    # ppxf_control.run_all()
+    conf = sys.argv[1]
+    ppxf_control = Main(conf)
+    ppxf_control.run_all()
 
-#  Debug
+#%%  Debug
 
-   	conf = 'test.yaml'
+   	# conf = 'test.yaml'
   
-   	ppxf_prep = Main(conf)
-   	ppxf_prep.run_all()
+   	# ppxf_prep = Main(conf)
+   	# ppxf_prep.run_all()
