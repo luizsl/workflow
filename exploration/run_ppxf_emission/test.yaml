@@ -14,18 +14,35 @@ observation:
     # obs_name: fov_sample_1_3     # should not include extensions in the name
     obs_name: toy_trick    # should not include extensions in the name
     redshift: 0.004951
-    spectral_negative_mask: [
-        [4850, 4880],
-        [4950, 4970], 
-        [4990, 5025],
-        # [5190, 5210],
-        [6285, 6380],
-        [6530, 6600],
-        [6700, 6750],
-        [8000, 9000]
-        ]
+    fixed_spectral_mask: [
+        # [4851.6, 4871.1],  # 4861.33 Hb         (1200 km/s)
+        # [4949.0, 4968.8],  # 4958.91 [O III]    (1200 km/s)
+        # [4996.8, 5016.9],  # 5006.84 [O III]    (1200 km/s)
+        [5187.2, 5208.0],  # 5197.58 Fe II      (1200 km/s)
+        [5189.9, 5210.7],  # 5200.26 [N I]      (1200 km/s)
+        [5863.9, 5887.4],  # 5875.62 He I       (1200 km/s)
+        # [6287.7, 6312.9],  # 6300.30 [O I]      (1200 km/s)
+        # [6351.1, 6376.5],  # 6363.78 [O I]      (1200 km/s)
+        # [6535.0, 6561.2],  # 6548.05 [N II]     (1200 km/s)
+        # [6549.7, 6576.0],  # 6562.82 Ha         (1200 km/s)
+        # [6570.3, 6596.6],  # 6583.46 [N II]     (1200 km/s)
+        # [6703.0, 6729.9],  # 6716.44 [S II]     (1200 km/s)
+        # [6717.4, 6744.3],  # 6730.81 [S II]     (1200 km/s)
+        [9050.5, 9086.8],  # 9068.60 [S III]    (1200 km/s)
+
+        [4717.1, 4736.1],  # 4750.00 Nominal start  (3*sigma_star ~ 600 km/s)
+        [9285.3, 9322.6],  # 9350.00 Nominal end    (3*sigma_star ~ 600 km/s)
+
+        [7553.0, 7575.0],  # Noisy region
+        [7587.0, 7620.0],  # Noisy region
+        [5863.9, 5908.0],  # Noisy region
+        [9254.0, 9300.0],  # Noisy region
+        [6258.0, 6280.0],      # Unknown emission 
+        [6325.0, 6345.0],      # Unknown emission
+        [9020.0, 9150.0]]      # Noisy
     snr:
-        window: [5450, 5550]
+        # window: [5450, 5550]
+        window: [6554, 6570]
         min: 3
     
 ppxf_emission_fit:           # This execution is optional (the block can be commented or deleted) 

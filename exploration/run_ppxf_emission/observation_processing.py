@@ -214,7 +214,7 @@ class Observation(ABC):
             mask = np.logical_or(mask, temp.mask)
 
         # Invert mask to include in the fit
-        # mask = ~mask
+        mask = ~mask
         
         # Convert to goodpixels index
         goodpixels = np.arange(mask.size)[mask]
