@@ -386,51 +386,7 @@ class StellarContinuum(StellarContinuumFactory):
         scaled = self.flux_grid *  scale/mean_stellar
         
         return scaled
-    
-    
-class StellarKinematics:
-    def __init__(self, path_stellar_kinematics):
-        self.meta = {}
-        self.meta['path_stellar_kinematics'] = path_stellar_kinematics
-    
-    def gather_kinematics(self):
-        with fits.open(self.meta['path_stellar_kinematics'], memmap = True,
-                       lazy_load_hdus = True) as hdul:
-            self.kinematics_grid = np.array(hdul[0].data)
-        
-        self.meta['shape_kinematics'] = self.kinematics_grid.shape[1:]
-        
-        if len(self.kinematics_grid.shape) == 3:
-            self.reshape('kinematics_grid')
-    
-    def reshape(self, prop):
-        new_shape = (-1, np.array(self.meta['shape_kinematics']).prod())
-        self.__setattr__(prop, self.__getattribute__(prop).reshape(new_shape))
-        
-    def apply_mean_binning(self, bin_num, npixels, valid):
-        with tempfile.TemporaryFile() as temp_kinematics_file, \
-            tempfile.TemporaryFile() as temp_kinematics_bin_file:
 
-            kinematics_valid = np.memmap(
-                temp_kinematics_file,
-                dtype='float32', mode='w+',
-                shape=self.kinematics_grid[:, valid].shape)
-
-            kinematics_valid[:] = self.kinematics_grid[:, valid]
-
-            n_pix = self.kinematics_grid.shape[0]
-
-            kinematics_bin = np.memmap(
-                temp_kinematics_bin_file,
-                dtype='float32', mode='w+',
-                shape=(n_pix, npixels.size))
-
-            for j in range(npixels.size):
-                w = bin_num == j
-                kinematics_bin[:, j] = np.nanmean(kinematics_valid[:, w], axis=1)
-
-            self.kinematics_grid = kinematics_bin
-            
             
 if __name__ == '__main__':
     path_obs = '../../data/fov_sample_1_3.fits'
@@ -459,20 +415,3 @@ if __name__ == '__main__':
     stellar.apply_binning(bin_num, npixels, valid)
     stellar.normalize(limits=[5450, 5550])
     
-    #%%
-    path_stellar_kinematics = '../../data_products/fov_sample_1_3/XSLAgeMh/ppxf/sol.fits'
-    star_kin = StellarKinematics(path_stellar_kinematics)
-    star_kin.gather_kinematics()
-    star_kin.apply_mean_binning(bin_num, npixels, valid)
-    
-    # i = 5
-    # plt.plot(ppxf_prep.data.obs.flux_grid[:, i])
-    # star_scaled = ppxf_prep.data.stellar.flux_grid[:, i] *  np.mean(ppxf_prep.data.obs.flux_grid[774:873, 0])/ np.mean(ppxf_prep.data.stellar.flux_grid[774:873, i])
-    # plt.plot(star_scaled)
-    # plt.plot(wave, ppxf_prep.data.obs.flux_grid[:, i] - star_scaled)
-
-    # i = 31
-    # plt.plot(wave, ppxf_prep.data.obs.flux_grid[:, i])
-    # plt.plot(wave, ppxf_prep.data.stellar.flux_grid[:, i])
-
-    # plt.plot(wave, ppxf_prep.data.obs.flux_grid[:, i] - ppxf_prep.data.stellar.flux_grid[:, i])

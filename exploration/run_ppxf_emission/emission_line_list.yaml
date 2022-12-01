@@ -1,0 +1,43 @@
+---
+high_potential:   
+    OIII5007_d:
+        line_name: ['[OIII]4959', '[OIII]5007']
+        line_wave: [4958.92, 5006.84]
+        ratios: [0.33, 1.00]
+
+    HeI5876:
+        line_name: ['HeI5876']
+        line_wave: [5875.61]
+
+low_potential:
+    NI5197:
+        line_name: ['[NI]5197']
+        line_wave: [5197.90]
+
+    NI5200:
+        line_name: ['[NI]5200']
+        line_wave: [5200.26]
+
+    NII6583_d:
+        line_name: ['[NII]6548', '[NII]6583']
+        line_wave: [6548.03, 6583.41]
+        ratios: [0.33, 1.00]
+        
+    OI6300_d:
+        line_name: ['[OI]6300', '[OI]6364']
+        line_wave: [6300.30, 6363.78]
+        ratios: [1.00, 0.33]
+        
+    SIII6731_d:
+        line_name: ['[SIII]6716', '[SIII]6731']
+        line_wave: [6716.47, 6730.85]    
+        ratios: [[0.44, 1.43],
+                 [1.00, 1.00]]
+
+#balmer:
+    Hb:
+        line_name: ['Hb4861']
+        line_wave: [4861.33]
+    Ha:
+        line_name: ['Ha6562']
+        line_wave: [6562.80]

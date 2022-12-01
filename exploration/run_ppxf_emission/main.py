@@ -32,24 +32,24 @@ class Main:
         stream_handler = logging.StreamHandler()
         stream_handler.setFormatter(formatter)
         stream_handler.setLevel(loglevel)
-        
+
         logger = logging.getLogger(__name__)
         if logger.hasHandlers():
             logger.handlers.clear()
 
         logger.setLevel(loglevel)
         logger.addHandler(stream_handler)
-        
+
         self.logger = logger
-        
+
     def run_all(self):
         self.read_config()
         self.create_output_folder()
         self.keep_conf_copy()
-        self.data = DataPreprocessing(self.meta)
-        ExecutePpxf(self.data, self.meta)
-        self.meta_to_json()
-    
+        # self.data = DataPreprocessing(self.meta)
+        # ExecutePpxf(self.data, self.meta)
+        # self.meta_to_json()
+
     def read_config(self):
         with open(self.conf_file) as f:
             self.meta = yaml.load(f, Loader=yaml.Loader)
@@ -58,7 +58,7 @@ class Main:
         dir_ = str(Path(self.meta['resources']['ppxf_stellar_dir']).parents[0])
         if os.path.isdir(dir_) is False:
             raise Exception
-            
+
         sec_dir_ = os.path.join(dir_, 'ppxf_emission_line')
 
         # create unique name
@@ -91,13 +91,13 @@ class Main:
 
 #
 if __name__ == '__main__':
-    conf = sys.argv[1]
-    ppxf_control = Main(conf)
-    ppxf_control.run_all()
+    # conf = sys.argv[1]
+    # ppxf_control = Main(conf)
+    # ppxf_control.run_all()
 
-#%%  Debug
+#  Debug
 
-   	# conf = 'test.yaml'
-  
-   	# ppxf_prep = Main(conf)
-   	# ppxf_prep.run_all()
+   	conf = 'test.yaml'
+
+   	ppxf_prep = Main(conf)
+   	ppxf_prep.run_all()
