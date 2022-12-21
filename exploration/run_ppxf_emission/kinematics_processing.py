@@ -6,28 +6,37 @@ Created on Fri Sep 30 15:18:38 2022
 @author: Luiz
 """
 
+import json
 # import os
 import tempfile
-import json
-# from abc import ABC, abstractmethod
 
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
 from astropy.io import fits
 from scipy import interpolate
-from sklearn.neighbors import NearestNeighbors, LocalOutlierFactor
+from sklearn.neighbors import LocalOutlierFactor, NearestNeighbors
+
+# from abc import ABC, abstractmethod
+
 
 
 class Kinematics:
-    def __init__(self, kinematics_grid=None):
+    def __init__(self, kinematics_grid=None, kinematics_unc_grid=None):
         self.kinematics_grid = kinematics_grid
+        self.kinematics_unc_grid = kinematics_unc_grid
 
-    def from_file(self, datapath, clip=(None, None)):
-        assert self.kinematics_grid is None
-
+    def from_file(self, datapath, datapath_unc=None, clip=(None, None)):
         with fits.open(datapath, memmap=True, lazy_load_hdus=True
                        ) as hdul:
             self.kinematics_grid = np.array(hdul[0].data[clip[0]: clip[1]])
+
+        try:
+            with fits.open(datapath_unc, memmap=True, lazy_load_hdus=True
+                           ) as hdul:
+                self.kinematics_unc_grid = \
+                    np.array(hdul[0].data[clip[0]: clip[1]])
+        except Exception:
+            self.kinematics_unc_grid = None
 
     def reshape(self):
         if self.kinematics_grid.ndim == 3:
@@ -37,6 +46,12 @@ class Kinematics:
             new_shape = (-1,) + self.shape_kinematics
 
         self.kinematics_grid = self.kinematics_grid.reshape(new_shape)
+
+        try:
+            self.kinematics_unc_grid = \
+                self.kinematics_unc_grid.reshape(new_shape)
+        except Exception:
+            pass
 
     def mean_binning(self, bin_num, npixels, valid):
         if self.kinematics_grid.ndim == 3:
@@ -110,7 +125,6 @@ class FieldInferece:
 
         if units is None:
             units = np.arange(data.shape[0])
-        # print(units)
         if conf is None:
             conf = {}
 
@@ -121,7 +135,7 @@ class FieldInferece:
             rbf_data[:, unit] = rbf(grid)
         return rbf_data
 
-    def inla(self):
+    def inla(self, data, points, grid, units=None, conf=None):
         return NotImplemented
 
 
@@ -160,13 +174,24 @@ class AnomalyDetection:
         return outliers
 
 
+class Bounds:
+    def build(self):
+        pass
+
 if __name__ == '__main__':
 
     # Stellar kinematics
 
-    path_stellar_kinematics = ('../../data_products/toy_trick/MilesAgeMh/ppxf/'
-                               'sol.fits'
-                               )
+    path_stellar_kinematics = (
+        '../../data_products/toy_trick/MilesAgeMh/'
+        'ppxf/sol.fits'
+        )
+
+    # path_stellar_kinematics_unc = (
+    #     '../../data_products/toy_trick/MilesAgeMh/'
+    #     'ppxf/sol.fits'
+    #     )
+
     metadatapath = ('../../data_products/toy_trick/MilesAgeMh/ppxf/'
                     'metadata.json')
 
@@ -250,6 +275,7 @@ if __name__ == '__main__':
     res_filter = inference.rbf(data, points, grid, conf=rbf_dict)
     res_filter = np.clip(res_filter, data.min(), data.max())
     res_filter = res_filter.reshape(gas_kin.shape_kinematics)
+
 
     # plot
 

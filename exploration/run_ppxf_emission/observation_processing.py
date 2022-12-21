@@ -6,10 +6,10 @@ Created on Tue Aug 23 10:47:28 2022
 @author: Luiz
 """
 
+import json
 import os
 import tempfile
 import warnings
-import json
 from abc import ABC, abstractmethod
 
 import numpy as np
