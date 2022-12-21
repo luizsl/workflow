@@ -3,23 +3,23 @@ Created on Tue Aug 31 16:52:36 2021
 
 @author: Luiz
 """
-import io
 import glob
-import os
+import io
 import json
 import logging
-from functools import partial
+import os
 from contextlib import redirect_stdout
+from functools import partial
 from time import perf_counter as clock
 
 import numpy as np
 
-from emission_modelling import EmissionModel
-from observation_processing import Muse, StellarContinuum
+from bounds_processing import build_bounds
 from compute_muse_lsf import equation_lsf
-from kinematics_processing import (
-    Kinematics, Field, FieldInferece, AnomalyDetection
-    )
+from emission_modelling import EmissionModel
+from kinematics_processing import (AnomalyDetection, Field, FieldInferece,
+                                   Kinematics)
+from observation_processing import Muse, StellarContinuum
 
 
 class DataPreprocessing:
@@ -41,11 +41,13 @@ class DataPreprocessing:
         else:
             self.gas_kinematics = self.gas_kinematics_from_stellar()
 
+        self.prepare_bound()
+
         # self.validate()
         self.logger.info('\nFinished\n--------\n')
 
-    def validate(self):
-        assert self.obs.flux_grid.shape == self.stellar.flux_grid.shape
+    # def validate(self):
+    #     assert self.obs.flux_grid.shape == self.stellar.flux_grid.shape
 
     def start_logging(self):
         name_log_file = os.path.join(
@@ -225,7 +227,7 @@ class DataPreprocessing:
 
         if self.main_meta['vorbin']['apply'] is True:
             self.logger.info(
-                '\n--Average with the same binning of observations')
+                '--Average with the same binning of observations')
             valid = self.obs.meta['valid']
             npixels = self.obs.meta['nPixels']
             bin_num = self.obs.meta['bin_num']
@@ -248,6 +250,7 @@ class DataPreprocessing:
 
         n_moments = self.main_meta['gas_template']['moments']
         n_components = self.main_meta['gas_template']['components']
+        em_shape = self.em_model.size
 
         # Path stellar kinematics directory
         dir_ = self.main_meta['resources']['ppxf_stellar_dir']
@@ -264,11 +267,11 @@ class DataPreprocessing:
 
         self.logger.info('--Tile kinematics grid')
         kinematics.kinematics_grid = np.tile(
-            kinematics.kinematics_grid, (n_components, 1))
+            kinematics.kinematics_grid, (n_components * len(em_shape), 1))
 
         if self.main_meta['vorbin']['apply'] is True:
             self.logger.info(
-                '\n--Average with the same binning of observations')
+                '--Average with the same binning of observations')
             valid = self.obs.meta['valid']
             npixels = self.obs.meta['nPixels']
             bin_num = self.obs.meta['bin_num']
@@ -432,6 +435,14 @@ class DataPreprocessing:
             bin_num = self.obs.meta['bin_num']
             self.gas_kinematics.mean_binning_field(bin_num, npixels, valid,
                                                    xbin, ybin)
+
+        self.logger.info(f'{round(clock()-t,2)} s\n')
+
+    def prepare_bound(self):
+        t = clock()
+        self.logger.info('--Build bounds rule')
+
+        self.bounds_rule = self.main_meta['gas_template']['bounds']
 
         self.logger.info(f'{round(clock()-t,2)} s\n')
 

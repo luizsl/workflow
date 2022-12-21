@@ -1,7 +1,7 @@
 ---
 resources:
     # ppxf_stellar_dir: ../../data_products/fov_sample_1_3/XSLAgeMh/ppxf
-        # ppxf_stellar_dir: ../../data_products/toy_10x10/XSLAgeMh/ppxf
+    # ppxf_stellar_dir: ../../data_products/toy_10x10/XSLAgeMh/ppxf
     observation: ../../data/
 
     ppxf_stellar_dir: ../../data_products/toy_trick/MilesAgeMh/ppxf/
@@ -15,7 +15,7 @@ resources:
 
 common:
     normalization: [5450, 5550]
-    n_process: 1
+    n_process: 5
 
 observation:
     class: Muse
@@ -45,25 +45,56 @@ observation:
         [7587.0, 7620.0],  # Noisy region
         [5863.9, 5908.0],  # Noisy region
         [9254.0, 9300.0],  # Noisy region
-        [6258.0, 6280.0],      # Unknown emission
-        [6325.0, 6345.0],      # Unknown emission
-        [9020.0, 9150.0]]      # Noisy
+        [9020.0, 9150.0],  # Noisy
+        # [6258.0, 6280.0],      # Unknown emission
+        # [6325.0, 6345.0],      # Unknown emission
+        # [6250.0, 6380.0],      # Unknown emission
+        ]
     snr:
-        # window: [5450, 5550]
         window: [6554, 6570]
         min: 3
 
 gas_template:
-    components: 2
+    components: 1
     moments: 2
+    bounds: [
+        !Interval [-200,  200],    # high-potential V_a
+        !Fixed    [  20,  200],    # high-potential sigma_a
+        !Interval [-200,  200],    # low-potential V_a
+        !Fixed    [  20,  200],    # low-potential sigma_a
+
+        # !Interval [-500,  500],    # high potential V_b
+        # !Fixed    [  20,  400],    # high potential sigma_b
+        # !Interval [-500,  500],    # low-potential V_b
+        # !Fixed    [  20,  400],    # low-potential sigma_b
+
+        # !Interval [-500,  500],    # high potential V_c
+        # !Fixed    [  20,  400],    # high potential sigma_c
+        # !Interval [-500,  500],    # low-potential V_c
+        # !Fixed    [  20,  400],    # low-potential sigma_c
+        ]
+    # A_ineq_kin: [
+    #     [0, 0, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0],
+    #     [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, -1],
+    #     ]
+    # b_ineq_kin: [-1e-1, -1e-1]
+    # A_ineq_kin: [            #c1               #c2              #c3
+    #     #-- star --      V  s  V  s      V   s  V   s       V   s  V   s
+    #     [0, 0, 0, 0,     0, 1, 0, 0,     0, -1, 0,  0,      0,  0, 0,  0],
+    #     [0, 0, 0, 0,     0, 0, 0, 0,     0,  1, 0,  0,      0, -1, 0,  0],
+    #     [0, 0, 0, 0,     0, 0, 0, 1,     0,  0, 0, -1,      0,  0, 0,  0],
+    #     [0, 0, 0, 0,     0, 0, 0, 0,     0,  0, 0,  1,      0,  0, 0, -1],
+    #     ]
+    # b_ineq_kin: [-1e-1, -1e-1, -1e-1, -1e-1]
 
 ppxf_stellar_continuum:
     degree : -1
-    mdegree : 8
+    mdegree : 2
 
 ppxf_emission_fit:
     degree : -1
     mdegree : -1
+    global_search: {'tol': 0.1, 'disp': 0, 'popsize': 5, 'recombination': 0.8}
 
 guess_handling:
     n_stellar_moments: 4
@@ -79,9 +110,11 @@ guess_handling:
         # conf:
 
 output:
-    output_root : ../../data_products/
-    to_save : ['bestfit', 'sol', 'chi2', 'gas_bestfit', 'gas_flux', 'gas_flux_error']
+    output_root: ../../data_products/
+    to_save: ['bestfit', 'sol', 'chi2', 'gas_bestfit', 'gas_flux',
+     'gas_flux_error', 'error', 'corrected_flux', 'amplitude_rms']
+    to_map: ['sol', 'chi2', 'corrected_flux', 'amplitude_rms']
 
 vorbin:
     apply: True
-    target_sn: 300
+    target_sn: 1000

@@ -16,8 +16,11 @@ from pathlib import Path
 import yaml
 from astropy.utils.misc import JsonCustomEncoder
 
+from bounds_processing import (bounds_fixed_constructor,
+                               bounds_interval_constructor)
 from data_preprocessing import DataPreprocessing
 from ppxf_execution import ExecutePpxf
+from reconstruct_map import reconstruct_map
 
 
 class Main:
@@ -46,20 +49,38 @@ class Main:
         self.read_config()
         self.create_output_folder()
         self.keep_conf_copy()
-        # self.data = DataPreprocessing(self.meta)
-        # ExecutePpxf(self.data, self.meta)
-        # self.meta_to_json()
+        self.data = DataPreprocessing(self.meta)
+        self.execution = ExecutePpxf(self.data, self.meta)
+        self.meta_to_json()
+        self.results_to_json()
+        self.to_map()
 
     def read_config(self):
         with open(self.conf_file) as f:
-            self.meta = yaml.load(f, Loader=yaml.Loader)
+            loader = yaml.Loader
+            loader.add_constructor(tag='!Interval',
+                                   constructor=bounds_interval_constructor)
+            loader.add_constructor(tag='!Fixed',
+                                   constructor=bounds_fixed_constructor)
+
+            self.meta = yaml.load(f, Loader=loader)
 
     def create_output_folder(self):
         dir_ = str(Path(self.meta['resources']['ppxf_stellar_dir']).parents[0])
         if os.path.isdir(dir_) is False:
             raise Exception
 
-        sec_dir_ = os.path.join(dir_, 'ppxf_emission_line')
+        comp = self.meta['gas_template']['components']
+
+        if self.meta['vorbin']['apply']:
+            sn = self.meta['vorbin']['target_sn']
+            binned = f'_binned{sn}'
+        else:
+            binned = None
+
+        sec_dir_ = os.path.join(
+            dir_,
+            f"ppxf_emission_line{binned or ''}_{comp}components")
 
         # create unique name
         if os.path.isdir(sec_dir_) is False:
@@ -78,26 +99,59 @@ class Main:
         shutil.copy(self.conf_file, self.meta['output_run'])
 
     def meta_to_json(self):
-        meta={}
-        meta.update({'conf' : self.meta})
-        meta.update({'obs' : self.data.obs.meta})
-        meta.update({'stellar' : self.data.stellar.meta})
-        meta.update({'stellar_kinematics' : self.data.stellar_kinematics.meta})
+        meta = {}
+        meta.update({'conf': self.meta})
+        # NOBUG: Implement method to the serialization of 'bounds' is required.
+        # It won't be done for now, just removing it instead.
+        meta['conf']['gas_template'].pop('bounds')
+
+        meta.update({'obs': self.data.obs.meta})
+        meta.update({'stellar': self.data.stellar.meta})
 
         path = os.path.join(self.meta['output_run'], 'metadata.json')
 
         with open(path, 'w') as out:
             json.dump(meta, fp=out, indent=4, cls=JsonCustomEncoder)
 
-#
+    def results_to_json(self):
+        meta = {}
+
+        ppxf_output = self.execution.out_ppxf.copy()
+        meta.update({'results': ppxf_output})
+
+        path = os.path.join(self.meta['output_run'], 'ppxf_output.json')
+
+        with open(path, 'w') as out:
+            json.dump(meta, fp=out, indent=4, cls=JsonCustomEncoder)
+
+    def to_map(self):
+        parameter = self.meta['output']['to_map']
+        file_metadata = os.path.join(self.meta['output_run'], 'metadata.json')
+        file_output = os.path.join(self.meta['output_run'], 'ppxf_output.json')
+
+        with open(file_output) as fp:
+            out_ppxf = json.load(fp)
+
+        with open(file_metadata) as fp:
+            out_metadata = json.load(fp)
+
+        try:
+            binned = self.meta['vorbin']['apply']
+        except Exception:
+            binned = False
+
+        reconstruct_map(out_ppxf=out_ppxf, out_metadata=out_metadata,
+                        parameter=parameter, binned=binned)
+
+
 if __name__ == '__main__':
-    # conf = sys.argv[1]
-    # ppxf_control = Main(conf)
-    # ppxf_control.run_all()
+    conf = sys.argv[1]
+    ppxf_control = Main(conf)
+    ppxf_control.run_all()
 
 #  Debug
 
-   	conf = 'test.yaml'
+   	# conf = 'test.yaml'
 
-   	ppxf_prep = Main(conf)
-   	ppxf_prep.run_all()
+   	# ppxf_prep = Main(conf)
+   	# ppxf_prep.run_all()
