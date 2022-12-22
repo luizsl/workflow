@@ -317,6 +317,7 @@ class ExecutePpxf:
 
         pp.corrected_flux = corrected_flux
         pp.amplitude_rms = amplitude_rms
+        pp.gas_names = gas_names
 
         print('Elapsed time in PPXF: %.2f s' % (clock() - t))
         return pp

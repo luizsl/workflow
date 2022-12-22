@@ -111,7 +111,7 @@ guess_handling:
 
 output:
     output_root: ../../data_products/
-    to_save: ['bestfit', 'sol', 'chi2', 'gas_bestfit', 'gas_flux',
+    to_save: ['bestfit', 'sol', 'chi2', 'gas_bestfit', 'gas_flux', 'gas_names',
      'gas_flux_error', 'error', 'corrected_flux', 'amplitude_rms']
     to_map: ['sol', 'chi2', 'corrected_flux', 'amplitude_rms']
 
