@@ -6,6 +6,7 @@ resources:
 
     ppxf_stellar_dir: ../../data_products/toy_trick/MilesAgeMh/ppxf/
     stellar_kinematics_file: sol.fits
+    # stellar_kinematics_metadata: metadata.json
 
     # ppxf_emission_dir: ../../data_products/toy_trick/MilesAgeMh/ppxf_emission_line_1
     # emission_kinematics_file: sol.fits
