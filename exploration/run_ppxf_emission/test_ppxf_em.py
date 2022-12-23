@@ -26,7 +26,7 @@ t = clock()
 
 # for i, index in enumerate(np.arange(10,3000, 200), 1):
 #     print(str(i).center(80, '-'))
-index = 20
+index = 2
 
 galaxy = data.obs.flux_grid[:, index]
 noise = data.obs.flux_grid_unc[:, index]
@@ -127,7 +127,49 @@ for p, name in enumerate(gas_names):
           f"-Amp/Res: {amplitude_rms[p]:6.2f};",
           f"flux: {corrected_flux[p]:6.0f} ergs/(cm^2 s)")
 
+pp.corrected_flux = corrected_flux
+pp.amplitude_rms = amplitude_rms
+pp.gas_names = gas_names
 # fig, ax = plt.subplots()
 # pp.plot()
 
 print(f'\n{round(clock()-t,2)} s')
+
+#%%
+import tempfile
+out_ppxf = {}
+par = ['bestfit', 'sol', 'chi2', 'gas_bestfit', 'gas_flux', 'gas_names',
+       'gas_flux_error', 'error', 'corrected_flux', 'amplitude_rms']
+n_obj = data.obs.flux_grid.shape[-1]
+out_obj = pp
+for _p in par:
+    assert _p in dir(out_obj), f"ppxf doesn't output {_p}"
+    _obj = out_obj.__getattribute__(_p)
+
+    if _obj is None:
+        _shape = (n_obj,)
+    elif isinstance(_obj, (float, int, bool)):
+        _shape = (n_obj,)
+    elif _p == 'goodpixels':
+        # NOTE: goodpixels array has a variable size. It's trick to
+        # deal with this kind of object so I'm implementing a
+        # special case. <>
+        _aux = out_obj.__getattribute__('galaxy')
+        _shape = _aux.shape + (n_obj,)
+    elif isinstance(_obj, list):
+        _obj = np.concatenate(_obj)
+        _obj = _obj.ravel()
+        _shape = _obj.shape + (n_obj,)
+    else:
+        _shape = _obj.shape + (n_obj,)
+
+    try:
+        dtype = _obj.dtype
+    except Exception:
+        dtype = type(_obj)
+
+    with tempfile.NamedTemporaryFile() as temp_file:
+        arr = np.memmap(temp_file, dtype=dtype, shape=_shape)
+        arr.fill(np.nan)
+        arr.flush()
+        out_ppxf.__setitem__(_p, arr)

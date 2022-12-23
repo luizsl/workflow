@@ -23,10 +23,6 @@ from scipy.constants import physical_constants
 
 from bounds_processing import build_bounds
 
-# @dataclass
-# class PpxfResults:
-#     pass
-
 
 class ExecutePpxf:
     C = physical_constants['speed of light in vacuum'][0]/1e3  # km/s
@@ -64,7 +60,7 @@ class ExecutePpxf:
 
         # NOTE: Saving output unforeseen
         new_par = self.main_meta['output']['to_save'] \
-            + self.main_meta['output']['to_save']
+            + self.main_meta['output']['to_map']
         self.par = list(set(par) | set(new_par))
 
         self.run_all_data()
@@ -75,8 +71,8 @@ class ExecutePpxf:
             'log_ppxf_execution.log')
 
         formatter = logging.Formatter('%(message)s')
-        # loglevel = logging.INFO
-        loglevel = logging.DEBUG
+        loglevel = logging.INFO
+        # loglevel = logging.DEBUG
 
         file_handler = logging.FileHandler(name_log_file)
         file_handler.setFormatter(formatter)
@@ -232,10 +228,10 @@ class ExecutePpxf:
 
         stellar_kinematics = \
             self.data.stellar_kinematics.kinematics_grid[:, index]
-        # self.logger.debug(stellar_kinematics)
+        self.logger.debug(stellar_kinematics)
 
         gas_kinematics = self.data.gas_kinematics.kinematics_grid[:, index]
-        # self.logger.debug(gas_kinematics)
+        self.logger.debug(gas_kinematics)
 
         gas_templates = self.data.em_model.template
         gas_names = self.data.em_model.label
@@ -265,7 +261,7 @@ class ExecutePpxf:
         start_gas_kinematics = gas_kinematics.reshape(-1, gas_moments)
         start = [start_stellar_kinematics.tolist()] \
             + start_gas_kinematics.tolist()
-        # self.logger.debug(start)
+        self.logger.debug(start)
 
         try:
             bounds_rule = self.data.bounds_rule
@@ -277,7 +273,7 @@ class ExecutePpxf:
             bounds = [bounds_stellar] + bounds_gas
         except Exception:
             bounds = None
-        # self.logger.debug(bounds)
+        self.logger.debug(bounds)
 
         try:
             A_ineq_kin = self.data.main_meta['gas_template']['A_ineq_kin']
@@ -288,7 +284,7 @@ class ExecutePpxf:
             constr_kinem = {"A_ineq": A_ineq_kin, "b_ineq": b_ineq_kin}
         except Exception:
             constr_kinem = None
-        # self.logger.debug(constr_kinem)
+        self.logger.debug(constr_kinem)
 
         pp = ppxf(stars_gas_templates, galaxy, noise, velscale, start,
                   plot=False, moments=moments, component=component,
@@ -317,6 +313,7 @@ class ExecutePpxf:
 
         pp.corrected_flux = corrected_flux
         pp.amplitude_rms = amplitude_rms
+        pp.gas_names = gas_names
 
         print('Elapsed time in PPXF: %.2f s' % (clock() - t))
         return pp
@@ -348,11 +345,16 @@ class ExecutePpxf:
             else:
                 _shape = _obj.shape + (n_obj,)
 
+            try:
+                dtype = _obj.dtype
+            except Exception:
+                dtype = type(_obj)
+            print(dtype)
+
             with tempfile.NamedTemporaryFile() as temp_file:
-                arr = np.memmap(temp_file, dtype=float, shape=_shape)
+                arr = np.memmap(temp_file, dtype=dtype, shape=_shape)
                 arr.fill(np.nan)
                 arr.flush()
-                # self.out_ppxf.__setattr__(_p, arr)
                 self.out_ppxf.__setitem__(_p, arr)
 
         self.storage.value = True
@@ -361,6 +363,7 @@ class ExecutePpxf:
     def store_output(self, output_queue):
         for serial_out in iter(output_queue.get, None):
             # t = clock()
+
             index, out_obj = pickle.loads(serial_out)
 
             if out_obj is None:
@@ -391,58 +394,6 @@ class ExecutePpxf:
 
                     self.out_ppxf.__getitem__(_p).flush()
             # print(f'Elapsed time to save {index}: %.5f s' % (clock() - t))
-
-    # def reconstruct_map(self, data=None, parameter=[], save=True):
-    #     for _p in parameter:
-    #         if self.main_meta['vorbin']['apply']:
-    #             if self.out_ppxf.__getitem__(_p).ndim < 2:
-    #                 map_shape = data.obs.meta['bin_num'].shape
-    #             if self.out_ppxf.__getitem__(_p).ndim >= 2:
-    #                 map_shape = (self.out_ppxf.__getitem__(_p).shape[:1]
-    #                              + data.obs.meta['bin_num'].shape)
-    #             map_ = np.zeros(map_shape)
-    #             for i in range(self.out_ppxf.__getitem__(_p).shape[-1]):
-    #                 match = data.obs.meta['bin_num'] == i
-    #                 map_[..., match] = \
-    #                     self.out_ppxf.__getitem__(_p)[..., i:i+1]
-
-    #             map_shape_full = np.array(data.obs.meta['shape_obs']).prod()
-    #             if self.out_ppxf.__getitem__(_p).ndim >= 2:
-    #                 map_shape_full = (
-    #                     self.out_ppxf.__getitem__(_p).shape[:1]
-    #                     + (map_shape_full,))
-
-    #             map_full = np.full(map_shape_full, fill_value=np.nan)
-    #             valid = data.obs.meta['valid']
-    #             map_full[..., valid] = map_
-
-    #             if map_full.ndim < 2:
-    #                 new_shape = (data.obs.meta['shape_obs'])
-    #             elif map_full.ndim >= 2:
-    #                 new_shape = (-1,) + data.obs.meta['shape_obs']
-    #             map_full = map_full.reshape(new_shape)
-
-    #         else:
-    #             map_shape_full = data.obs.meta['shape_obs']
-    #             if self.out_ppxf.__getitem__(_p).ndim >= 2:
-    #                 map_shape_full = (
-    #                     self.out_ppxf.__getitem__(_p).shape[:1]
-    #                     + map_shape_full)
-    #             map_full = \
-    #                 self.out_ppxf.__getitem__(_p).reshape(map_shape_full)
-
-    #         if save:
-    #             if self.main_meta:
-    #                 directory = self.main_meta['output_run']
-    #             self.save_fits(map_full, _p, directory)
-
-    # @staticmethod
-    # def save_fits(data_param, name, directory='.', overwrite=True):
-    #     data_param = np.array(data_param, dtype=np.float32)
-    #     hdu = fits.PrimaryHDU(data=data_param)
-    #     hdul = fits.HDUList([hdu])
-    #     full_path = os.path.join(directory, f'{name}.fits')
-    #     hdul.writeto(full_path, overwrite=overwrite)
 
 
 if __name__ == '__main__':
