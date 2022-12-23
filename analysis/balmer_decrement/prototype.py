@@ -11,6 +11,7 @@ import json
 # import re
 
 import numpy as np
+import matplotlib.pyplot as plt
 
 file_metadata = ('../../data_products/toy_trick/MilesAgeMh/'
                   'ppxf_emission_line_binned300_2components/'
