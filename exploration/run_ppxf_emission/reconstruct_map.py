@@ -29,6 +29,12 @@ def reconstruct_map(out_ppxf=None, out_metadata=None, parameter=[],
         item = out_ppxf['results'].__getitem__(_p)
         item = np.asarray(item)
 
+        if item.dtype.kind in ('biufcmM'):
+            pass
+        else:
+            print(f'{_p} cannot be converted into a map')
+            continue
+
         if binned is True:
             if item.ndim < 2:
                 map_shape = bin_num.shape
