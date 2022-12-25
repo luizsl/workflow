@@ -105,7 +105,7 @@ class ExecutePpxf:
             N_PROCESS = mp.cpu_count()
 
         input_queue = self.process_manager.Queue()
-        output_queue = self.process_manager.Queue(maxsize=20)
+        output_queue = self.process_manager.Queue(maxsize=10)
 
         ps = [mp.Process(target=self.worker, args=[input_queue, output_queue])
               for _ in range(N_PROCESS)]
