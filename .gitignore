@@ -22,6 +22,7 @@ exploration/run_ppxf/conf/*
 !exploration/run_ppxf/conf/.gitkeep
 
 exploration/run_ppxf_emission/__pycache__/*
+exploration/run_ppxf_emission/test.yaml
 
 exploration/run_inla/.Rhistory
 exploration/run_inla/*.txt
