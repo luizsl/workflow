@@ -10,14 +10,13 @@ import logging
 import multiprocessing as mp
 import os
 import pickle
-import tempfile
 from contextlib import redirect_stdout
-# from dataclasses import dataclass
 from datetime import datetime
 from time import perf_counter as clock
 
+import dask.array as da
 import numpy as np
-# from astropy.io import fits
+import xarray as xr
 from ppxf.ppxf import ppxf, robust_sigma
 from scipy.constants import physical_constants
 
@@ -39,7 +38,7 @@ class ExecutePpxf:
         self.lock = mp.Lock()
 
         self.start_logging()
-        self.out_ppxf = self.process_manager.dict()
+        self.out_ppxf = xr.Dataset()
         self.out_locks = self.process_manager.dict()
 
         # NOTE: Adding an exception to deal with a single spectrum
@@ -51,11 +50,6 @@ class ExecutePpxf:
                 self.data.obs.flux_grid_unc, axis=1)
 
         self.size = self.data.obs.flux_grid[0, ...].size
-
-        # par = ['gas_reddening', 'reddening', 'status', 'gas_flux', 'gas_any',
-        #        'gas_flux_error', 'gas_bestfit', 'phot_npix', 'gas_any_zero',
-        #        'weights', 'bestfit','mpoly', 'gas_mpoly', 'dof', 'chi2',
-        #        'sol', 'error', 'polyweights', 'apoly','goodpixels']
 
         par = []
 
@@ -101,39 +95,28 @@ class ExecutePpxf:
         self.logger.info(start_time)
 
         try:
-            N_PROCESS = self.main_meta['common']['n_process']
+            self.N_PROCESS = self.main_meta['common']['n_process']
         except Exception:
-            N_PROCESS = mp.cpu_count()
+            self.N_PROCESS = mp.cpu_count()
 
         input_queue = self.process_manager.Queue()
-        output_queue = self.process_manager.Queue(maxsize=N_PROCESS)
+        output_queue = self.process_manager.Queue(maxsize=self.N_PROCESS)
 
         ps = [mp.Process(target=self.worker, args=[input_queue, output_queue])
-              for _ in range(N_PROCESS)]
+              for _ in range(self.N_PROCESS)]
 
         for p in ps:
             p.start()
             self.logger.debug('Start multiprocessing of fitting')
         for i in range(self.size):
             input_queue.put(i)
-        for _ in range(N_PROCESS):
+        for _ in range(self.N_PROCESS):
             input_queue.put(None)
 
-        ps_out = [mp.Process(target=self.store_output, args=[output_queue])
-                  for _ in range(3*N_PROCESS)]
-
-        for p_out in ps_out:
-            p_out.start()
-            self.logger.debug('Start multiprocessing of output')
+        self.store_output(input_queue, output_queue)
 
         for p in ps:
             p.join()
-
-        for p_out in ps_out:
-            output_queue.put(None)
-
-        for p_out in ps_out:
-            p_out.join()
 
         # keep end time
         end_time = datetime.now().strftime("%d/%m/%Y %H:%M")
@@ -362,32 +345,45 @@ class ExecutePpxf:
             finally:
                 if dtype == float:
                     dtype = np.float32
-            # print(dtype)
+                self.logger.debug(dtype)
 
-            if np.asarray(_shape).prod()/n_obj > 20:
-                with tempfile.NamedTemporaryFile() as temp_file:
-                    arr = np.memmap(temp_file, dtype=dtype, shape=_shape)
-                    arr.fill(np.nan)
-                    arr.flush()
-            else:
-                arr = np.full(fill_value=np.nan, dtype=dtype, shape=_shape)
+            if len(_shape) == 1:
+                chunks = 100*self.N_PROCESS
 
-            self.out_ppxf.__setitem__(_p, arr)
-            self.out_locks.__setitem__(_p, self.process_manager.Lock())
+                index_axis = np.arange(n_obj)
+                coords = [index_axis]
+                dims = ['index']
 
-            # with tempfile.NamedTemporaryFile() as temp_file:
-            #     arr = np.memmap(temp_file, dtype=dtype, shape=_shape)
-            #     arr.fill(np.nan)
-            #     arr.flush()
+            elif len(_shape) == 2:
+                chunks = list(_shape)
+                chunks[1] = 100*self.N_PROCESS
 
-            # self.out_ppxf.__setitem__(_p, arr)
+                data_axis = np.arange(_obj.shape[0])
+                index_axis = np.arange(n_obj)
+                coords = [data_axis, index_axis]
+                dims = [f'{_p}_data', 'index']
+
+            self.logger.debug(chunks)
+
+            empty_arr = da.full(
+                fill_value=np.nan, dtype=dtype, shape=_shape, chunks=chunks)
+            self.logger.debug(empty_arr)
+
+            data_array = xr.DataArray(
+                empty_arr, coords=coords, dims=dims, name=_p)
+            self.logger.debug(data_array)
+
+            self.out_ppxf[_p] = data_array
+            self.logger.debug(self.out_ppxf)
 
         self.storage.value = True
         self.logger.info('Storage built')
 
-    def store_output(self, output_queue):
-        for serial_out in iter(output_queue.get, None):
-            # total_time = clock()
+    def store_output(self, input_queue, output_queue):
+        while not all([output_queue.empty(), input_queue.empty()]):
+            serial_out = output_queue.get()
+            self.logger.debug(output_queue.qsize())
+            total_time = clock()
 
             index, out_obj = pickle.loads(serial_out)
 
@@ -398,33 +394,28 @@ class ExecutePpxf:
                 if self.storage.value is False:
                     self.build_output_storage(out_obj)
 
-            for _p in self.par:
-                # t = clock()
-                with self.out_locks.__getitem__(_p):
-                    # print(_p)
-                    _obj = out_obj.__getattribute__(_p)
+            [self._store(index=index, out_obj=out_obj, _p=_p)
+             for _p in self.par]
 
-                    if isinstance(_obj, list):
-                        _obj = np.concatenate(_obj)
-                        _obj = _obj.ravel()
+            self.logger.debug(
+                f'Elapsed time to save {index}: %.5f s' % (clock()-total_time))
 
-                    # with self.lock:
-                    try:
-                        item = self.out_ppxf.__getitem__(_p)
-                        item[..., index] = _obj
-                    except ValueError:
-                        shape = _obj.shape[0]
-                        item = self.out_ppxf.__getitem__(_p)
-                        item[..., :shape, index] = _obj
-                    finally:
-                        self.out_ppxf.__setitem__(_p, item)
+    def _store(self, index, out_obj, _p):
+        t = clock()
+        _obj = out_obj.__getattribute__(_p)
 
-                    # try:
-                    #     self.out_ppxf.__getitem__(_p).flush()
-                    # except AttributeError:
-                    #     pass
-            #     print(f'Time to save {_p}_{index}: %.5f s' % (clock() - t))
-            # print(f'Elapsed time to save {index}: %.5f s' % (clock() - total_time))
+        if isinstance(_obj, list):
+            _obj = np.concatenate(_obj)
+            _obj = _obj.ravel()
+
+        try:
+            self.out_ppxf[_p][..., index] = _obj
+        except ValueError:
+            shape = _obj.shape[0]
+            self.out_ppxf[_p][..., :shape, index] = _obj
+
+        self.logger.debug(
+            f'Time to save {_p: >15}_{index}: %.5f s' % (clock() - t))
 
 
 def constr_cond(A, b, p):
@@ -435,11 +426,10 @@ def constr_cond(A, b, p):
         if n_iter > 1_000:
             raise StopIteration
         else:
-            # print(f'n_iter: {n_iter}')
             A_new[A < 0] = A_new[A < 0] * 1.01
-            # A_new.dot(p) > b_new
             n_iter += 1
     return A_new, b_new
+
 
 if __name__ == '__main__':
     t = ExecutePpxf(ppxf_prep.data, ppxf_prep.data.main_meta)
