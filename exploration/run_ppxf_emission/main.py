@@ -52,6 +52,7 @@ class Main:
         self.data = DataPreprocessing(self.meta)
         self.execution = ExecutePpxf(self.data, self.meta)
         self.meta_to_json()
+        self.gas_names_to_json()
         self.results_to_json()
         self.results_to_map()
 
@@ -145,10 +146,3 @@ if __name__ == '__main__':
     conf = sys.argv[1]
     ppxf_control = Main(conf)
     ppxf_control.run_all()
-
-#%%  Debug
-
-   	# conf = 'test.yaml'
-
-   	# ppxf_prep = Main(conf)
-   	# ppxf_prep.run_all()

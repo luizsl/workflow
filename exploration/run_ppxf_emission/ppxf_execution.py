@@ -5,6 +5,7 @@ Created on Sat Sep 25 12:54:40 2021
 @author: Luiz
 """
 import ctypes
+import json
 import io
 import logging
 import multiprocessing as mp
@@ -19,6 +20,7 @@ import numpy as np
 import xarray as xr
 from ppxf.ppxf import ppxf, robust_sigma
 from scipy.constants import physical_constants
+from astropy.utils.misc import JsonCustomEncoder
 
 from bounds_processing import build_bounds
 
@@ -184,7 +186,7 @@ class ExecutePpxf:
         t = clock()
 
         lam = self.data.obs.meta['wave_obs']
-        velscale = self.C*np.diff(np.log(lam[-2:]))
+        velscale = self.C*np.diff(np.log(lam[-2:]))[0]
         start_stellar_kinematics = [0, 1, 0, 0]
         component = np.array([0])
         moments = [-4]
@@ -218,7 +220,7 @@ class ExecutePpxf:
         gas_names = self.data.em_model.label
         label_wave = self.data.em_model.label_wave
         lam = self.data.obs.meta['wave_obs']
-        velscale = self.C*np.diff(np.log(lam[-2:]))
+        velscale = self.C*np.diff(np.log(lam[-2:]))[0]
         gas_moments = self.data.main_meta['gas_template']['moments']
         ngas_comp = self.data.main_meta['gas_template']['components']
         em_shape = self.data.em_model.size
@@ -233,7 +235,7 @@ class ExecutePpxf:
 
         gas_templates = np.tile(gas_templates, ngas_comp)
         gas_names = np.asarray(
-            [a + f"_({p+1})" for p in range(ngas_comp) for a in gas_names])
+            [gas + f"_({p+1})" for p in range(ngas_comp) for gas in gas_names])
         label_wave = np.tile(label_wave, ngas_comp)
         gas_component = np.array(component) > 0
         stars_gas_templates = np.column_stack([pp.bestfit, gas_templates])
@@ -311,6 +313,47 @@ class ExecutePpxf:
         print('Elapsed time in PPXF: %.2f s' % (clock() - t))
         return pp
 
+    def store_output(self, input_queue, output_queue):
+        while not all([output_queue.empty(), input_queue.empty()]):
+            serial_out = output_queue.get()
+            self.logger.debug(output_queue.qsize())
+            total_time = clock()
+
+            index, out_obj = pickle.loads(serial_out)
+
+            if out_obj is None:
+                continue
+
+            with self.lock:
+                if self.storage.value is False:
+                    self.build_output_storage(out_obj)
+
+                    add_param = self.main_meta['output']['additional_param']
+                    self.keep_add_param(out_obj, parameters=add_param)
+
+            [self._store(index=index, out_obj=out_obj, _p=_p)
+             for _p in self.par]
+
+            self.logger.debug(
+                f'Elapsed time to save {index}: %.5f s' % (clock()-total_time))
+
+    def _store(self, index, out_obj, _p):
+        t = clock()
+        _obj = out_obj.__getattribute__(_p)
+
+        if isinstance(_obj, list):
+            _obj = np.concatenate(_obj)
+            _obj = _obj.ravel()
+
+        try:
+            self.out_ppxf[_p][..., index] = _obj
+        except ValueError:
+            shape = _obj.shape[0]
+            self.out_ppxf[_p][..., :shape, index] = _obj
+
+        self.logger.debug(
+            f'Time to save {_p: >15}_{index}: %.5f s' % (clock() - t))
+
     def build_output_storage(self, out_obj=None):
         assert out_obj is not None
 
@@ -379,43 +422,16 @@ class ExecutePpxf:
         self.storage.value = True
         self.logger.info('Storage built')
 
-    def store_output(self, input_queue, output_queue):
-        while not all([output_queue.empty(), input_queue.empty()]):
-            serial_out = output_queue.get()
-            self.logger.debug(output_queue.qsize())
-            total_time = clock()
+    def keep_add_param(self, out_obj=None, parameters=[]):
+        assert out_obj is not None
 
-            index, out_obj = pickle.loads(serial_out)
+        for parameter in parameters:
+            data = out_obj.__getattribute__(parameter)
+            path = os.path.join(self.main_meta['output_run'],
+                                f'{parameter}.json')
 
-            if out_obj is None:
-                continue
-
-            with self.lock:
-                if self.storage.value is False:
-                    self.build_output_storage(out_obj)
-
-            [self._store(index=index, out_obj=out_obj, _p=_p)
-             for _p in self.par]
-
-            self.logger.debug(
-                f'Elapsed time to save {index}: %.5f s' % (clock()-total_time))
-
-    def _store(self, index, out_obj, _p):
-        t = clock()
-        _obj = out_obj.__getattribute__(_p)
-
-        if isinstance(_obj, list):
-            _obj = np.concatenate(_obj)
-            _obj = _obj.ravel()
-
-        try:
-            self.out_ppxf[_p][..., index] = _obj
-        except ValueError:
-            shape = _obj.shape[0]
-            self.out_ppxf[_p][..., :shape, index] = _obj
-
-        self.logger.debug(
-            f'Time to save {_p: >15}_{index}: %.5f s' % (clock() - t))
+            with open(path, 'w') as out:
+                json.dump(data, fp=out, indent=4, cls=JsonCustomEncoder)
 
 
 def constr_cond(A, b, p):
