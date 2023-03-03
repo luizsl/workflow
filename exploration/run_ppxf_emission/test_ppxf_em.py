@@ -26,7 +26,7 @@ t = clock()
 
 # for i, index in enumerate(np.arange(10,3000, 200), 1):
 #     print(str(i).center(80, '-'))
-index = 2
+index = 20
 
 galaxy = data.obs.flux_grid[:, index]
 noise = data.obs.flux_grid_unc[:, index]
@@ -39,7 +39,7 @@ gas_kinematics = data.gas_kinematics.kinematics_grid[:, index]
 gas_templates = data.em_model.template
 gas_names = data.em_model.label
 lam = data.obs.meta['wave_obs']
-velscale = C*np.diff(np.log(lam[-2:]))
+velscale = C*np.diff(np.log(lam[-2:]))[0]
 
 # 0 Component
 ngas_comp = 0
@@ -55,15 +55,15 @@ pp = ppxf(stellar, galaxy, noise, velscale, start=start_stellar_kinematics,
           lam=lam, vsyst=0,
           )
 
-# fig, ax = plt.subplots()
-# pp.plot()
+fig, ax = plt.subplots()
+pp.plot()
 
 try:
     A_ineq_kin = data.main_meta['gas_template']['A_ineq_kin']
     b_ineq_kin = data.main_meta['gas_template']['b_ineq_kin']
     A_ineq_kin = np.asarray(A_ineq_kin, dtype=float)
     b_ineq_kin = np.asarray(b_ineq_kin, dtype=float)
-    b_ineq_kin = b_ineq_kin/velscale
+    b_ineq_kin = b_ineq_kin/velscale[0]
     constr_kinem = {"A_ineq": A_ineq_kin, "b_ineq": b_ineq_kin}
 except Exception:
     constr_kinem = None
@@ -109,8 +109,8 @@ pp = ppxf(stars_gas_templates, galaxy, noise, velscale, start,
           # linear_method='lsq_lin',
           plot=False,
           lam=lam, vsyst=0,
-          global_search={'tol': 0.1, 'disp': 1, 'popsize': 5, 'recombination': 0.8},
-          # global_search=False,
+            global_search={'tol': 0.1, 'disp': 1, 'popsize': 5, 'recombination': 0.8},
+            # global_search=False,
           )
 
 corrected_flux = np.full_like(gas_names, np.nan, dtype=float)
@@ -130,8 +130,8 @@ for p, name in enumerate(gas_names):
 pp.corrected_flux = corrected_flux
 pp.amplitude_rms = amplitude_rms
 pp.gas_names = gas_names
-# fig, ax = plt.subplots()
-# pp.plot()
+fig, ax = plt.subplots()
+pp.plot()
 
 print(f'\n{round(clock()-t,2)} s')
 
