@@ -40,11 +40,16 @@ if __name__ == "__main__" :
         #              'corrected_flux.fits'
         #              )
        
+        # flux_path = ('../../data_products/NGC0613_DATACUBE_FINAL_clean/'
+        #               'XSLAgeMh_3/ppxf_emission_line_1components/'
+        #               'corrected_flux.fits'
+        #               )
+
         flux_path = ('../../data_products/NGC0613_DATACUBE_FINAL_clean/'
                       'XSLAgeMh_3/ppxf_emission_line_binned100_1components/'
                       'corrected_flux.fits'
                       )
-       
+        
         with fits.open(flux_path) as hdul:
             flux = hdul[0].data
         
@@ -55,7 +60,9 @@ if __name__ == "__main__" :
         
         fig, ax = plt.subplots()
     
-        ax.scatter(x, y, alpha=0.1, marker='o', s=5, linewidths=0.01)
+        ax.scatter(x, y, alpha=0.1, marker='.', s=3,
+                   linewidths=0,
+                   )
     
         k01_x = np.linspace(-2, 0.3, 500)
         k01_y = k01_curve(k01_x)
@@ -70,7 +77,7 @@ if __name__ == "__main__" :
         ax.plot(k03_x, k03_y, color='k', ls=(1, (10, 2, 1, 2)))
         ax.plot(s07_x, s07_y, color='k', ls=(1, (1, 0))) 
         
-        ax.set_xlim(-1, 1)
+        ax.set_xlim(-1.0, 1.0)
         ax.set_ylim(-1.6, 1.8)
         
         ax.set_xlabel(r'$\log_{10} \left(\rm{[NII] \lambda6583} / \rm{H}\alpha\right)$')
@@ -79,17 +86,21 @@ if __name__ == "__main__" :
         # fig.ylim(-1.3, 1.5)
         
         fig.show()
+    
+        
+        #
 
-#%%
 
         # NOTE: The fluxes are measured regarding the doublet. 
         # Taking the line ratio into account is required. 
         y = np.log10((3/4)*flux[0] / flux[8])#[120:200, 120:200]
         x = np.log10((3/4)*flux[4] / flux[9])#[120:200, 120:200]
         
-        fig, ax = plt.subplots(1,2)
-   
-        ax[0].scatter(x, y, alpha=0.5, marker='o', s=5, linewidths=0.01, cmap='rainbow', c=x, vmin=-0.6, vmax=0.3)
+        fig, ax = plt.subplots(1,2, tight_layout=True, figsize=(9.5, 4))
+
+        ax[0].scatter(x, y, alpha=0.5, marker='.', s=3,
+                      linewidths=0.0, cmap='rainbow', c=x,
+                      vmin=-0.6, vmax=0.3)
     
         k01_x = np.linspace(-2, 0.3, 500)
         k01_y = k01_curve(k01_x)
@@ -104,8 +115,10 @@ if __name__ == "__main__" :
         ax[0].plot(k03_x, k03_y, color='k', ls=(1, (10, 2, 1, 2)))
         ax[0].plot(s07_x, s07_y, color='k', ls=(1, (1, 0))) 
         
-        ax[0].set_xlim(-0.8, 0.4)
-        ax[0].set_ylim(-1.2, 1.0)
+        ax[0].set_xlim(-1.0, 1.0)
+        ax[0].set_ylim(-1.6, 1.8)
+        # ax[0].set_xlim(-0.8, 1.0)
+        # ax[0].set_ylim(-1.2, 1.)
         
         ax[0].set_xlabel(r'$\log_{10} \left(\rm{[NII] \lambda6583} / \rm{H}\alpha\right)$')
         ax[0].set_ylabel(r'$\log_{10} \left(\rm{[OIII]\lambda5007} / \rm{H}\beta\right)$')
@@ -115,3 +128,9 @@ if __name__ == "__main__" :
         a = ax[1].imshow(x, origin='lower', cmap='rainbow', vmin=-0.6, vmax=0.3)
         plt.colorbar(a)
         fig.show()
+        
+        # TODO: Remove plot and save in proper directory
+        # plt.savefig('bpt_unbinned.pdf')
+        
+        # TODO: Remove plot and save in proper directory
+        plt.savefig('bpt_binned.pdf')
