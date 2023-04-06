@@ -1,22 +1,22 @@
 ---
 resources:
-    # model: ../../data/models/tmpWzZ2t1
-    model: ../../data/models/XSL_SSP_PC_Kroupa/Kroupa
+    model: ../../data/models/tmpWzZ2t1
+    # model: ../../data/models/XSL_SSP_PC_Kroupa/Kroupa
     # model: ../../data/models/miles_Padova00_UN_baseFe_v10.0
     observation: ../../data/
 
 common:
     normalization: [5450, 5550]
-    n_process: 6
-    
+    n_process: 4
+
 observation:
     class: Muse
-    obs_name: fov_sample_1_5     # should not include extensions in the name
+    obs_name: fov_sample_1_3    # should not include extensions in the name
     redshift: 0.004951
     spectral_mask: [
         [4000, 4770],
         [4850, 4880],
-        [4950, 4970], 
+        [4950, 4970],
         [4990, 5025],
         [5190, 5210],
         [6250, 6380],
@@ -27,43 +27,43 @@ observation:
         [9000, 9500]]
     fixed_spectral_mask: [
         [4000, 4780],
-        [9170, 9500]]    
+        [9170, 9500]]
     snr:
         window: [5450, 5550]
         min: 3
-          
+
 model:
-    class_: XSLAgeMh
-    # class_: MilesAgeMh
+    # class_: XSLAgeMh
+    class_: MilesAgeMh
     remove:
-        age_range: []         # Must be a list, can be empty
-        mh_range: [-0.1, 0.1] # Must be a list, can be empty
+        age_range: []           # Must be a list, can be empty
+        mh_range: [-0.1, 0.1]   # Must be a list, can be empty
     convolve: True
-    
-ppxf_optimise_mask:           # This execution is optional (the block can be commented or deleted) 
+
+ppxf_optimise_mask:             # This execution is optional (the block can be commented or deleted)
     moments : 4
     degree : 8
     mdegree : -1
 
-ppxf_kinematics:              # This execution is optional (the block can be commented or deleted)
+ppxf_kinematics:                # This execution is optional (the block can be commented or deleted)
     moments : 4
     degree : 8
     mdegree : -1
 
-ppxf_fit_reddening:           # This execution is optional (the block can be commented or deleted)
-    moments : 4
-    degree : -1
-    mdegree : -1
-    reddening : 0
-    fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
+# ppxf_fit_reddening:           # This execution is optional (the block can be commented or deleted)
+#     moments : 4
+#     degree : -1
+#     mdegree : -1
+#     reddening : 0
+#     fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
 
-ppxf_regularization:          # This execution is optional (the block can be commented or deleted)
-    moments : 4
-    degree : -1
-    mdegree : 8
-    regul : 5                # 1/Delta
-    fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
-        
+# ppxf_regularization:          # This execution is optional (the block can be commented or deleted)
+#     moments : 4
+#     degree : -1
+#     mdegree : 8
+#     regul : 5                 # 1/Delta
+#     fixed: [1,1,1,1]          # See *fixed* keyword in the pPXF documentation
+
 ppxf_refit:
     mask:
         sigma : 3
@@ -71,9 +71,11 @@ ppxf_refit:
 output:
     output_root : ../../data_products/
     to_save : ['bestfit', 'chi2', 'error', 'reddening', 'sol',
-        'weights', 'goodpixels']
-    secondary : mean_log_age_light, mean_mh_light   
+        'weights', 'goodpixels', 'galaxy', 'noise']
+    secondary : mean_log_age_light, mean_mh_light
 
 vorbin:
     apply: True
-    target_sn: 200
+    target_sn: 100
+    # covar_sn_a: 1.06          # beta(N) = 1 + a * (log_10 N)^b
+    # covar_sn_b: 1
