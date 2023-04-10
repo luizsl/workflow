@@ -5,8 +5,8 @@ Created on Tue Aug 31 16:52:36 2021
 """
 
 import glob
-import os
 import logging
+import os
 from functools import partial
 from time import perf_counter as clock
 

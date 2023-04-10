@@ -150,7 +150,7 @@ class Observation(ABC):
             if "All pixels have enough S/N" in str(exp):
                 print(exp)
 
-                n_spec = obs_bin.flux_grid[:,self.meta['valid']].shape[-1]
+                n_spec = self.flux_grid[:,self.meta['valid']].shape[-1]
 
                 bin_num = np.arange(n_spec)
                 x_gen = np.zeros((n_spec), float)
