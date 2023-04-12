@@ -22,9 +22,10 @@ In particular, redistribution of the code is not allowed.
 
 """
 from time import perf_counter as clock
-import numpy as np
+
 import matplotlib.pyplot as plt
-from scipy import spatial, ndimage
+import numpy as np
+from scipy import ndimage, spatial
 
 #----------------------------------------------------------------------------
 
