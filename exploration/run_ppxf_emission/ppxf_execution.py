@@ -11,11 +11,12 @@ import logging
 import multiprocessing as mp
 import os
 import pickle
+import tempfile
 from contextlib import redirect_stdout
 from datetime import datetime
 from time import perf_counter as clock
 
-import dask.array as da
+# import dask.array as da
 import numpy as np
 import xarray as xr
 from ppxf.ppxf import ppxf, robust_sigma
@@ -278,7 +279,7 @@ class ExecutePpxf:
             constr_kinem = {"A_ineq": A_ineq_kin, "b_ineq": b_ineq_kin}
 
         except Exception:
-            constr_kinem = None
+            constr_kinem = {}
         self.logger.debug(constr_kinem)
 
         pp = ppxf(stars_gas_templates, galaxy, noise, velscale, start,
@@ -408,9 +409,20 @@ class ExecutePpxf:
 
             self.logger.debug(chunks)
 
-            empty_arr = da.full(
-                fill_value=np.nan, dtype=dtype, shape=_shape, chunks=chunks)
+            # empty_arr = np.empty(dtype=dtype, shape=_shape)
+            # empty_arr = da.empty(1dtype=dtype, shape=_shape, chunks=chunks)
+            with tempfile.NamedTemporaryFile() as temp_file:
+                empty_arr = np.memmap(temp_file, dtype = float, shape = _shape)
+                # empty_arr.fill(np.nan)
+                empty_arr.flush()
+
             self.logger.debug(empty_arr)
+            self.logger.debug(_p)
+            self.logger.debug(empty_arr.dtype)
+            self.logger.debug(empty_arr.shape)
+            self.logger.debug(coords)
+            self.logger.debug(dims)
+            self.logger.debug('\n')
 
             data_array = xr.DataArray(
                 empty_arr, coords=coords, dims=dims, name=_p)

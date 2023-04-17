@@ -61,21 +61,21 @@ gas_template:
         !Interval [-200,  200],    # low-potential V_a
         !Fixed    [  20,  200],    # low-potential sigma_a
 
-        # !Interval [-500,  500],    # high potential V_b
-        # !Fixed    [  20,  400],    # high potential sigma_b
-        # !Interval [-500,  500],    # low-potential V_b
-        # !Fixed    [  20,  400],    # low-potential sigma_b
+        !Interval [-500,  500],    # high potential V_b
+        !Fixed    [  20,  400],    # high potential sigma_b
+        !Interval [-500,  500],    # low-potential V_b
+        !Fixed    [  20,  400],    # low-potential sigma_b
 
         # !Interval [-500,  500],    # high potential V_c
         # !Fixed    [  20,  400],    # high potential sigma_c
         # !Interval [-500,  500],    # low-potential V_c
         # !Fixed    [  20,  400],    # low-potential sigma_c
         ]
-#    A_ineq_kin: [
-#        [0, 0, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0],
-#        [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, -1],
-#        ]
-#    b_ineq_kin: [-1e-1, -1e-1]
+    A_ineq_kin: [
+        [0, 0, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, -1],
+        ]
+    b_ineq_kin: [-1e-1, -1e-1]
     # A_ineq_kin: [            #c1               #c2              #c3
     #     #-- star --      V  s  V  s      V   s  V   s       V   s  V   s
     #     [0, 0, 0, 0,     0, 1, 0, 0,     0, -1, 0,  0,      0,  0, 0,  0],
