@@ -62,8 +62,8 @@ class Observation(ABC):
             raise Exception
         assert len(wave) == self.flux_grid.shape[0]
 
-        self.flux_grid, self.meta['obs_norm_factor'] = normalize_band(
-            self.flux_grid, wave, **kwargs)
+        self.flux_grid, self.meta['obs_norm_factor'], self.meta['scaling'] = \
+            normalize_band(self.flux_grid, wave, **kwargs)
 
         self.flux_grid_unc = self.flux_grid_unc/self.meta['obs_norm_factor']
 
