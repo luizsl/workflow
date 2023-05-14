@@ -25,11 +25,11 @@ from normalize_median import normalize_band
 
 class AbstractModel(ABC):
 
-    @abstractmethod    
+    @abstractmethod
     def __init__(self):
         pass
-        
-    @abstractmethod    
+
+    @abstractmethod
     def get_model(self):
         pass
 
@@ -38,26 +38,27 @@ class Model(AbstractModel):
 
     def __init__(self):
         pass
-    
+
     def get_model(self, name):
         factories = {
             "XSLAgeMh" : XSLAgeMh(),
-            "MilesAgeMh" : MilesAgeMh()
+            "MilesAgeMh" : MilesAgeMh(),
+            "MilesAgeMhAlpha" : MilesAgeMhAlpha()
         }
-        
+
         return factories[name]
-    
+
 
 class AbstractFactoryModel(ABC):
-    
+
     @abstractmethod
     def __init__(self):
         pass
-    
+
     @abstractmethod
     def load(self):
         pass
-    
+
     @abstractmethod
     def build_name_grid(self):
         pass
@@ -117,8 +118,8 @@ class AbstractFactoryModel(ABC):
         else:
             raise Exception
 
-        self.flux_grid, self.meta['model_norm_factor'] = normalize_band(
-            self.flux_grid, wave, **kwargs)
+        self.flux_grid, self.meta['model_norm_factor'], self.meta['weighting'] = \
+            normalize_band(self.flux_grid, wave, **kwargs)
 
     def reshape(self):
         assert self.flux_grid.ndim > 2
@@ -163,21 +164,19 @@ class AbstractFactoryModel(ABC):
 
 
 class XSLAgeMh(AbstractFactoryModel):
-    meta = {}
-    name_pattern = 'XSL_SSP_logT{0:.1f}_MH{1:.1f}_Kroupa_PC.fits'
-    parameter_pattern = 'logT[0-9]{1,2}\.[0-9]{1,2}_MH[+/-]?[0-9]{1,2}\.[0-9]{1,2}'
-    fwhm_model_ang = None
-    model_resolving_power = 10_000
-    
     def __init__(self):
+        self.meta = {}
+        self.name_pattern = 'XSL_SSP_logT{0:.1f}_MH{1:.1f}_Kroupa_PC.fits'
+        self.parameter_pattern = 'logT[0-9]{1,2}\.[0-9]{1,2}_MH[+/-]?[0-9]{1,2}\.[0-9]{1,2}'
+        self.fwhm_model_ang = None
+        self.model_resolving_power = 10_000
         self.flags={}
         self.flags['build'] = False
-    
+
     def load(self, path_model_dir):
         assert os.path.isdir(path_model_dir), f'{path_model_dir} is NOT a directory'
         self.path_model_dir = path_model_dir
         self.meta['o_sampling_type'] = 'log'
-        self.meta['age_log10'] = True
 
         self.flux_grid = None
         self.head_grid = None
@@ -212,11 +211,11 @@ class XSLAgeMh(AbstractFactoryModel):
 
         age, metal = par.split("_")
         age = float(age.replace('logT', ''))
-        
+
         metal = float(metal.replace('MH', ''))
         # Trick to remove -0 retrieved from file name
         metal += 0
-        
+
         return age, metal
 
     def get_parameter_range(self):
@@ -244,12 +243,12 @@ class XSLAgeMh(AbstractFactoryModel):
             for _age, _mh, z in it:
                 z[...] = self.name_pattern.format(_age, _mh)
             self.name_grid = it.operands[-1]
-            
-        self.meta['age_range'] = self.age_range 
+
+        self.meta['age_range'] = self.age_range
         self.meta['mh_range'] = self.mh_range
-        
+
         self.flags['build'] = True
-            
+
     def build_flux_grid(self):
         out_shape = self.read_model(
             self.path_model_dir, self.name_grid[0,0]).shape + self.name_grid.shape
@@ -295,46 +294,21 @@ class XSLAgeMh(AbstractFactoryModel):
                     data = hdul[0].header
             return data
 
-    def plot(self, weigths=None):
-        x_age, y_mh = np.meshgrid(self.age_range, self.mh_range)
-
-        if weigths is None:
-            weigths = np.zeros_like(x_age.T)
-
-        fig, ax = plt.subplots()
-
-        grid = ax.pcolormesh(x_age, y_mh, weigths.T)
-        points = ax.scatter(x_age, y_mh,
-                            marker ='.', color ='white', s = 1)
-        cb = plt.colorbar(grid)
-
-        ax.set_xlabel('$\log_{10}$ Age (yr)')
-        ax.xaxis.set_major_locator(ticker.MultipleLocator(0.2))
-        ax.tick_params(axis='x', rotation=90)
-
-        ax.set_ylabel('[Fe/H]')
-        ax.yaxis.set_major_locator(ticker.MultipleLocator(0.2))
-
-        plt.tight_layout()
-        fig.show()
-
 
 class MilesAgeMh(AbstractFactoryModel):
-    meta = {}
-    name_pattern = 'Eun1.30Z{:+05.2f}T{:07.4f}_iPp0.00_baseFe_linear_FWHM_variable.fits'
-    parameter_pattern = '[m/p][0-9]\.[0-9]{2}T[0-9]{2}\.[0-9]{4}'
-    fwhm_model_ang = 2.51
-    
     def __init__(self):
+        self.meta = {}
+        self.name_pattern = 'Eun1.30Z{:+05.2f}T{:07.4f}_iPp0.00_baseFe_linear_FWHM_variable.fits'
+        self.parameter_pattern = '[m/p][0-9]\.[0-9]{2}T[0-9]{2}\.[0-9]{4}'
+        self.fwhm_model_ang = 2.51
         self.flags={}
         self.flags['build'] = False
-        
+
     def load(self, path_model_dir):
         assert os.path.isdir(path_model_dir), f'{path_model_dir} is NOT a directory'
         self.path_model_dir = path_model_dir
         self.meta['o_sampling_type'] = 'linear'
-        self.meta['age_log10'] = False
-        
+
         self.flux_grid = None
         self.head_grid = None
         self.name_grid = None
@@ -398,18 +372,18 @@ class MilesAgeMh(AbstractFactoryModel):
                 a = a.replace('[m/p][0-9]\\.[0-9]{2}', f'{_mh:+0.2f}')
                 a = a.replace('+', 'p')
                 a = a.replace('-', 'm')
-                
+
                 b = glob.glob(os.path.join(self.path_model_dir, '*') + a + '*')
                 assert len(b) == 1
                 name = os.path.split(b[0])[-1]
                 z[...] = name
             self.name_grid = it.operands[-1]
-            
-        self.meta['age_range'] = self.age_range 
+
+        self.meta['age_range'] = self.age_range
         self.meta['mh_range'] = self.mh_range
-        
+
         self.flags['build'] = True
-        
+
     def build_flux_grid(self):
         out_shape = self.read_model(
             self.path_model_dir, self.name_grid[0,0]).shape + self.name_grid.shape
@@ -421,14 +395,14 @@ class MilesAgeMh(AbstractFactoryModel):
                     self.read_model(self.path_model_dir, x[()])
 
             self.flux_grid = out
-        
+
     def build_head_grid(self):
         with np.nditer([self.name_grid, None]) as it:
             for x, y in it:
                 y[...] = dict(self.read_model(self.path_model_dir, x[()], 'header'))
 
             self.head_grid = it.operands[-1]
-        
+
     def isfile(self, directory, file):
         filepath = os.path.join(directory, file)
 
@@ -455,49 +429,194 @@ class MilesAgeMh(AbstractFactoryModel):
                     data = hdul[0].header
             return data
 
-    def plot(self, weigths=None):
-        x_age, y_mh = np.meshgrid(np.log10(self.age_range*1e9).round(2),
-                                  self.mh_range)
 
-        if weigths is None:
-            weigths = np.zeros_like(x_age.T)
+class MilesAgeMhAlpha(AbstractFactoryModel):
+    def __init__(self):
+        self.meta = {}
+        self.name_pattern = 'Eun1.30Z{:+05.2f}T{:07.4f}_iPp0.00_baseFe_linear_FWHM_variable.fits'
+        self.parameter_pattern = '[m/p][0-9]\.[0-9]{2}T[0-9]{2}\.[0-9]{4}.*[_i][T/P][m/p][0-9]\.[0-9]{2}'
+        self.fwhm_model_ang = 2.51
+        self.flags={}
+        self.flags['build'] = False
 
-        fig, ax = plt.subplots()
+    def load(self, path_model_dir):
+        assert os.path.isdir(path_model_dir), f'{path_model_dir} is NOT a directory'
+        self.path_model_dir = path_model_dir
+        self.meta['o_sampling_type'] = 'linear'
 
-        grid = ax.pcolormesh(x_age, y_mh, weigths.T)
-        points = ax.scatter(x_age, y_mh,
-                            marker ='.', color ='white', s = 1)
-        cb = plt.colorbar(grid)
+        self.flux_grid = None
+        self.head_grid = None
+        self.name_grid = None
+        self.mask = None
 
-        ax.set_xlabel('$\log_{10}$ Age (yr)')
-        ax.xaxis.set_major_locator(ticker.MultipleLocator(0.2))
-        ax.tick_params(axis='x', rotation=90)
+        model_files = glob.glob(os.path.join(self.path_model_dir, '*.fits'))
+        self.meta['model_files'] = model_files
 
-        ax.set_ylabel('[Fe/H]')
-        ax.yaxis.set_major_locator(ticker.MultipleLocator(0.2))
+        with fits.open(self.meta['model_files'][0]) as hdu:
+            self.meta['o_first_wave_model'] = np.double(hdu['PRIMARY'].header['CRVAL1'])
+            self.meta['o_step_wave_model'] = np.double(hdu['PRIMARY'].header['CDELT1'])
+            self.meta['o_n_pixel_model'] = hdu['PRIMARY'].header['NAXIS1']
 
-        plt.tight_layout()
-        fig.show()
+        self.meta['o_n_model'] = len(model_files)
 
+        self.meta['o_wave_model'] = sc.util.build_wave_array(
+            [self.meta['o_first_wave_model'], self.meta['o_step_wave_model']],
+            sampling_type = self.meta['o_sampling_type'],
+            size = self.meta['o_n_pixel_model'])
+
+        self.meta['o_limit_model'] = self.meta['o_wave_model'][[0,-1]]
+
+        self.get_parameter_range()
+
+    def age_mh_alpha(self, filename):
+        '''Adapted from ppxf routines (Cappellari+17)
+        '''
+        age = None
+        metal = None
+        alpha = None
+
+        par = re.findall(self.parameter_pattern,
+                         filename)[0]
+        metal, age, alpha = (re.split('_i[T/P]|T', par) + [None]*3)[:3]
+        age = float(age)
+
+        metal = metal.replace('m', '-')
+        metal = float(metal.replace('p', '+'))
+
+        alpha = alpha.replace('m', '-')
+        alpha = float(alpha.replace('p', '+'))
+
+        return age, metal, alpha
+
+    def get_parameter_range(self):
+        age_range = []
+        mh_range = []
+        alpha_range = []
+        for name in self.meta['model_files']:
+            age, mh, alpha = self.age_mh_alpha(name)
+            age_range.append(age)
+            mh_range.append(mh)
+            alpha_range.append(alpha)
+
+        age_range = np.unique(age_range)
+        mh_range = np.unique(mh_range)
+        alpha_range = np.unique(alpha_range)
+
+        age_range = np.sort(age_range)
+        mh_range = np.sort(mh_range)
+        alpha_range = np.sort(alpha_range)
+
+        self.age_range = age_range
+        self.mh_range = mh_range
+        self.alpha_range = alpha_range
+
+    def build_name_grid(self):
+        with np.nditer(
+                [self.age_range, self.mh_range, self.alpha_range, None],
+                flags = ['buffered'],
+                op_axes = [[0, -1, -1], [-1, 0, -1], [-1, -1, 0], None],
+                op_dtypes = [float, float, float, 'U256']) as it:
+            for _age, _mh, _alpha, z in it:
+                a = self.parameter_pattern
+                a = a.replace('T[0-9]{2}\\.[0-9]{4}.', f'T{_age:07.4f}', 1)
+                a = a.replace('[m/p][0-9]\\.[0-9]{2}', f'{_mh:+0.2f}', 1)
+                a = a.replace('[_i][T/P][m/p][0-9]\\.[0-9]{2}',
+                              f'{_alpha:+0.2f}', 1)
+                a = a.replace('+', 'p')
+                a = a.replace('-', 'm')
+
+                b = glob.glob(os.path.join(self.path_model_dir, '*') + a + '*')
+                assert len(b) == 1
+
+                name = os.path.split(b[0])[-1]
+                z[...] = name
+            self.name_grid = it.operands[-1]
+
+        self.meta['age_range'] = self.age_range
+        self.meta['mh_range'] = self.mh_range
+
+        self.flags['build'] = True
+
+    def build_flux_grid(self):
+        out_shape = self.read_model(
+            self.path_model_dir, self.name_grid[0,0,0]).shape + self.name_grid.shape
+        out = np.zeros(out_shape)
+
+        with np.nditer([self.name_grid], flags = ['multi_index']) as it:
+            for x in it:
+                out[(...,) + it.multi_index] = \
+                    self.read_model(self.path_model_dir, x[()])
+            self.flux_grid = out
+
+    def build_head_grid(self):
+        with np.nditer([self.name_grid, None]) as it:
+            for x, y in it:
+                y[...] = dict(self.read_model(self.path_model_dir, x[()], 'header'))
+
+            self.head_grid = it.operands[-1]
+
+    def isfile(self, directory, file):
+        filepath = os.path.join(directory, file)
+
+        if os.path.isfile(filepath):
+            pass
+        else:
+            filepath = re.sub('MH0.0', 'MH-0.0', filepath)
+            if os.path.isfile(filepath):
+                pass
+            else:
+                raise Exception
+        return filepath
+
+    def read_model(self, directory, file, ext='data'):
+        try:
+            filepath = self.isfile(directory, file)
+        except Exception:
+            print(f'{file} not found')
+        else:
+            with fits.open(filepath, memmap=True, lazy_load_hdus=True) as hdul:
+                if ext == 'data':
+                    data = hdul[0].data
+                elif ext == 'header':
+                    data = hdul[0].header
+            return data
 
 #%%
 if __name__ == '__main__':
-    
+
     # model = MilesAgeMh()
     # model.load('../../data/models/tmpWzZ2t1')
-    
+
     # model = MilesAgeMh()
     # model.load('../../data/models/miles_Padova00_UN_baseFe_v10.0')
-    
-    model = XSLAgeMh()
-    model.load('../../data/models/XSL_SSP_PC_Kroupa/Kroupa')
-    
+
+    model = MilesAgeMhAlpha()
+    model.load('../../data/models/MILES_BASTI_KB_Ep0.00')
+
+    # model = XSLAgeMh()
+    # model.load('../../data/models/XSL_SSP_PC_Kroupa/Kroupa')
+
     # model.remove_param('mh_range', [-2.2])
     # model.remove_param('age_range', [7.7])
+
     model.build_name_grid()
     model.build_flux_grid()
     model.build_head_grid()
     model.reshape()
     model.convolve()
     model.resample()
-    model.normalize(limits=[5450, 5550])
+    model.normalize(limits=[5450, 5550], weighting='light')
+
+    fig, ax = plt.subplots()
+    ax.plot(model.flux_grid[:, :])
+
+#%%
+    # import ppxf.miles_util as lib
+    # pathname = '../../data/models/MILES_BASTI_KB_Ep0.00/*.fits'
+    # velscale = np.log(model.meta['wave_model'][1]/model.meta['wave_model'][0])*299792.458
+    # miles = lib.miles(pathname, velscale, norm_range=[5070, 5950])
+
+    # fig, ax = plt.subplots(3,1, sharex=True)
+    # ax[0].plot(model.flux_grid[:, :])
+    # ax[1].plot(miles.templates.reshape((-1, 53*12))[:, :])
+    # ax[2].plot(model.flux_grid[:, :] / miles.templates.reshape((-1, 53*12))[:, :])

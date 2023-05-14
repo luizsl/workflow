@@ -20,6 +20,12 @@ exploration/run_ppxf/__pycache__/*
 exploration/run_ppxf/*.pdf
 exploration/run_ppxf/test_vonoroi.py
 
+exploration/run_ppxf_emission/__pycache__/*
+
+exploration/run_inla/.Rhistory
+exploration/run_inla/*.txt
+exploration/run_inla/*.json
+
 miscellaneous/.ipynb_checkpoints
 miscellaneous/*.ipynb
 miscellaneous/*.pdf
@@ -32,3 +38,4 @@ melhorias.md
 improvements.md
 
 **/*.dat
+**/.ipynb_checkpoints/*

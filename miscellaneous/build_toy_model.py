@@ -10,6 +10,12 @@ from astropy.io import fits
 
 cube_path = '../data/NGC613/Muse/NGC0613_DATACUBE_FINAL_clean.fits.gz'
 
+
+with fits.open(cube_path) as hdul:
+    hdul['data'].data = hdul['data'].data[:, 122:234, 125:214]
+    hdul['stat'].data = hdul['stat'].data[:, 122:234, 125:214]
+    hdul.writeto('../data/toy_trick.fits', overwrite = True)
+    
 with fits.open(cube_path) as hdul:
     hdul['data'].data = hdul['data'].data[:, 100:103, 100:103]
     hdul['stat'].data = hdul['stat'].data[:, 100:103, 100:103]

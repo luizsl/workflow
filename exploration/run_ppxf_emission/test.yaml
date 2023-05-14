@@ -1,0 +1,121 @@
+---
+resources:
+    # ppxf_stellar_dir: ../../data_products/fov_sample_1_3/XSLAgeMh/ppxf
+    # ppxf_stellar_dir: ../../data_products/toy_10x10/XSLAgeMh/ppxf
+    observation: ../../data/
+
+    ppxf_stellar_dir: ../../data_products/toy_trick/MilesAgeMh/ppxf/
+    stellar_kinematics_file: sol.fits
+    # stellar_kinematics_metadata: metadata.json
+
+    # ppxf_emission_dir: ../../data_products/toy_trick/MilesAgeMh/ppxf_emission_line_1
+    # emission_kinematics_file: sol.fits
+    # emission_kinematics_metadata: metadata.json
+
+    emission_line_list: emission_line_list.yaml
+
+common:
+    normalization: [5450, 5550]
+    n_process: 5
+
+observation:
+    class: Muse
+    # obs_name: fov_sample_1_3     # should not include extensions in the name
+    obs_name: toy_trick    # should not include extensions in the name
+    redshift: 0.004951
+    fixed_spectral_mask: [
+        [4851.6, 4871.1],  # 4861.33 Hb         (1200 km/s)
+        [4949.0, 4968.8],  # 4958.91 [O III]    (1200 km/s)
+        [4996.8, 5016.9],  # 5006.84 [O III]    (1200 km/s)
+        [5187.2, 5208.0],  # 5197.58 Fe II      (1200 km/s)
+        [5189.9, 5210.7],  # 5200.26 [N I]      (1200 km/s)
+        [5863.9, 5887.4],  # 5875.62 He I       (1200 km/s)
+        [6287.7, 6312.9],  # 6300.30 [O I]      (1200 km/s)
+        [6351.1, 6376.5],  # 6363.78 [O I]      (1200 km/s)
+        [6535.0, 6561.2],  # 6548.05 [N II]     (1200 km/s)
+        [6549.7, 6576.0],  # 6562.82 Ha         (1200 km/s)
+        [6570.3, 6596.6],  # 6583.46 [N II]     (1200 km/s)
+        [6703.0, 6729.9],  # 6716.44 [S II]     (1200 km/s)
+        [6717.4, 6744.3],  # 6730.81 [S II]     (1200 km/s)
+        [9050.5, 9086.8],  # 9068.60 [S III]    (1200 km/s)
+
+        [4717.1, 4736.1],  # 4750.00 Nominal start  (3*sigma_star ~ 600 km/s)
+        [9285.3, 9322.6],  # 9350.00 Nominal end    (3*sigma_star ~ 600 km/s)
+
+        [7553.0, 7575.0],  # Noisy region
+        [7587.0, 7620.0],  # Noisy region
+        [5863.9, 5908.0],  # Noisy region
+        [9254.0, 9300.0],  # Noisy region
+        [9020.0, 9150.0],  # Noisy
+        # [6258.0, 6280.0],      # Unknown emission
+        # [6325.0, 6345.0],      # Unknown emission
+        # [6250.0, 6380.0],      # Unknown emission
+        ]
+    snr:
+        window: [6554, 6570]
+        min: 3
+
+gas_template:
+    components: 2
+    moments: 2
+    bounds: [
+        !Interval [-200,  200],    # high-potential V_a
+        !Fixed    [  20,  200],    # high-potential sigma_a
+        !Interval [-200,  200],    # low-potential V_a
+        !Fixed    [  20,  200],    # low-potential sigma_a
+
+        !Interval [-500,  500],    # high potential V_b
+        !Fixed    [  20,  400],    # high potential sigma_b
+        !Interval [-500,  500],    # low-potential V_b
+        !Fixed    [  20,  400],    # low-potential sigma_b
+
+        # !Interval [-500,  500],    # high potential V_c
+        # !Fixed    [  20,  400],    # high potential sigma_c
+        # !Interval [-500,  500],    # low-potential V_c
+        # !Fixed    [  20,  400],    # low-potential sigma_c
+        ]
+    A_ineq_kin: [
+        [0, 0, 0, 0, 0, 1, 0, 0, 0, -1, 0, 0],
+        [0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, -1],
+        ]
+    b_ineq_kin: [-1e-1, -1e-1]
+    # A_ineq_kin: [            #c1               #c2              #c3
+    #     #-- star --      V  s  V  s      V   s  V   s       V   s  V   s
+    #     [0, 0, 0, 0,     0, 1, 0, 0,     0, -1, 0,  0,      0,  0, 0,  0],
+    #     [0, 0, 0, 0,     0, 0, 0, 0,     0,  1, 0,  0,      0, -1, 0,  0],
+    #     [0, 0, 0, 0,     0, 0, 0, 1,     0,  0, 0, -1,      0,  0, 0,  0],
+    #     [0, 0, 0, 0,     0, 0, 0, 0,     0,  0, 0,  1,      0,  0, 0, -1],
+    #     ]
+    # b_ineq_kin: [-1e-1, -1e-1, -1e-1, -1e-1]
+
+ppxf_stellar_continuum:
+    degree : -1
+    mdegree : 2
+
+ppxf_emission_fit:
+    degree : -1
+    mdegree : -1
+    global_search: {'tol': 0.1, 'disp': 0, 'popsize': 5, 'recombination': 0.8}
+
+guess_handling:
+    n_stellar_moments: 4
+    remove_stuck: True
+    anomaly_detection:
+        neighbours: 3
+        iterations: 3
+    inference:
+        method: rbf
+        conf:
+            smoothing: 0.01
+        # method: inla
+        # conf:
+
+output:
+    output_root: ../../data_products/
+    to_save: ['bestfit', 'sol', 'chi2', 'gas_bestfit', 'gas_flux', 'gas_names',
+     'gas_flux_error', 'error', 'corrected_flux', 'amplitude_rms']
+    to_map: ['sol', 'chi2', 'corrected_flux', 'amplitude_rms']
+
+vorbin:
+    apply: True
+    target_sn: 300

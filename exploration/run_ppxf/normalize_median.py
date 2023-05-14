@@ -1,4 +1,4 @@
-""" 
+"""
 Created on Tue Aug 31 14:04:00 2021
 
 @author: Luiz
@@ -6,8 +6,8 @@ Created on Tue Aug 31 14:04:00 2021
 import numpy as np
 
 
-def normalize_band(flux=None, wave=None, limits=[-np.inf, np.inf]):
-    global band
+def normalize_band(flux=None, wave=None, limits=[-np.inf, np.inf],
+                   weighting='light'):
     assert flux is not None
 
     if wave is not None:
@@ -16,27 +16,29 @@ def normalize_band(flux=None, wave=None, limits=[-np.inf, np.inf]):
     else:
         band = flux > 0
 
-    factor = np.nanmedian(flux[band])
+    weighting = weighting.lower()
+    if weighting == 'mass' or weighting =='scalar':
+        factor = np.nanmedian(flux[band])
+    elif weighting == 'light' or weighting =='vector':
+        factor = np.nanmedian(flux[band], 0)
+    else:
+        raise Exception
+
     flux = flux/factor
-        
-    return flux, factor
 
-# def save_factor(factor, directory):
-#     hdu = fits.PrimaryHDU(data=np.atleast_1d(factor))
-#     hdul = fits.HDUList([hdu])
-#     hdul.writeto(f'{directory}/normalization_factor.fits', overwrite=True)
+    return flux, factor, weighting
 
+# flux = model.flux_grid
+# wave = model.meta['wave_model']
 
-# flux1d = np.random.rand(200)+5
-# flux2d = np.random.rand(200,3)+5
-# flux3d = np.random.rand(200,4,5)+5
-# wave = np.linspace(1, 50, 200)
+# fig, ax = plt.subplots(3, 1)
 
-# res1, factor1 = normalize_band(flux1d, wave, [1, 2])
-# res2, factor2 = normalize_band(flux2d, wave)
-# res3, factor3 = normalize_band(flux3d, wave)
+# ax[0].plot(wave, flux[:, :])
 
-# plt.plot(wave, flux1d)
-# plt.plot(wave, res1)
-# # np.allclose(res2 * factor2, flux2d)
-# # np.allclose(res3 * factor3, flux3d)
+# flux_l, factor_l, weighting_l =normalize_band(flux, wave, limits=[5450, 5550])
+
+# flux_m, factor_m, weighting_m =normalize_band(flux, wave, limits=[5450, 5550],
+#                                               weighting='scalar')
+
+# ax[1].plot(wave, flux_l[:, :])
+# ax[2].plot(wave, flux_m[:, :])
