@@ -18,6 +18,7 @@ from astropy.utils.misc import JsonCustomEncoder
 from data_preprocessing import DataPreprocessing
 from post_processing import PopMeanProperties
 from ppxf_execution import ExecutePpxf
+from reconstruct_map import reconstruct_map
 
 
 class Main:
@@ -32,25 +33,25 @@ class Main:
         stream_handler = logging.StreamHandler()
         stream_handler.setFormatter(formatter)
         stream_handler.setLevel(loglevel)
-        
+
         logger = logging.getLogger(__name__)
         if logger.hasHandlers():
             logger.handlers.clear()
 
         logger.setLevel(loglevel)
         logger.addHandler(stream_handler)
-        
+
         self.logger = logger
-        
+
     def run_all(self):
         self.read_config()
         self.create_output_folder()
         self.keep_conf_copy()
 
         self.data = DataPreprocessing(self.meta)
-        self.ppxf_out = ExecutePpxf(self.data, self.meta)
-
+        self.execution = ExecutePpxf(self.data, self.meta)
         self.meta_to_json()
+        self.results_to_map()
 
         if 'secondary' in self.meta['output']:
             self.logger.info(f'\nComputing secondary properties\n{30*"-"}')
@@ -98,6 +99,31 @@ class Main:
         with open(path, 'w') as out:
             json.dump(meta, fp=out, indent=4, cls=JsonCustomEncoder)
 
+    def results_to_map(self):
+        self.logger.info('Converting outputs into maps')
+        self.logger.info(70*'*')
+
+        parameters = self.meta['output']['to_save']
+        file_metadata = os.path.join(
+            self.meta['output_run_ppxf'], 'metadata.json')
+
+        with open(file_metadata) as fp:
+            out_metadata = json.load(fp)
+
+        try:
+            binned = self.meta['vorbin']['apply']
+        except Exception:
+            binned = False
+
+        for parameter in parameters:
+            try:
+                data = self.execution.out_ppxf[parameter].values
+                reconstruct_map(data=data, out_metadata=out_metadata,
+                                parameter=parameter, binned=binned,
+                                directory=self.meta['output_run_ppxf'])
+            except Exception as e:
+                self.logger.info(str(e))
+
     def compute_secondary(self):
         base = self.meta['output_run_ppxf']
         datapath = os.path.join(base, 'weights.fits')
@@ -108,15 +134,14 @@ class Main:
             age_log10=self.data.model.meta['age_log10'])
 
         if 'mean_log_age_light' in self.meta['output']['secondary']:
-            stellar.save(stellar.mh_light, 'mean_log10_age_light', 
+            stellar.save(stellar.log10_age_light, 'mean_log10_age_light',
                          self.meta['output_run_ppxf'])
 
         if 'mean_mh_light' in self.meta['output']['secondary']:
-            stellar.save(stellar.mh_light, 'mean_mh_light', 
+            stellar.save(stellar.mh_light, 'mean_mh_light',
                          self.meta['output_run_ppxf'])
 
-            
-#%%
+
 if __name__ == '__main__':
     conf = sys.argv[1]
     ppxf_control = Main(conf)
@@ -125,11 +150,13 @@ if __name__ == '__main__':
 
 # %% Debug
 
-   	# conf = 'test.yaml'
-  
-   	# ppxf_prep = Main(conf)
+    # conf = 'test.yaml'
+
+    # ppxf_prep = Main(conf)
    	# ppxf_prep.read_config()
-   	# ppxf_prep.run_all()
+    # ppxf_prep.create_output_folder()
+    # ppxf_prep.keep_conf_copy()
+    # ppxf_prep.run_all()
 
     # import matplotlib.pyplot as plt
 

@@ -5,20 +5,20 @@ data/*
 data_products/*
 !data_products/.gitkeep
 
-exploration/NGC613
-exploration/run_ifscube/previous_results
 exploration/run_ifscube/*.pdf
 exploration/run_ifscube/*.fits
 exploration/run_ifscube/ifscube
-exploration/run_ppxf/__pycache__/*
+exploration/run_ifscube/test_ifscube.ini
 exploration/run_ifscube/__pycache__/*
-exploration/run_ppxf/*.pdf
-exploration/run_ppxf/test_vonoroi.py
+
+!exploration/run_ppxf/conf/.gitkeep
 exploration/run_ppxf/ppxf_test.py
 exploration/run_ppxf/*.fits
-exploration/test_conf/
 exploration/run_ppxf/test_voronoi.py
-exploration/run_ppxf/voronoi_2d_binning.py
+exploration/run_ppxf/conf/*
+exploration/run_ppxf/__pycache__/*
+exploration/run_ppxf/*.pdf
+exploration/run_ppxf/test_vonoroi.py
 
 miscellaneous/.ipynb_checkpoints
 miscellaneous/*.ipynb

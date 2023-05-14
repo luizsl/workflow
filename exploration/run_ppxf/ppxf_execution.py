@@ -4,6 +4,7 @@ Created on Sat Sep 25 12:54:40 2021
 
 @author: Luiz
 """
+import ctypes
 import io
 import logging
 import multiprocessing as mp
@@ -11,39 +12,36 @@ import os
 import pickle
 import tempfile
 from contextlib import redirect_stdout
-from dataclasses import dataclass
 from datetime import datetime
 from time import perf_counter as clock
 
 import extinction
 import numpy as np
+import ppxf as ppxf_package
+import xarray as xr
 from astropy.io import fits
+# import dask.array as da
+from packaging import version
 from ppxf.ppxf import ppxf, robust_sigma
 from scipy.constants import physical_constants
 
 
-@dataclass
-class PpxfResults:
-    pass
-
-
 class ExecutePpxf:
     C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
-    meta = {}
 
     def __init__(self, data=None, metadata=None):
         assert data is not None
         assert metadata is not None
-        
+
+        self.meta = {}
         self.data = data
         self.main_meta = metadata
-        self.storage = False
+        self.storage = mp.Value(ctypes.c_bool, False)
         self.process_manager = mp.Manager()
-        
-        # self.shared_space = self.process_manager.Namespace()
-        
+        self.lock = mp.Lock()
+
         self.start_logging()
-        # self.ppxf = PpxfResults()
+        self.out_ppxf = xr.Dataset()
         # NOTE: Adding an exception to deal with a single spectrum
         # not neat but should work. <>
         if self.data.obs.flux_grid.ndim==1:
@@ -52,32 +50,28 @@ class ExecutePpxf:
             self.data.obs.flux_grid_unc = np.expand_dims(
                 self.data.obs.flux_grid_unc, axis=1)
 
-        
         self.size = self.data.obs.flux_grid[0, ...].size
-        
-        par = ['gas_reddening', 'reddening', 'status', 'gas_flux', 'gas_any',
-               'gas_flux_error', 'gas_bestfit', 'phot_npix', 'gas_any_zero',
-               'weights', 'bestfit','mpoly', 'gas_mpoly', 'dof', 'chi2',
-               'sol', 'error', 'polyweights', 'apoly','goodpixels']
+
+        par = []
 
         # NOTE: Saving output unforeseen
         new_par = self.main_meta['output']['to_save']
         self.par = list(set(par) | set(new_par))
 
         self.run_all_data()
-        
+
     def start_logging(self):
         name_log_file = os.path.join(
             self.main_meta['output_run_ppxf'],
             'log_ppxf_execution.log')
-        
+
         formatter = logging.Formatter('%(message)s')
         loglevel = logging.INFO
-        
+
         file_handler = logging.FileHandler(name_log_file )
         file_handler.setFormatter(formatter)
         file_handler.setLevel(loglevel)
-        
+
         stream_handler = logging.StreamHandler()
         stream_handler.setFormatter(formatter)
         stream_handler.setLevel(loglevel)
@@ -90,7 +84,7 @@ class ExecutePpxf:
         logger.addHandler(file_handler)
         logger.addHandler(stream_handler)
         self.logger = logger
-        
+
     def run_all_data(self):
         self.logger.info('pPXF execution started')
 
@@ -98,122 +92,136 @@ class ExecutePpxf:
         start_time = datetime.now().strftime("%d/%m/%Y %H:%M")
         self.meta['ppxf_start_time'] = start_time
         self.logger.info(start_time)
-        
-        if 'n_process' in self.main_meta['common']:
-            N_PROCESS = self.main_meta['common']['n_process']
-        else:
-            N_PROCESS = mp.cpu_count()
-        
-        input_queue = self.process_manager.Queue()
-        output_queue = self.process_manager.Queue()
-        ps = [mp.Process(target=self.worker, args=[input_queue, output_queue]) 
-              for _ in range(N_PROCESS)]
 
-        for p in ps: 
+        try:
+            self.N_PROCESS = self.main_meta['common']['n_process']
+        except Exception:
+            self.N_PROCESS = mp.cpu_count()
+
+        input_queue = self.process_manager.Queue()
+        output_queue = self.process_manager.Queue(maxsize=self.N_PROCESS)
+
+        ps = [mp.Process(target=self.worker, args=[input_queue, output_queue])
+              for _ in range(self.N_PROCESS)]
+
+        for p in ps:
             p.start()
+            self.logger.debug('Start multiprocessing of fitting')
         for i in range(self.size):
             input_queue.put(i)
-        for _ in range(N_PROCESS): 
+        for _ in range(self.N_PROCESS):
             input_queue.put(None)
-        
-        return_dict = self.process_manager.dict()
-        p_out = mp.Process(target=self.store_output, args=[output_queue, return_dict])
-        p_out.start()
-        
-        for p in ps: 
+
+        self.store_output(input_queue, output_queue)
+
+        for p in ps:
             p.join()
-        output_queue.put('end')
-        p_out.join()
-        
+
         # keep end time
         end_time = datetime.now().strftime("%d/%m/%Y %H:%M")
         self.meta['ppxf_end_time'] = end_time
         self.logger.info(end_time)
-        
-        self.logger.info('pPXF execution completed')
+
+        self.logger.info('pPXF execution completed\n\n')
 
     def worker(self, input_queue, output_queue):
         for i in iter(input_queue.get, None):
             with redirect_stdout(io.StringIO()) as f:
                 id_ = f'{i+1}/{self.size}'
                 print(70*'*')
-        
+
                 flux_obs_slice = self.data.obs.flux_grid[:, i]
                 flux_obs_unc_slice = self.data.obs.flux_grid_unc[:, i]
                 if np.any(np.isnan(flux_obs_unc_slice) | np.isnan(flux_obs_slice)):
                     return None
-        
+
                 pp = None
+                # Note: Old parameter 'fly_reddening' is deprecated
                 fly_reddening = None
-                
+                a_v = None
+                ebv = None
+
                 guess_goodpixels = self.data.obs.meta['guess_goodpixels']
                 fixed_goodpixels = self.data.obs.meta['fixed_goodpixels']
-                
-                if 'ppxf' in self.main_meta:
-                    print(id_, 'Calling ppxf fit', end='\n\n')
+                goodpixels = np.intersect1d(guess_goodpixels, fixed_goodpixels)
+
+                if 'ppxf_optimise_mask' in self.main_meta:
+                    print(id_, 'Trying to optimise mask', end='\n\n')
                     pp = self.execute_ppxf(
-                        galaxy = flux_obs_slice, noise = flux_obs_unc_slice,
-                        goodpixels=guess_goodpixels,
-                        fixed_goodpixels = fixed_goodpixels,
-                        pp=pp, conf=self.main_meta['ppxf'])
-                    print('*************', end='\n\n')
-        
-                if 'ppxf_dynamical_mask' in self.main_meta:
-                    print(id_, 'Calling refit with new spectral mask', end='\n\n')
+                        galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
+                        goodpixels=goodpixels,
+                        pp=pp, conf=self.main_meta['ppxf_optimise_mask'])
+
                     # Determine actual goodpixels
                     goodpixels = self.clip_outliers(
-                        pp.galaxy, pp.bestfit, pp.goodpixels, fixed_goodpixels,
+                        pp.galaxy, pp.bestfit, pp.goodpixels,
                         **self.main_meta['ppxf_refit']['mask'])
-        
-                    pp = self.execute_ppxf(
-                        galaxy = flux_obs_slice, noise = flux_obs_unc_slice,
-                        goodpixels=goodpixels,
-                        fixed_goodpixels=fixed_goodpixels,
-                        pp=pp, conf=self.main_meta['ppxf_dynamical_mask'])
+                    goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
                     print('*************', end='\n\n')
-        
+
+                if 'ppxf_kinematics' in self.main_meta:
+                    print(id_, 'Calling fit of kinematics', end='\n\n')
+                    pp = self.execute_ppxf(
+                        galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
+                        goodpixels=goodpixels,
+                        pp=pp, conf=self.main_meta['ppxf_kinematics'])
+                    print('*************', end='\n\n')
+
                 if 'ppxf_fit_reddening' in self.main_meta:
                     print(id_, 'Calling fit of reddening', end='\n\n')
                     pp = self.execute_ppxf(
-                        galaxy = flux_obs_slice, noise = flux_obs_unc_slice,
+                        galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
                         goodpixels=goodpixels,
-                        fixed_goodpixels=fixed_goodpixels,
                         pp=pp, conf=self.main_meta['ppxf_fit_reddening'])
+
+                    # Note: From the version 8.2.1 ppxf return A_V instead of
+                    # E(B-V) in pp.reddening <>
+                    if version.parse(ppxf_package.__version__) \
+                        >= version.parse('8.2.1'):
+                        a_v = pp.reddening
+                        print(f'A_V = {a_v: .2f}')
+                    else:
+                        ebv = pp.reddening
+                        print(f'E(B-V) = {ebv: .2f}')
+
+                    # Note: Old parameter 'fly_reddening' is deprecated
                     fly_reddening = pp.reddening
-        
-                    print(id_, 'Dered observation on the fly')
-                    flux_obs_slice = self.dered(
+
+                    print('\nDered observation on the fly', end='\n\n')
+                    flux_obs_slice, a_v, ebv = self.dered(
                         flux_obs_slice,
                         wave=self.data.obs.meta['wave_obs'],
-                        ebv = fly_reddening)
-                    flux_obs_unc_slice = self.dered(
+                        ebv=ebv, a_v=a_v)
+
+                    flux_obs_unc_slice, _, _ = self.dered(
                         flux_obs_unc_slice,
                         wave=self.data.obs.meta['wave_obs'],
-                        ebv = fly_reddening)
+                        ebv=ebv, a_v=a_v)
                     print('*************', end='\n\n')
-        
+
                 if 'ppxf_regularization' in self.main_meta:
-                    print(id_, 'Calling refit with regulazired solution', end='\n\n')
+                    print(id_, 'Calling fit with regulazired solution', end='\n\n')
                     pp = self.execute_ppxf(
-                        galaxy = flux_obs_slice, noise = flux_obs_unc_slice,
+                        galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
                         goodpixels=goodpixels,
-                        fixed_goodpixels=fixed_goodpixels,
                         pp=pp, conf=self.main_meta['ppxf_regularization'])
                     print('*************', end='\n\n')
-                    
+
                 # Include reddening fitted on the fly if exists
-                if fly_reddening is not None:
-                    pp.reddening = fly_reddening
-                    
+                pp.a_v = a_v
+                pp.ebv = ebv
+                pp.reddening = fly_reddening
+
                 out_log = f.getvalue()
+
             self.logger.info(out_log)
             pack = [i, pp]
             data_out = pickle.dumps(pack)
             output_queue.put(data_out)
-        
+
     def execute_ppxf(self,
                      galaxy=None, noise=None,
-                     goodpixels=None, fixed_goodpixels=None,
+                     goodpixels=None,
                      pp=None, conf=None):
         assert conf is not None
         assert galaxy is not None
@@ -232,13 +240,6 @@ class ExecutePpxf:
         else:
             start = pp.sol
 
-        if goodpixels is None:
-            goodpixels = np.arange(galaxy.size)
-        if fixed_goodpixels is None:
-            fixed_goodpixels = np.arange(galaxy.size)
-
-        goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
-
         pp = ppxf(
             template, galaxy, noise, velscale, start,
             lam=self.data.obs.meta['wave_obs'],
@@ -250,10 +251,16 @@ class ExecutePpxf:
         return pp
 
     @staticmethod
-    def dered(spectrum, wave=None, law='calzetti00', r_v=4.05, ebv=None):
-        assert ebv is not None
+    def dered(spectrum, wave=None, law='calzetti00', r_v=4.05, ebv=None,
+              a_v=None):
+        assert (a_v, ebv) != (None, None)
         assert wave is not None
-        a_v = ebv * r_v
+
+        if a_v is None:
+            a_v = ebv * r_v
+
+        if ebv is None:
+            ebv = a_v / r_v
 
         if law == 'fm07':
             ext_mag = extinction.__getattribute__(law)(wave=wave, a_v=a_v)
@@ -262,10 +269,10 @@ class ExecutePpxf:
 
         dered_spectrum = extinction.remove(ext_mag, spectrum)
 
-        return dered_spectrum
+        return dered_spectrum, a_v, ebv
 
     @staticmethod
-    def clip_outliers(galaxy, bestfit, goodpixels, fixed_goodpixels=None,
+    def clip_outliers(galaxy, bestfit, goodpixels,
                       sigma=3):
         """
         Adapted from Michele Cappellari's example
@@ -273,114 +280,156 @@ class ExecutePpxf:
         Repeat the fit after clipping bins deviants more than 3*sigma
         in relative error until the bad bins don't change any more.
         """
-        if fixed_goodpixels is None:
-            fixed_goodpixels = np.arange(galaxy.size)
         while True:
-            goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
             scale = galaxy[goodpixels] @ bestfit[goodpixels]/np.sum(bestfit[goodpixels]**2)
             resid = scale*bestfit[goodpixels] - galaxy[goodpixels]
             err = robust_sigma(resid, zero=1)
-            ok_old = goodpixels.copy()
+            ok_old = goodpixels
             goodpixels = np.flatnonzero(np.abs(bestfit - galaxy) < sigma*err)
-            goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
             if np.array_equal(goodpixels, ok_old):
                 break
+
         return goodpixels
 
     def build_output_storage(self, out_obj=None):
         assert out_obj is not None
-        
+
         self.logger.info('Building storage')
-        self.ppxf = PpxfResults()
         n_obj = self.data.obs.flux_grid.shape[-1]
-    
+
         for _p in self.par:
-            assert _p in dir(out_obj), f"ppxf doesn't output {_p}"
+            assert _p in dir(out_obj), f"{_p} is not available"
             _obj = out_obj.__getattribute__(_p)
-    
+
             if _obj is None:
                 _shape = (n_obj,)
-            elif isinstance(_obj, (float, int)):
+            elif isinstance(_obj, (float, int, bool)):
                 _shape = (n_obj,)
             elif _p == 'goodpixels':
-            # NOTE: goodpixels array has a variable size. It's trick to deal with
-            # this kind of object so I'm implementing a special case. <>
+                # NOTE: goodpixels array has a variable size. It's trick to
+                # deal with this kind of object so I'm implementing a
+                # special case. <>
                 _aux = out_obj.__getattribute__('galaxy')
                 _shape = _aux.shape + (n_obj,)
+            elif isinstance(_obj, list):
+                _obj = np.concatenate(_obj)
+                _obj = _obj.ravel()
+                _shape = _obj.shape + (n_obj,)
             else:
                 _shape = _obj.shape + (n_obj,)
-    
+
+            try:
+                dtype = _obj.dtype
+            except Exception:
+                dtype = type(_obj)
+            finally:
+                if dtype == float:
+                    dtype = np.float32
+                if dtype == type(None):
+                    dtype = np.float32
+                self.logger.debug(dtype)
+
+            if _p == 'goodpixels':
+                chunks = list(_shape)
+                chunks[1] = 100*self.N_PROCESS
+
+                data_axis = np.arange(_aux.shape[0])
+                index_axis = np.arange(n_obj)
+                coords = [data_axis, index_axis]
+                dims = [f'{_p}_data', 'index']
+
+            elif len(_shape) == 1:
+                chunks = 100*self.N_PROCESS
+
+                index_axis = np.arange(n_obj)
+                coords = [index_axis]
+                dims = ['index']
+
+            elif len(_shape) == 2:
+                chunks = list(_shape)
+                chunks[1] = 100*self.N_PROCESS
+
+                data_axis = np.arange(_obj.shape[0])
+                index_axis = np.arange(n_obj)
+                coords = [data_axis, index_axis]
+                dims = [f'{_p}_data', 'index']
+
+            self.logger.debug(chunks)
+
+            # empty_arr = np.empty(dtype=dtype, shape=_shape)
+            # empty_arr = da.empty(1dtype=dtype, shape=_shape, chunks=chunks)
             with tempfile.NamedTemporaryFile() as temp_file:
-                arr = np.memmap(temp_file, dtype = float, shape = _shape)
-                arr.fill(np.nan)
-                arr.flush()
-                self.ppxf.__setattr__(_p, arr)
-        self.storage = True
+                empty_arr = np.memmap(temp_file, dtype = float, shape = _shape)
+                # empty_arr.fill(np.nan)
+                empty_arr.flush()
 
-    def store_output(self, output_queue, return_dict):
-        for serial_out in iter(output_queue.get, 'end'):
+            self.logger.debug(empty_arr)
+            self.logger.debug(_p)
+            self.logger.debug(empty_arr.dtype)
+            self.logger.debug(empty_arr.shape)
+            self.logger.debug(coords)
+            self.logger.debug(dims)
+            self.logger.debug('\n')
+
+            data_array = xr.DataArray(
+                empty_arr, coords=coords, dims=dims, name=_p)
+            self.logger.debug(data_array)
+
+            self.out_ppxf[_p] = data_array
+            self.logger.debug(self.out_ppxf)
+
+        self.storage.value = True
+        self.logger.info('Storage built')
+
+    def store_output(self, input_queue, output_queue):
+        while not all([output_queue.empty(), input_queue.empty()]):
+            serial_out = output_queue.get()
+            self.logger.debug(output_queue.qsize())
+            total_time = clock()
+
             index, out_obj = pickle.loads(serial_out)
-            
-            if self.storage is False:
-                self.build_output_storage(out_obj)
-    
-            for _p in self.par:
-                _obj = out_obj.__getattribute__(_p)
-                try:
-                    self.ppxf.__getattribute__(_p)[..., index] = _obj
-                    self.ppxf.__getattribute__(_p).flush()
-                except ValueError:
-                    shape = _obj.shape[0]
-                    self.ppxf.__getattribute__(_p)[..., :shape, index] = _obj
-                    self.ppxf.__getattribute__(_p).flush()
-                    
-        self.reconstruct_map(data=self.data, 
-                             parameter=self.main_meta['output']['to_save'])
-        
-    def reconstruct_map(self, data=None, parameter=[], save=True):
-        for _p in parameter:
-            if self.main_meta['vorbin']['apply']:
-                if self.ppxf.__getattribute__(_p).ndim < 2:
-                    map_shape = data.obs.meta['bin_num'].shape
-                if self.ppxf.__getattribute__(_p).ndim >= 2:
-                    map_shape = (self.ppxf.__getattribute__(_p).shape[:1]
-                                 + data.obs.meta['bin_num'].shape)
-                map_ = np.zeros(map_shape)
-                for i in range(self.ppxf.__getattribute__(_p).shape[-1]):
-                    match = data.obs.meta['bin_num'] == i
-                    map_[..., match] = self.ppxf.__getattribute__(_p)[..., i:i+1]
 
-                map_shape_full = np.array(data.obs.meta['shape_obs']).prod()
-                if self.ppxf.__getattribute__(_p).ndim >= 2:
-                    map_shape_full = (
-                        self.ppxf.__getattribute__(_p).shape[:1]
-                        + (map_shape_full,))
+            if out_obj is None:
+                continue
 
-                map_full = np.full(map_shape_full, fill_value=np.nan)
-                valid = data.obs.meta['valid']
-                map_full[..., valid] = map_
+            with self.lock:
+                if self.storage.value is False:
+                    self.build_output_storage(out_obj)
 
-                if map_full.ndim < 2:
-                    new_shape = (data.obs.meta['shape_obs'])
-                elif map_full.ndim >= 2:
-                    new_shape = (-1,) + data.obs.meta['shape_obs']
-                map_full = map_full.reshape(new_shape)
+                    # add_param = self.main_meta['output']['additional_param']
+                    # self.keep_add_param(out_obj, parameters=add_param)
 
-            else:
-                map_shape_full = data.obs.meta['shape_obs']
-                if self.ppxf.__getattribute__(_p).ndim >= 2:
-                    map_shape_full = (
-                        self.ppxf.__getattribute__(_p).shape[:1]
-                        + map_shape_full)
-                map_full = self.ppxf.__getattribute__(_p).reshape(map_shape_full)
+            [self._store(index=index, out_obj=out_obj, _p=_p)
+               for _p in self.par]
 
-            if save:
-                if self.main_meta:
-                    directory = self.main_meta['output_run_ppxf']
-                self.save_fits(map_full, _p, directory)
+            self.logger.debug(
+                f'Elapsed time to save {index}: %.5f s' % (clock()-total_time))
+
+    def _store(self, index, out_obj, _p):
+        t = clock()
+        _obj = out_obj.__getattribute__(_p)
+
+        if isinstance(_obj, list):
+            _obj = np.concatenate(_obj)
+            _obj = _obj.ravel()
+
+        try:
+            self.out_ppxf[_p][..., index] = _obj
+        except ValueError:
+            shape = _obj.shape[0]
+            self.out_ppxf[_p][..., :shape, index] = _obj
+
+        # try:
+        #     self.out_ppxf[_p].flush()
+        # except Exception:
+        #     pass
+
+        self.logger.debug(
+            f'Time to save {_p: >15}_{index}: %.5f s' % (clock() - t))
 
     @staticmethod
     def save_fits(data_param, name, directory='.', overwrite=True):
+        data_param = np.array(data_param, dtype=np.float32)
         hdu = fits.PrimaryHDU(data=data_param)
         hdul = fits.HDUList([hdu])
         full_path = os.path.join(directory, f'{name}.fits')

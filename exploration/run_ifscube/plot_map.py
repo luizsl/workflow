@@ -9,6 +9,7 @@ Created on Sat Oct 16 18:21:48 2021
 import matplotlib.pyplot as plt
 import numpy as np
 from astropy.io import fits
+from mpl_toolkits.axes_grid1.axes_rgb import RGBAxes, make_rgb_axes
 
 #%%
 # hdu = fits.open('../../data_products/NGC613/miles/ifscube_1/input_cube_linefit.fits', memmap = True)
@@ -472,10 +473,6 @@ from astropy.io import fits
 #%%
 
 
-import matplotlib.pyplot as plt
-import numpy as np
-from astropy.io import fits
-from mpl_toolkits.axes_grid1.axes_rgb import make_rgb_axes, RGBAxes
 
 hdul = fits.open('../data_products/NGC613/miles/ifscube_5/input_cube_5_linefit.fits')
 
