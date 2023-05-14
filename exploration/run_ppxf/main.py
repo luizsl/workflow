@@ -53,10 +53,6 @@ class Main:
         # self.meta_to_json()
         # self.results_to_map()
 
-    #     if 'secondary' in self.meta['output']:
-    #         self.logger.info(f'\nComputing secondary properties\n{30*"-"}')
-    #         self.compute_secondary()
-
     def read_config(self):
         with open(self.conf_file) as f:
             self.meta = yaml.load(f, Loader=yaml.Loader)
