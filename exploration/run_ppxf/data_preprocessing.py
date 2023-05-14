@@ -132,7 +132,9 @@ class DataPreprocessing:
         self.model.resample(wave)
 
         try:
-            limits = self.main_meta['common']['normalization']
+            limits = self.main_meta['model']['normalization']
+            if limits == []:
+                limits = [-np.inf, np.inf]
         except Exception:
             limits = [-np.inf, np.inf]
         self.logger.info(f'--scaling band: {limits}')
@@ -188,7 +190,9 @@ class DataPreprocessing:
             self.obs.vorbin(target_sn=target_sn, sn_func=sn_func)
 
         try:
-            limits = self.main_meta['common']['normalization']
+            limits = self.main_meta['observation']['normalization']
+            if limits == []:
+                limits = [-np.inf, np.inf]
         except Exception:
             limits = [-np.inf, np.inf]
         self.logger.info(f'--scaling band: {limits}')

@@ -20,7 +20,7 @@ from astropy.io import fits
 
 import compute_muse_lsf as lsf
 from convolve import convolve
-from normalize_median import normalize_band
+from normalize import normalize_band
 
 
 class AbstractModel(ABC):
