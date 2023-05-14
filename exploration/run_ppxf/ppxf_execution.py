@@ -118,11 +118,11 @@ class ExecutePpxf:
             p.join()
 
         # keep end time
-        end_time = datetime.now().strftime("%d/%m/%Y %H:%M")
-        self.meta['ppxf_end_time'] = end_time
-        self.logger.info(end_time)
+#         end_time = datetime.now().strftime("%d/%m/%Y %H:%M")
+#         self.meta['ppxf_end_time'] = end_time
+#         self.logger.info(end_time)
 
-        self.logger.info('pPXF execution completed\n\n')
+#         self.logger.info('pPXF execution completed\n\n')
 
     def worker(self, input_queue, output_queue):
         for i in iter(input_queue.get, None):
@@ -132,7 +132,8 @@ class ExecutePpxf:
 
                 flux_obs_slice = self.data.obs.flux_grid[:, i]
                 flux_obs_unc_slice = self.data.obs.flux_grid_unc[:, i]
-                if np.any(np.isnan(flux_obs_unc_slice) | np.isnan(flux_obs_slice)):
+                if np.any(np.isnan(flux_obs_unc_slice)
+                          | np.isnan(flux_obs_slice)):
                     return None
 
                 pp = None
@@ -201,11 +202,51 @@ class ExecutePpxf:
 
                 if 'ppxf_regularization' in self.main_meta:
                     print(id_, 'Calling fit with regulazired solution', end='\n\n')
+
+                    # flux_obs_unc_slice = flux_obs_unc_slice*np.sqrt(pp.chi2)
+
                     pp = self.execute_ppxf(
                         galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
                         goodpixels=goodpixels,
                         pp=pp, conf=self.main_meta['ppxf_regularization'])
                     print('*************', end='\n\n')
+
+                # Try to compute average properties of stellar populations
+                ranges = []
+                try:
+                    ranges.append(self.data.model.age_range)
+                except Exception:
+                    pass
+                try:
+                    ranges.append(self.data.model.mh_range)
+                except Exception:
+                    pass
+                try:
+                    ranges.append(self.data.model.alpha_range)
+                except Exception:
+                    pass
+
+                try:
+                    weights = pp.weights/ pp.weights.sum()
+                    av_age, av_mh, av_alpha = self.average(
+                        weights, self.data.model.meta['reg_dim'],
+                        *ranges,
+                        age_log10=self.data.main_meta['model']['age_log10'],
+                        age_gyr=self.data.main_meta['model']['age_gyr'])
+                except Exception:
+                    av_age = np.nan
+                    av_mh = np.nan
+                    av_alpha = np.nan
+                finally:
+                    print(f'<Age>: {av_age: .2f} Gyr')
+                    print(f'<metallicity>: {av_mh: .2f} dex')
+                    print(f'<alpha>: {av_alpha: .2f} dex')
+
+                    weighting = self.data.main_meta['model']['weighting']
+                    weighting = weighting.lower()
+                    pp.__setattr__('average_age', av_age)
+                    pp.__setattr__('average_metallicity', av_mh)
+                    pp.__setattr__('average_alpha', av_alpha)
 
                 # Include reddening fitted on the fly if exists
                 pp.a_v = a_v
@@ -428,6 +469,48 @@ class ExecutePpxf:
             f'Time to save {_p: >15}_{index}: %.5f s' % (clock() - t))
 
     @staticmethod
+    def average(weights, reg_dim, age_range=np.asarray([np.nan]),
+                mh_range=np.asarray([np.nan]),
+                alpha_range=np.asarray([np.nan]),
+                age_log10=False, age_gyr=False):
+
+        light_weights = weights
+        light_weights = light_weights.reshape(reg_dim)
+
+        if light_weights.ndim == 1:
+            light_weights = light_weights[:, None, None]
+        elif light_weights.ndim == 2:
+            light_weights = light_weights[:, :, None]
+
+        light_weights /= light_weights.sum()
+
+        age_grid, mh_grid, alpha_grid = np.meshgrid(
+            age_range, mh_range, alpha_range,
+            indexing='ij')
+
+        try:
+            av_age = np.average(age_grid, weights=light_weights)
+        except Exception:
+            av_age = np.nan
+
+        try:
+            av_mh = np.average(mh_grid, weights=light_weights)
+        except Exception:
+            av_mh = np.nan
+
+        try:
+            av_alpha = np.average(alpha_grid, weights=light_weights)
+        except Exception:
+            av_alpha = np.nan
+
+        if age_log10:
+            av_age = 10**av_age
+        if not age_gyr:
+            av_age = av_age / 1e9
+
+        return av_age, av_mh, av_alpha
+
+    @staticmethod
     def save_fits(data_param, name, directory='.', overwrite=True):
         data_param = np.array(data_param, dtype=np.float32)
         hdu = fits.PrimaryHDU(data=data_param)
@@ -436,4 +519,4 @@ class ExecutePpxf:
         hdul.writeto(full_path, overwrite=overwrite)
 
 if __name__ == '__main__':
-    t = ExecutePpxf(ppxf_prep.data, ppxf_prep.data.main_meta)
+    t = ExecutePpxf(ppxf_control.data, ppxf_control.data.main_meta)

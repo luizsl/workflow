@@ -17,7 +17,7 @@ import spectcube as sc
 from astropy.io import fits
 from vorbin.voronoi_2d_binning import voronoi_2d_binning
 
-from normalize_median import normalize_band
+from normalize import normalize_band
 
 
 class Observation(ABC):
@@ -62,8 +62,8 @@ class Observation(ABC):
             raise Exception
         assert len(wave) == self.flux_grid.shape[0]
 
-        self.flux_grid, self.meta['obs_norm_factor'] = normalize_band(
-            self.flux_grid, wave, **kwargs)
+        self.flux_grid, self.meta['obs_norm_factor'], self.meta['scaling'] = \
+            normalize_band(self.flux_grid, wave, **kwargs)
 
         self.flux_grid_unc = self.flux_grid_unc/self.meta['obs_norm_factor']
 

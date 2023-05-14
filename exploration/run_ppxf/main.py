@@ -53,10 +53,6 @@ class Main:
         self.meta_to_json()
         self.results_to_map()
 
-        if 'secondary' in self.meta['output']:
-            self.logger.info(f'\nComputing secondary properties\n{30*"-"}')
-            self.compute_secondary()
-
     def read_config(self):
         with open(self.conf_file) as f:
             self.meta = yaml.load(f, Loader=yaml.Loader)
@@ -124,28 +120,31 @@ class Main:
             except Exception as e:
                 self.logger.info(str(e))
 
-    def compute_secondary(self):
-        base = self.meta['output_run_ppxf']
-        datapath = os.path.join(base, 'weights.fits')
-        metadatapath = os.path.join(base, 'metadata.json')
-        stellar = PopMeanProperties(
-            datapath=datapath,
-            metadatapath=metadatapath,
-            age_log10=self.data.model.meta['age_log10'])
+    # def compute_secondary(self):
+    #     base = self.meta['output_run_ppxf']
+    #     datapath = os.path.join(base, 'weights.fits')
+    #     metadatapath = os.path.join(base, 'metadata.json')
+    #     stellar = PopMeanProperties(
+    #         datapath=datapath,
+    #         metadatapath=metadatapath,
+    #         age_log10=self.data.model.meta['age_log10'])
 
-        if 'mean_log_age_light' in self.meta['output']['secondary']:
-            stellar.save(stellar.log10_age_light, 'mean_log10_age_light',
-                         self.meta['output_run_ppxf'])
+    #     if 'mean_log_age_light' in self.meta['output']['secondary']:
+    #         stellar.save(stellar.log10_age_light, 'mean_log10_age_light',
+    #                      self.meta['output_run_ppxf'])
 
-        if 'mean_mh_light' in self.meta['output']['secondary']:
-            stellar.save(stellar.mh_light, 'mean_mh_light',
-                         self.meta['output_run_ppxf'])
+    #     if 'mean_mh_light' in self.meta['output']['secondary']:
+    #         stellar.save(stellar.mh_light, 'mean_mh_light',
+    #                      self.meta['output_run_ppxf'])
 
 
 if __name__ == '__main__':
-    conf = sys.argv[1]
+    # conf = sys.argv[1]
+    conf = 'test_stellar_light_sn40.yaml'
     ppxf_control = Main(conf)
     ppxf_control.run_all()
+
+
 
 # %% Debug
 
