@@ -18,9 +18,9 @@ def normalize_band(flux=None, wave=None, limits=[-np.inf, np.inf],
 
     weighting = weighting.lower()
     if weighting == 'mass' or weighting =='scalar':
-        factor = np.nanmedian(flux[band])
+        factor = np.nanmean(flux[band])
     elif weighting == 'light' or weighting =='vector':
-        factor = np.nanmedian(flux[band], 0)
+        factor = np.nanmean(flux[band], 0)
     else:
         raise Exception
 

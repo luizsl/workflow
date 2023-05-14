@@ -20,7 +20,7 @@ from astropy.io import fits
 
 import compute_muse_lsf as lsf
 from convolve import convolve
-from normalize_median import normalize_band
+from normalize import normalize_band
 
 
 class AbstractModel(ABC):
@@ -605,7 +605,7 @@ if __name__ == '__main__':
     model.reshape()
     model.convolve()
     model.resample()
-    model.normalize(limits=[5450, 5550], weighting='light')
+    model.normalize(limits=[-np.inf, np.inf], weighting='light')
 
     fig, ax = plt.subplots()
     ax.plot(model.flux_grid[:, :])

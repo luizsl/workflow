@@ -17,7 +17,7 @@ import spectcube as sc
 from astropy.io import fits
 from vorbin.voronoi_2d_binning import voronoi_2d_binning
 
-from normalize_median import normalize_band
+from normalize import normalize_band
 
 
 class Observation(ABC):
