@@ -120,23 +120,6 @@ class Main:
             except Exception as e:
                 self.logger.info(str(e))
 
-    # def compute_secondary(self):
-    #     base = self.meta['output_run_ppxf']
-    #     datapath = os.path.join(base, 'weights.fits')
-    #     metadatapath = os.path.join(base, 'metadata.json')
-    #     stellar = PopMeanProperties(
-    #         datapath=datapath,
-    #         metadatapath=metadatapath,
-    #         age_log10=self.data.model.meta['age_log10'])
-
-    #     if 'mean_log_age_light' in self.meta['output']['secondary']:
-    #         stellar.save(stellar.log10_age_light, 'mean_log10_age_light',
-    #                      self.meta['output_run_ppxf'])
-
-    #     if 'mean_mh_light' in self.meta['output']['secondary']:
-    #         stellar.save(stellar.mh_light, 'mean_mh_light',
-    #                      self.meta['output_run_ppxf'])
-
 
 if __name__ == '__main__':
     # conf = sys.argv[1]
