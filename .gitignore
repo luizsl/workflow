@@ -29,6 +29,7 @@ exploration/run_inla/*.json
 miscellaneous/.ipynb_checkpoints
 miscellaneous/*.ipynb
 miscellaneous/*.pdf
+miscellaneous/eval_regularization/*
 
 plots/*pdf
 
