@@ -112,7 +112,8 @@ class ExecutePpxf:
         for _ in range(self.N_PROCESS):
             input_queue.put(None)
 
-        self.store_output(input_queue, output_queue)
+        self.store_output(input_queue, output_queue, out_dataset=self.out_ppxf,
+                          logger=self.logger)
 
         for p in ps:
             p.join()
@@ -154,18 +155,10 @@ class ExecutePpxf:
                         pp=pp, conf=self.main_meta['ppxf_optimise_mask'])
 
                     # Determine actual goodpixels
-                    goodpixels = self.clip_outliers(
+                    goodpixels = clip_outliers(
                         pp.galaxy, pp.bestfit, pp.goodpixels,
                         **self.main_meta['ppxf_refit']['mask'])
                     goodpixels = np.intersect1d(goodpixels, fixed_goodpixels)
-                    print('*************', end='\n\n')
-
-                if 'ppxf_kinematics' in self.main_meta:
-                    print(id_, 'Calling fit of kinematics', end='\n\n')
-                    pp = self.execute_ppxf(
-                        galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
-                        goodpixels=goodpixels,
-                        pp=pp, conf=self.main_meta['ppxf_kinematics'])
                     print('*************', end='\n\n')
 
                 if 'ppxf_fit_reddening' in self.main_meta:
@@ -189,21 +182,29 @@ class ExecutePpxf:
                     fly_reddening = pp.reddening
 
                     print('\nDered observation on the fly', end='\n\n')
-                    flux_obs_slice, a_v, ebv = self.dered(
+                    flux_obs_slice, a_v, ebv = dered(
                         flux_obs_slice,
                         wave=self.data.obs.meta['wave_obs'],
                         ebv=ebv, a_v=a_v)
 
-                    flux_obs_unc_slice, _, _ = self.dered(
+                    flux_obs_unc_slice, _, _ = dered(
                         flux_obs_unc_slice,
                         wave=self.data.obs.meta['wave_obs'],
                         ebv=ebv, a_v=a_v)
                     print('*************', end='\n\n')
 
+                if 'ppxf_kinematics' in self.main_meta:
+                    print(id_, 'Calling fit of kinematics', end='\n\n')
+                    pp = self.execute_ppxf(
+                        galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
+                        goodpixels=goodpixels,
+                        pp=pp, conf=self.main_meta['ppxf_kinematics'])
+                    print('*************', end='\n\n')
+
                 if 'ppxf_regularization' in self.main_meta:
                     print(id_, 'Calling fit with regulazired solution', end='\n\n')
 
-                    # flux_obs_unc_slice = flux_obs_unc_slice*np.sqrt(pp.chi2)
+                    flux_obs_unc_slice = flux_obs_unc_slice*np.sqrt(pp.chi2)
 
                     pp = self.execute_ppxf(
                         galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
@@ -228,7 +229,7 @@ class ExecutePpxf:
 
                 try:
                     weights = pp.weights/ pp.weights.sum()
-                    av_age, av_mh, av_alpha = self.average(
+                    av_age, av_mh, av_alpha = average(
                         weights, self.data.model.meta['reg_dim'],
                         *ranges,
                         age_log10=self.data.main_meta['model']['age_log10'],
@@ -290,47 +291,6 @@ class ExecutePpxf:
 
         print('Elapsed time in PPXF: %.2f s' % (clock() - t))
         return pp
-
-    @staticmethod
-    def dered(spectrum, wave=None, law='calzetti00', r_v=4.05, ebv=None,
-              a_v=None):
-        assert (a_v, ebv) != (None, None)
-        assert wave is not None
-
-        if a_v is None:
-            a_v = ebv * r_v
-
-        if ebv is None:
-            ebv = a_v / r_v
-
-        if law == 'fm07':
-            ext_mag = extinction.__getattribute__(law)(wave=wave, a_v=a_v)
-        else:
-            ext_mag = extinction.__getattribute__(law)(wave=wave, a_v=a_v, r_v=r_v)
-
-        dered_spectrum = extinction.remove(ext_mag, spectrum)
-
-        return dered_spectrum, a_v, ebv
-
-    @staticmethod
-    def clip_outliers(galaxy, bestfit, goodpixels,
-                      sigma=3):
-        """
-        Adapted from Michele Cappellari's example
-
-        Repeat the fit after clipping bins deviants more than 3*sigma
-        in relative error until the bad bins don't change any more.
-        """
-        while True:
-            scale = galaxy[goodpixels] @ bestfit[goodpixels]/np.sum(bestfit[goodpixels]**2)
-            resid = scale*bestfit[goodpixels] - galaxy[goodpixels]
-            err = robust_sigma(resid, zero=1)
-            ok_old = goodpixels
-            goodpixels = np.flatnonzero(np.abs(bestfit - galaxy) < sigma*err)
-            if np.array_equal(goodpixels, ok_old):
-                break
-
-        return goodpixels
 
     def build_output_storage(self, out_obj=None):
         assert out_obj is not None
@@ -422,10 +382,16 @@ class ExecutePpxf:
         self.storage.value = True
         self.logger.info('Storage built')
 
-    def store_output(self, input_queue, output_queue):
+    def store_output(self, input_queue, output_queue, out_dataset=None,
+                     logger=None):
+        assert out_dataset is not None
+
+        if logger is None:
+            logger = logging.getLogger(__name__)
+
         while not all([output_queue.empty(), input_queue.empty()]):
             serial_out = output_queue.get()
-            self.logger.debug(output_queue.qsize())
+            logger.debug(output_queue.qsize())
             total_time = clock()
 
             index, out_obj = pickle.loads(serial_out)
@@ -440,13 +406,18 @@ class ExecutePpxf:
                     # add_param = self.main_meta['output']['additional_param']
                     # self.keep_add_param(out_obj, parameters=add_param)
 
-            [self._store(index=index, out_obj=out_obj, _p=_p)
-               for _p in self.par]
+            [self._store(index=index, out_obj=out_obj, _p=_p,
+                         out_dataset=out_dataset, logger=self.logger)
+             for _p in self.par]
 
             self.logger.debug(
                 f'Elapsed time to save {index}: %.5f s' % (clock()-total_time))
 
-    def _store(self, index, out_obj, _p):
+    @staticmethod
+    def _store(index, out_obj, _p, out_dataset=None, logger=None):
+        if logger is None:
+            logger = logging.getLogger(__name__)
+
         t = clock()
         _obj = out_obj.__getattribute__(_p)
 
@@ -455,68 +426,101 @@ class ExecutePpxf:
             _obj = _obj.ravel()
 
         try:
-            self.out_ppxf[_p][..., index] = _obj
+            out_dataset[_p][..., index] = _obj
         except ValueError:
             shape = _obj.shape[0]
-            self.out_ppxf[_p][..., :shape, index] = _obj
+            out_dataset[_p][..., :shape, index] = _obj
 
         # try:
-        #     self.out_ppxf[_p].flush()
+        #     out_dataset[_p].flush()
         # except Exception:
         #     pass
 
-        self.logger.debug(
+        logger.debug(
             f'Time to save {_p: >15}_{index}: %.5f s' % (clock() - t))
 
-    @staticmethod
-    def average(weights, reg_dim, age_range=np.asarray([np.nan]),
-                mh_range=np.asarray([np.nan]),
-                alpha_range=np.asarray([np.nan]),
-                age_log10=False, age_gyr=False):
 
-        light_weights = weights
-        light_weights = light_weights.reshape(reg_dim)
+def dered(spectrum, wave=None, law='calzetti00', r_v=4.05, ebv=None,
+          a_v=None):
+    assert (a_v, ebv) != (None, None)
+    assert wave is not None
 
-        if light_weights.ndim == 1:
-            light_weights = light_weights[:, None, None]
-        elif light_weights.ndim == 2:
-            light_weights = light_weights[:, :, None]
+    if a_v is None:
+        a_v = ebv * r_v
 
-        light_weights /= light_weights.sum()
+    if ebv is None:
+        ebv = a_v / r_v
 
-        age_grid, mh_grid, alpha_grid = np.meshgrid(
-            age_range, mh_range, alpha_range,
-            indexing='ij')
+    if law == 'fm07':
+        ext_mag = extinction.__getattribute__(law)(wave=wave, a_v=a_v)
+    else:
+        ext_mag = extinction.__getattribute__(law)(wave=wave, a_v=a_v, r_v=r_v)
 
-        try:
-            av_age = np.average(age_grid, weights=light_weights)
-        except Exception:
-            av_age = np.nan
+    dered_spectrum = extinction.remove(ext_mag, spectrum)
 
-        try:
-            av_mh = np.average(mh_grid, weights=light_weights)
-        except Exception:
-            av_mh = np.nan
+    return dered_spectrum, a_v, ebv
 
-        try:
-            av_alpha = np.average(alpha_grid, weights=light_weights)
-        except Exception:
-            av_alpha = np.nan
 
-        if age_log10:
-            av_age = 10**av_age
-        if not age_gyr:
-            av_age = av_age / 1e9
+def clip_outliers(galaxy, bestfit, goodpixels, sigma=3):
+    """
+    Adapted from Michele Cappellari's example
 
-        return av_age, av_mh, av_alpha
+    Repeat the fit after clipping bins deviants more than 3*sigma
+    in relative error until the bad bins don't change any more.
+    """
+    while True:
+        scale = galaxy[goodpixels] @ bestfit[goodpixels]/np.sum(bestfit[goodpixels]**2)
+        resid = scale*bestfit[goodpixels] - galaxy[goodpixels]
+        err = robust_sigma(resid, zero=1)
+        ok_old = goodpixels
+        goodpixels = np.flatnonzero(np.abs(bestfit - galaxy) < sigma*err)
+        if np.array_equal(goodpixels, ok_old):
+            break
 
-    @staticmethod
-    def save_fits(data_param, name, directory='.', overwrite=True):
-        data_param = np.array(data_param, dtype=np.float32)
-        hdu = fits.PrimaryHDU(data=data_param)
-        hdul = fits.HDUList([hdu])
-        full_path = os.path.join(directory, f'{name}.fits')
-        hdul.writeto(full_path, overwrite=overwrite)
+    return goodpixels
+
+
+def average(weights, reg_dim, age_range=np.asarray([np.nan]),
+            mh_range=np.asarray([np.nan]),
+            alpha_range=np.asarray([np.nan]),
+            age_log10=False, age_gyr=False):
+
+    light_weights = weights
+    light_weights = light_weights.reshape(reg_dim)
+
+    if light_weights.ndim == 1:
+        light_weights = light_weights[:, None, None]
+    elif light_weights.ndim == 2:
+        light_weights = light_weights[:, :, None]
+
+    light_weights /= light_weights.sum()
+
+    age_grid, mh_grid, alpha_grid = np.meshgrid(
+        age_range, mh_range, alpha_range,
+        indexing='ij')
+
+    try:
+        av_age = np.average(age_grid, weights=light_weights)
+    except Exception:
+        av_age = np.nan
+
+    try:
+        av_mh = np.average(mh_grid, weights=light_weights)
+    except Exception:
+        av_mh = np.nan
+
+    try:
+        av_alpha = np.average(alpha_grid, weights=light_weights)
+    except Exception:
+        av_alpha = np.nan
+
+    if age_log10:
+        av_age = 10**av_age
+    if not age_gyr:
+        av_age = av_age / 1e9
+
+    return av_age, av_mh, av_alpha
+
 
 if __name__ == '__main__':
     t = ExecutePpxf(ppxf_control.data, ppxf_control.data.main_meta)
