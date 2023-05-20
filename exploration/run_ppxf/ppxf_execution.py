@@ -119,11 +119,11 @@ class ExecutePpxf:
             p.join()
 
         # keep end time
-#         end_time = datetime.now().strftime("%d/%m/%Y %H:%M")
-#         self.meta['ppxf_end_time'] = end_time
-#         self.logger.info(end_time)
+        end_time = datetime.now().strftime("%d/%m/%Y %H:%M")
+        self.meta['ppxf_end_time'] = end_time
+        self.logger.info(end_time)
 
-#         self.logger.info('pPXF execution completed\n\n')
+        self.logger.info('pPXF execution completed\n\n')
 
     def worker(self, input_queue, output_queue):
         for i in iter(input_queue.get, None):
