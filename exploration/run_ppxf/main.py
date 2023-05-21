@@ -16,7 +16,6 @@ import yaml
 from astropy.utils.misc import JsonCustomEncoder
 
 from data_preprocessing import DataPreprocessing
-from post_processing import PopMeanProperties
 from ppxf_execution import ExecutePpxf
 from reconstruct_map import reconstruct_map
 
