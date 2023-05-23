@@ -49,9 +49,9 @@ class Main:
         self.keep_conf_copy()
 
         self.data = DataPreprocessing(self.meta)
-        # self.execution = ExecutePpxf(self.data, self.meta)
-        # self.meta_to_json()
-        # self.results_to_map()
+        self.execution = ExecutePpxf(self.data, self.meta)
+        self.meta_to_json()
+        self.results_to_map()
 
     def read_config(self):
         with open(self.conf_file) as f:
