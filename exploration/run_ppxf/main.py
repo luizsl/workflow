@@ -16,7 +16,6 @@ import yaml
 from astropy.utils.misc import JsonCustomEncoder
 
 from data_preprocessing import DataPreprocessing
-from post_processing import PopMeanProperties
 from ppxf_execution import ExecutePpxf
 from reconstruct_map import reconstruct_map
 
@@ -49,9 +48,12 @@ class Main:
         self.keep_conf_copy()
 
         self.data = DataPreprocessing(self.meta)
-        # self.execution = ExecutePpxf(self.data, self.meta)
-        # self.meta_to_json()
-        # self.results_to_map()
+
+        self.execution = ExecutePpxf(self.data, self.meta)
+        self.execution.run_all_data()
+
+        self.meta_to_json()
+        self.results_to_map()
 
     def read_config(self):
         with open(self.conf_file) as f:
@@ -117,13 +119,15 @@ class Main:
                 reconstruct_map(data=data, out_metadata=out_metadata,
                                 parameter=parameter, binned=binned,
                                 directory=self.meta['output_run_ppxf'])
+            except KeyError as e:
+                self.logger.info(f'Could not find {str(e)}')
             except Exception as e:
                 self.logger.info(str(e))
 
 
 if __name__ == '__main__':
-    # conf = sys.argv[1]
-    conf = 'test_stellar_light_sn40.yaml'
+    conf = sys.argv[1]
+    # conf = 'test_stellar_light_sn40.yaml'
     ppxf_control = Main(conf)
     ppxf_control.run_all()
 
@@ -139,11 +143,3 @@ if __name__ == '__main__':
     # ppxf_prep.keep_conf_copy()
     # ppxf_prep.run_all()
 
-    # import matplotlib.pyplot as plt
-
-    # fig, ax = plt.subplots(1, 3)
-    # ax[0].imshow(10**(age-9), origin='lower')
-    # ax[1].imshow(mh, origin='lower')
-
-    # w = ppxf_prep.ppxf_out.ppxf.weights
-    # ax[2].imshow(w[:, 0].reshape(24,6))

@@ -19,7 +19,6 @@ import extinction
 import numpy as np
 import ppxf as ppxf_package
 import xarray as xr
-# import dask.array as da
 from packaging import version
 from ppxf.ppxf import ppxf, robust_sigma
 from scipy.constants import physical_constants
@@ -33,11 +32,12 @@ class ExecutePpxf:
         self.meta = {}
         self.data = data
         self.main_meta = metadata
-        self.storage = mp.Value(ctypes.c_bool, False)
+        self.storage_flag = mp.Value(ctypes.c_bool, False)
         self.process_manager = mp.Manager()
         self.lock = mp.Lock()
 
         self.start_logging()
+
         self.out_ppxf = xr.Dataset()
         # NOTE: Adding an exception to deal with a single spectrum
         # not neat but should work. <>
@@ -83,191 +83,80 @@ class ExecutePpxf:
         self.logger = logger
 
     def run_all_data(self):
-        # self.logger.info('pPXF execution started')
+        self.logger.info('pPXF execution started')
 
         # keep start time
-        # start_time = datetime.now().strftime("%d/%m/%Y %H:%M")
-        # self.meta['ppxf_start_time'] = start_time
-        # self.logger.info(start_time)
-
-        # try:
-        #     self.N_PROCESS = self.main_meta['common']['n_process']
-        # except Exception:
-        #     self.N_PROCESS = mp.cpu_count()
-
-        # input_queue = self.process_manager.Queue()
-        output_queue = self.process_manager.Queue(maxsize=self.N_PROCESS)
-
-        ps = [mp.Process(target=self.worker, args=[input_queue, output_queue])
-              for _ in range(self.N_PROCESS)]
-
-        # for p in ps:
-        #     p.start()
-        #     self.logger.debug('Start multiprocessing of fitting')
-        # for i in range(self.size):
-        #     input_queue.put(i)
-        # for _ in range(self.N_PROCESS):
-        #     input_queue.put(None)
-
-        # self.store_output(input_queue, output_queue)
-
-        # for p in ps:
-        #     p.join()
-
-        # keep end time
-        # end_time = datetime.now().strftime("%d/%m/%Y %H:%M")
-        # self.meta['ppxf_end_time'] = end_time
-        # self.logger.info(end_time)
-
-        # self.logger.info('pPXF execution completed\n\n')
-
-    def build_output_storage(self, out_obj=None):
-        assert out_obj is not None
-
-        self.logger.info('Building storage')
-        n_obj = self.data.obs.flux_grid.shape[-1]
-
-        for _p in self.par:
-            assert _p in dir(out_obj), f"{_p} is not available"
-            _obj = out_obj.__getattribute__(_p)
-
-            if _obj is None:
-                _shape = (n_obj,)
-            elif isinstance(_obj, (float, int, bool)):
-                _shape = (n_obj,)
-            elif _p == 'goodpixels':
-                # NOTE: goodpixels array has a variable size. It's trick to
-                # deal with this kind of object so I'm implementing a
-                # special case. <>
-                _aux = out_obj.__getattribute__('galaxy')
-                _shape = _aux.shape + (n_obj,)
-            elif isinstance(_obj, list):
-                _obj = np.concatenate(_obj)
-                _obj = _obj.ravel()
-                _shape = _obj.shape + (n_obj,)
-            else:
-                _shape = _obj.shape + (n_obj,)
-
-            try:
-                dtype = _obj.dtype
-            except Exception:
-                dtype = type(_obj)
-            finally:
-                if dtype == float:
-                    dtype = np.float32
-                if dtype == type(None):
-                    dtype = np.float32
-                self.logger.debug(dtype)
-
-            if _p == 'goodpixels':
-                chunks = list(_shape)
-                chunks[1] = 100*self.N_PROCESS
-
-                data_axis = np.arange(_aux.shape[0])
-                index_axis = np.arange(n_obj)
-                coords = [data_axis, index_axis]
-                dims = [f'{_p}_data', 'index']
-
-            elif len(_shape) == 1:
-                chunks = 100*self.N_PROCESS
-
-                index_axis = np.arange(n_obj)
-                coords = [index_axis]
-                dims = ['index']
-
-            elif len(_shape) == 2:
-                chunks = list(_shape)
-                chunks[1] = 100*self.N_PROCESS
-
-                data_axis = np.arange(_obj.shape[0])
-                index_axis = np.arange(n_obj)
-                coords = [data_axis, index_axis]
-                dims = [f'{_p}_data', 'index']
-
-            self.logger.debug(chunks)
-
-            # empty_arr = np.empty(dtype=dtype, shape=_shape)
-            # empty_arr = da.empty(1dtype=dtype, shape=_shape, chunks=chunks)
-            with tempfile.NamedTemporaryFile() as temp_file:
-                empty_arr = np.memmap(temp_file, dtype = float, shape = _shape)
-                # empty_arr.fill(np.nan)
-                empty_arr.flush()
-
-            self.logger.debug(empty_arr)
-            self.logger.debug(_p)
-            self.logger.debug(empty_arr.dtype)
-            self.logger.debug(empty_arr.shape)
-            self.logger.debug(coords)
-            self.logger.debug(dims)
-            self.logger.debug('\n')
-
-            data_array = xr.DataArray(
-                empty_arr, coords=coords, dims=dims, name=_p)
-            self.logger.debug(data_array)
-
-            self.out_ppxf[_p] = data_array
-            self.logger.debug(self.out_ppxf)
-
-        self.storage.value = True
-        self.logger.info('Storage built')
-
-    def store_output(self, input_queue, output_queue):
-        while not all([output_queue.empty(), input_queue.empty()]):
-            serial_out = output_queue.get()
-            self.logger.debug(output_queue.qsize())
-            total_time = clock()
-
-            index, out_obj = pickle.loads(serial_out)
-
-            if out_obj is None:
-                continue
-
-            with self.lock:
-                if self.storage.value is False:
-                    self.build_output_storage(out_obj)
-
-                    # add_param = self.main_meta['output']['additional_param']
-                    # self.keep_add_param(out_obj, parameters=add_param)
-
-            [self._store(index=index, out_obj=out_obj, _p=_p)
-               for _p in self.par]
-
-            self.logger.debug(
-                f'Elapsed time to save {index}: %.5f s' % (clock()-total_time))
-
-    def _store(self, index, out_obj, _p):
-        t = clock()
-        _obj = out_obj.__getattribute__(_p)
-
-        if isinstance(_obj, list):
-            _obj = np.concatenate(_obj)
-            _obj = _obj.ravel()
+        start_time = datetime.now().strftime("%d/%m/%Y %H:%M")
+        self.meta['ppxf_start_time'] = start_time
+        self.logger.info(start_time)
 
         try:
-            self.out_ppxf[_p][..., index] = _obj
-        except ValueError:
-            shape = _obj.shape[0]
-            self.out_ppxf[_p][..., :shape, index] = _obj
+            self.N_PROCESS = self.main_meta['common']['n_process']
+        except Exception:
+            self.N_PROCESS = mp.cpu_count()
 
-        # try:
-        #     self.out_ppxf[_p].flush()
-        # except Exception:
-        #     pass
+        with mp.Pool(self.N_PROCESS, maxtasksperchild=5) as pool:
+            self.storage_flag.value = False
 
-        self.logger.debug(
-            f'Time to save {_p: >15}_{index}: %.5f s' % (clock() - t))
+            n_obj = self.data.obs.flux_grid.shape[-1]
+            futures = []
+
+            for index in np.arange(self.size):
+                self.logger.debug(index, end='\n')
+                fit = pool.apply_async(
+                        worker,
+                        (index,
+                        self.data.obs.flux_grid[:, index],
+                        self.data.obs.flux_grid_unc[:, index]),
+                        {'models':self.data.model,
+                        'logger':self.logger, 'size':self.size,
+                        'main_meta':self.data.main_meta,
+                        'obs_meta':self.data.obs.meta,
+                        'model_meta':self.data.model.meta})
+                futures.append(fit)
+
+                with self.lock:
+                    if self.storage_flag.value is False:
+                        future = futures.pop(0)
+                        out_obj = future.get()
+                        out_obj = pickle.loads(out_obj)
+                        try:
+                            build_output_storage(
+                                out_obj=out_obj, out_dataset=self.out_ppxf,
+                                logger=self.logger, n_obj=n_obj, par=self.par)
+                            self.storage_flag.value = True
+                            self.logger.info('Storage built')
+                            futures.append(future)
+                        except Exception as e:
+                            if str(e) == 'Invalid data':
+                                pass
+                            else:
+                                raise Exception
+
+            while len(futures) > 0:
+                future = futures.pop(0)
+                out_obj = future.get()
+                out_obj = pickle.loads(out_obj)
+                store_output(out_obj, par=self.par, logger=self.logger,
+                    out_dataset=self.out_ppxf)
+                self.logger.debug('saving')
+
+        # keep end time
+        end_time = datetime.now().strftime("%d/%m/%Y %H:%M")
+        self.meta['ppxf_end_time'] = end_time
+        self.logger.info(end_time)
+        self.logger.info('pPXF execution completed\n\n')
 
 
 def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
            logger=None, size=None,
            main_meta=None, obs_meta=None, model_meta=None):
-    # for i in iter(input_queue.get, None):
-    # with redirect_stdout(io.StringIO()) as f:
+    with redirect_stdout(io.StringIO()) as f:
         id_ = f'{i+1}/{size}'
         print(70*'*')
 
         if np.any(np.isnan(flux_obs_unc_slice) | np.isnan(flux_obs_slice)):
-            return None
+            return pickle.dumps(None)
 
         pp = None
         a_v = None
@@ -293,7 +182,7 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
             print('*************', end='\n\n')
 
         if 'ppxf_fit_reddening' in main_meta:
-            print(i, 'Fit of reddening', end='\n\n')
+            print(id_, 'Fit of reddening', end='\n\n')
             pp = execute_ppxf(
                 galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
                 models=models, goodpixels=goodpixels,
@@ -323,7 +212,7 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
             print('*************', end='\n\n')
 
         if 'ppxf_kinematics' in main_meta:
-            print(i, 'Fit of kinematics', end='\n\n')
+            print(id_, 'Fit of kinematics', end='\n\n')
             pp = execute_ppxf(
                 galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
                 models=models, goodpixels=goodpixels,
@@ -332,7 +221,7 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
             print('*************', end='\n\n')
 
         if 'ppxf_regularization' in main_meta:
-            print(i, 'Fit with regulazired solution', end='\n\n')
+            print(id_, 'Fit with regulazired solution', end='\n\n')
 
             flux_obs_unc_slice = flux_obs_unc_slice*np.sqrt(pp.chi2)
 
@@ -359,10 +248,9 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
             pass
 
         try:
-            weights = pp.weights/ pp.weights.sum()
+            weights = pp.weights / pp.weights.sum()
             av_age, av_mh, av_alpha = average(
-                weights, model_meta['reg_dim'],
-                *ranges,
+                weights, model_meta['reg_dim'], *ranges,
                 age_log10=main_meta['model']['age_log10'],
                 age_gyr=main_meta['model']['age_gyr'])
         except Exception:
@@ -376,21 +264,21 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
 
             weighting = main_meta['model']['weighting']
             weighting = weighting.lower()
-            pp.__setattr__('average_age', av_age)
-            pp.__setattr__('average_metallicity', av_mh)
-            pp.__setattr__('average_alpha', av_alpha)
+            pp.average_age = av_age
+            pp.average_metallicity = av_mh
+            pp.average_alpha = av_alpha
 
         # Include reddening fitted on the fly if exists
         pp.a_v = a_v
         pp.ebv = ebv
-
-        # out_log = f.getvalue()
-
-        # logger.info(out_log)
         pp.i = i
+
         data_out = pickle.dumps(pp)
+        out_log = f.getvalue()
+        logger.info(out_log)
 
         return data_out
+
 
 def average(weights, reg_dim, age_range=np.asarray([np.nan]),
             mh_range=np.asarray([np.nan]),
@@ -466,8 +354,8 @@ def execute_ppxf(galaxy=None, noise=None, models=None,
     print('Elapsed time in PPXF: %.2f s' % (clock() - t))
     return pp
 
-def dered(spectrum, wave=None, law='calzetti00', r_v=4.05, ebv=None,
-          a_v=None):
+
+def dered(spectrum, wave=None, law='calzetti00', r_v=4.05, ebv=None, a_v=None):
     assert (a_v, ebv) != (None, None)
     assert wave is not None
 
@@ -485,6 +373,7 @@ def dered(spectrum, wave=None, law='calzetti00', r_v=4.05, ebv=None,
     dered_spectrum = extinction.remove(ext_mag, spectrum)
 
     return dered_spectrum, a_v, ebv
+
 
 def clip_outliers(galaxy, bestfit, goodpixels, sigma=3):
     """
@@ -505,42 +394,180 @@ def clip_outliers(galaxy, bestfit, goodpixels, sigma=3):
     return goodpixels
 
 
+def build_output_storage(out_obj=None, out_dataset=None, logger=None,
+                         n_obj=None, par=None):
+    assert par is not None
+    assert out_dataset is not None
+    assert n_obj is not None
+
+    if logger is None:
+        logger = logging.getLogger(__name__)
+    if n_obj is None:
+        n_obj = 1
+
+    if out_obj is None:
+       raise Exception('Invalid data')
+
+    logger.info('Building storage')
+
+    for _p in par:
+        assert _p in dir(out_obj), f"{_p} is not available"
+        _obj = out_obj.__getattribute__(_p)
+
+        if _obj is None:
+            _shape = (n_obj,)
+        elif isinstance(_obj, (float, int, bool)):
+            _shape = (n_obj,)
+        elif _p == 'goodpixels':
+            # NOTE: goodpixels array has a variable size. It's trick to
+            # deal with this kind of object so I'm implementing a
+            # special case. <>
+            _aux = out_obj.__getattribute__('galaxy')
+            _shape = _aux.shape + (n_obj,)
+        elif isinstance(_obj, list):
+            _obj = np.concatenate(_obj)
+            _obj = _obj.ravel()
+            _shape = _obj.shape + (n_obj,)
+        else:
+            _shape = _obj.shape + (n_obj,)
+
+        try:
+            dtype = _obj.dtype
+        except Exception:
+            dtype = type(_obj)
+        finally:
+            if dtype == float:
+                dtype = np.float32
+            if dtype == type(None):
+                dtype = np.float32
+            logger.debug(dtype)
+
+        if _p == 'goodpixels':
+            # chunks = list(_shape)
+            # chunks[1] = 100*n_process
+
+            data_axis = np.arange(_aux.shape[0])
+            index_axis = np.arange(n_obj)
+            coords = [data_axis, index_axis]
+            dims = [f'{_p}_data', 'index']
+
+        elif len(_shape) == 1:
+            # chunks = 100*n_process
+
+            index_axis = np.arange(n_obj)
+            coords = [index_axis]
+            dims = ['index']
+
+        elif len(_shape) == 2:
+            # chunks = list(_shape)
+            # chunks[1] = 100*n_process
+
+            data_axis = np.arange(_obj.shape[0])
+            index_axis = np.arange(n_obj)
+            coords = [data_axis, index_axis]
+            dims = [f'{_p}_data', 'index']
+
+        # logger.debug(chunks)
+
+        # empty_arr = np.empty(dtype=dtype, shape=_shape)
+        # empty_arr = da.empty(dtype=dtype, shape=_shape, chunks=chunks)
+        with tempfile.NamedTemporaryFile() as temp_file:
+            empty_arr = np.memmap(temp_file, dtype = float, shape = _shape)
+            # empty_arr.fill(np.nan)
+            empty_arr.flush()
+
+        logger.debug(empty_arr)
+        logger.debug(_p)
+        logger.debug(empty_arr.dtype)
+        logger.debug(empty_arr.shape)
+        logger.debug(coords)
+        logger.debug(dims)
+        logger.debug('\n')
+
+        data_array = xr.DataArray(
+            empty_arr, coords=coords, dims=dims, name=_p)
+        logger.debug(data_array)
+
+        out_dataset[_p] = data_array
+        logger.debug(out_dataset)
+
+    return True
+
+
+def store_output(serial_out=None, par=None, logger=None,
+                 out_dataset=None, lock=None):
+    assert par is not None
+    assert out_dataset is not None
+
+    total_time = clock()
+
+    if logger is None:
+        logger = logging.getLogger(__name__)
+
+    if serial_out is None:
+        return True
+
+    # add_param = self.main_meta['output']['additional_param']
+    # self.keep_add_param(out_obj, parameters=add_param)
+
+    [_store(out_obj=serial_out, _p=_p, out_dataset=out_dataset, logger=logger)
+     for _p in par]
+
+    logger.debug(
+        f'Elapsed time to save {serial_out.i}: %.5f s' % (clock()-total_time))
+
+    return True
+
+
+def _store(out_obj, _p, out_dataset=None, logger=None):
+    assert out_dataset is not None
+    if logger is None:
+        logger = logging.getLogger(__name__)
+
+    t = clock()
+    index = out_obj.i
+    _obj = out_obj.__getattribute__(_p)
+
+    if isinstance(_obj, list):
+        _obj = np.concatenate(_obj)
+        _obj = _obj.ravel()
+
+    try:
+        out_dataset[_p][..., index] = _obj
+    except ValueError:
+        shape = _obj.shape[0]
+        out_dataset[_p][..., :shape, index] = _obj
+
+    # try:
+    #     self.out_ppxf[_p].flush()
+    # except Exception:
+    #     pass
+
+    logger.debug(
+        f'Time to save {_p: >15}_{index}: %.5f s' % (clock() - t))
+
+
 if __name__ == '__main__':
     t = ExecutePpxf(ppxf_control.data, ppxf_control.data.main_meta)
 
-    #%%
-    from multiprocessing import Pool
-    i = 1
-    res =\
-    worker(i,
-            t.data.obs.flux_grid[:, i],
-            t.data.obs.flux_grid_unc[:, i],
-            models=t.data.model,
-            logger=t.logger, size=t.size,
-            main_meta=t.data.main_meta, obs_meta=t.data.obs.meta,
-            model_meta=t.data.model.meta)
+
 #%%
-    with Pool(4) as pool:
-        # res = pool.apply_async(
-        #     worker,
-        #     (i,
-        #     t.data.obs.flux_grid[:, i],
-        #     t.data.obs.flux_grid_unc[:, i]),
-        #     {'models':t.data.model,
-        #     'logger':t.logger, 'size':t.size,
-        #     'main_meta':t.data.main_meta, 'obs_meta':t.data.obs.meta,
-        #     'model_meta':t.data.model.meta})
-        # # res.get()
-        # res.wait()
-        # print('a')
+
+    with mp.Pool(4) as pool:
+        t.storage_flag.value = False
 
         n_obj = t.data.obs.flux_grid.shape[-1]
-        # lock = Lock('flag')
         futures = []
-        output_queue = t.process_manager.Queue(maxsize=10)
-        stores = []
+
+        # def f():
+        #     return pickle.dumps(None)
+
+        # res = pool.apply_async(f)
+        # futures.append(res)
+
         for i in np.arange(t.size):
-            x = pool.apply_async(
+            t.logger.debug(i, end='\n')
+            fit = pool.apply_async(
                     worker,
                     (i,
                     t.data.obs.flux_grid[:, i],
@@ -549,34 +576,31 @@ if __name__ == '__main__':
                     'logger':t.logger, 'size':t.size,
                     'main_meta':t.data.main_meta, 'obs_meta':t.data.obs.meta,
                     'model_meta':t.data.model.meta})
-            # futures.append(x)
-            output_queue.put(x)
+            futures.append(fit)
 
-            # for completed in as_completed(futures):
-        #     if t.storage_flag.value is False:
-        #         try:
-        #             # out_obj = pickle.loads(future.result())
-        #             out_obj = x.result()
-        #             if build_output_storage(out_obj=out_obj, out_dataset=t.out_ppxf, logger=None,
-        #                 n_obj=n_obj, par=t.par, n_process=t.N_PROCESS):
-        #                     t.storage_flag.value = True
-        #                     t.logger.info('Storage built')
-        #                     # print('storage built')
-        #         except Exception:
-        #             raise Exception
-        #         finally:
-        #             # print(future)
-        #             # print('saving')
-        #             store = client.submit(
-        #                 store_output, x, par=t.par, logger=t.logger,
-        #                 out_dataset=t.out_ppxf)
-        #             stores.append(store)
-        #     else:
-        #         # print('saving')
-        #         store = client.submit(
-        #             store_output, x, par=t.par, logger=t.logger,
-        #             out_dataset=t.out_ppxf, priority=10)
-        #         stores.append(store)
+            with t.lock:
+                if t.storage_flag.value is False:
+                    future = futures.pop(0)
+                    out_obj = future.get()
+                    out_obj = pickle.loads(out_obj)
+                    try:
+                        build_output_storage(
+                            out_obj=out_obj, out_dataset=t.out_ppxf, logger=t.logger,
+                            n_obj=n_obj, par=t.par)
+                        t.storage_flag.value = True
+                        t.logger.info('Storage built')
 
-        # # store.result()
-        # [store.result() for store in stores]
+                        futures.append(future)
+                    except Exception as e:
+                        if str(e) == ('Invalid data'):
+                            pass
+                        else:
+                            raise Exception
+
+        while len(futures) > 0:
+            future = futures.pop(0)
+            out_obj = future.get()
+            out_obj = pickle.loads(out_obj)
+            store = store_output(out_obj, par=t.par, logger=t.logger,
+                out_dataset=t.out_ppxf)
+            t.logger.debug('saving')

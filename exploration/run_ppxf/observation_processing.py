@@ -148,9 +148,8 @@ class Observation(ABC):
 
         except Exception as exp:
             if "All pixels have enough S/N" in str(exp):
-                print(exp)
-
-                n_spec = self.flux_grid[:,self.meta['valid']].shape[-1]
+                print(str(exp))
+                n_spec = self.flux_grid[:, self.meta['valid']].shape[-1]
 
                 bin_num = np.arange(n_spec)
                 x_gen = np.zeros((n_spec), float)
@@ -160,8 +159,7 @@ class Observation(ABC):
                 sn = self.meta['original_snr'][self.meta['valid']]
                 nPixels = np.ones((n_spec,), float)
                 scale = np.zeros((n_spec), float)
-
-            elif "Not enough S/N in the whole set of pixels" in str(exp):
+            else:
                 raise exp
 
         self.meta['bin_num'] = bin_num
@@ -361,6 +359,6 @@ if __name__ == '__main__':
     # sn_func = partial(sn_function, covar_sn_a=covar_a, covar_sn_b=covar_b)
     # obs_bin.vorbin(target_sn=100, sn_func=sn_func)
 
-    obs_bin.vorbin(target_sn=100)
+    obs_bin.vorbin(target_sn=200)
     # obs_bin.normalize(limits=[5450, 5550])
     # obs_bin.convert_to_mmap()

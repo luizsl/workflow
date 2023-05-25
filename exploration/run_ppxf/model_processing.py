@@ -153,14 +153,21 @@ class AbstractFactoryModel(ABC):
 
     def remove_param(self, param, values = []):
         assert self.flags['build'] is False
-        attribute = getattr(self, param)
-        _, _, index = np.intersect1d(values, attribute, return_indices=True)
-        mask = np.zeros_like(attribute)
-        mask[index] = 1
-        masked_attribute = np.ma.masked_where(mask, attribute)
-        masked_attribute = masked_attribute.compressed()
-        setattr(self, param, masked_attribute)
-        setattr(self, param + '_mask', mask)
+        try:
+            attribute = getattr(self, param)
+            _, _, index = np.intersect1d(values, attribute,
+                                         return_indices=True)
+            mask = np.zeros_like(attribute)
+            mask[index] = 1
+            masked_attribute = np.ma.masked_where(mask, attribute)
+            masked_attribute = masked_attribute.compressed()
+            setattr(self, param, masked_attribute)
+            setattr(self, param + '_mask', mask)
+        except AttributeError as e:
+            msg = f'Cannot remove {param}=={values}: {str(e)}'
+            raise AttributeError(msg)
+        except Exception:
+            raise Exception
 
 
 class XSLAgeMh(AbstractFactoryModel):
@@ -584,20 +591,21 @@ class MilesAgeMhAlpha(AbstractFactoryModel):
 #%%
 if __name__ == '__main__':
 
-    # model = MilesAgeMh()
-    # model.load('../../data/models/tmpWzZ2t1')
+    model = MilesAgeMh()
+    model.load('../../data/models/tmpWzZ2t1')
 
     # model = MilesAgeMh()
     # model.load('../../data/models/miles_Padova00_UN_baseFe_v10.0')
 
-    model = MilesAgeMhAlpha()
-    model.load('../../data/models/MILES_BASTI_KB_Ep0.00')
+    # model = MilesAgeMhAlpha()
+    # model.load('../../data/models/MILES_BASTI_KB_Ep0.00')
 
     # model = XSLAgeMh()
     # model.load('../../data/models/XSL_SSP_PC_Kroupa/Kroupa')
 
-    # model.remove_param('mh_range', [-2.2])
-    # model.remove_param('age_range', [7.7])
+    model.remove_param('mh_range', [-2.2])
+    model.remove_param('age_range', [7.7])
+    model.remove_param('alpha_range', [0])
 
     model.build_name_grid()
     model.build_flux_grid()
@@ -607,8 +615,8 @@ if __name__ == '__main__':
     model.resample()
     model.normalize(limits=[5450, 5550], weighting='light')
 
-    fig, ax = plt.subplots()
-    ax.plot(model.flux_grid[:, :])
+    # fig, ax = plt.subplots()
+    # ax.plot(model.flux_grid[:, :])
 
 #%%
     # import ppxf.miles_util as lib
