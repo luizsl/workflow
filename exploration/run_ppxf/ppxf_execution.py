@@ -237,15 +237,15 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
         try:
             ranges.append(model_meta['age_range'])
         except Exception:
-            pass
+            ranges.append([np.nan])
         try:
             ranges.append(model_meta['mh_range'])
         except Exception:
-            pass
+            ranges.append([np.nan])
         try:
             ranges.append(model_meta['alpha_range'])
         except Exception:
-            pass
+            ranges.append([np.nan])
 
         try:
             weights = pp.weights / pp.weights.sum()

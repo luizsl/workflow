@@ -447,7 +447,14 @@ class MilesAgeMhAlpha(AbstractFactoryModel):
         self.flags['build'] = False
 
     def load(self, path_model_dir):
-        assert os.path.isdir(path_model_dir), f'{path_model_dir} is NOT a directory'
+        if isinstance(path_model_dir, str):
+            path_model_dir = [path_model_dir]
+
+        model_files = []
+        for path in path_model_dir:
+            assert os.path.isdir(path), f'{path_model_dir} is NOT a directory'
+            model_files.extend(glob.glob(os.path.join(path, '*.fits')))
+
         self.path_model_dir = path_model_dir
         self.meta['o_sampling_type'] = 'linear'
 
@@ -456,7 +463,7 @@ class MilesAgeMhAlpha(AbstractFactoryModel):
         self.name_grid = None
         self.mask = None
 
-        model_files = glob.glob(os.path.join(self.path_model_dir, '*.fits'))
+        # model_files = glob.glob(os.path.join(self.path_model_dir, '*.fits'))
         self.meta['model_files'] = model_files
 
         with fits.open(self.meta['model_files'][0]) as hdu:
@@ -531,8 +538,9 @@ class MilesAgeMhAlpha(AbstractFactoryModel):
                               f'{_alpha:+0.2f}', 1)
                 a = a.replace('+', 'p')
                 a = a.replace('-', 'm')
-
-                b = glob.glob(os.path.join(self.path_model_dir, '*') + a + '*')
+                a = a.replace('*', '.*')
+                r = re.compile('.*' + a + '.*')
+                b = list(filter(r.match, self.meta['model_files']))
                 assert len(b) == 1
 
                 name = os.path.split(b[0])[-1]
@@ -541,24 +549,29 @@ class MilesAgeMhAlpha(AbstractFactoryModel):
 
         self.meta['age_range'] = self.age_range
         self.meta['mh_range'] = self.mh_range
+        self.meta['alpha_range'] = self.alpha_range
 
         self.flags['build'] = True
 
     def build_flux_grid(self):
-        out_shape = self.read_model(
-            self.path_model_dir, self.name_grid[0,0,0]).shape + self.name_grid.shape
+        path = os.path.split(self.meta['model_files'][0])
+        out_shape = self.read_model(*path).shape + self.name_grid.shape
         out = np.zeros(out_shape)
-
         with np.nditer([self.name_grid], flags = ['multi_index']) as it:
             for x in it:
-                out[(...,) + it.multi_index] = \
-                    self.read_model(self.path_model_dir, x[()])
+                r = re.compile('.*' + x[()] + '.*')
+                b = list(filter(r.match, self.meta['model_files']))
+                path = os.path.split(b[0])
+                out[(...,) + it.multi_index] = self.read_model(*path)
             self.flux_grid = out
 
     def build_head_grid(self):
         with np.nditer([self.name_grid, None]) as it:
             for x, y in it:
-                y[...] = dict(self.read_model(self.path_model_dir, x[()], 'header'))
+                r = re.compile('.*' + x[()] + '.*')
+                b = list(filter(r.match, self.meta['model_files']))
+                path = os.path.split(b[0])
+                y[...] = dict(self.read_model(*path, 'header'))
 
             self.head_grid = it.operands[-1]
 
@@ -591,8 +604,8 @@ class MilesAgeMhAlpha(AbstractFactoryModel):
 #%%
 if __name__ == '__main__':
 
-    model = MilesAgeMh()
-    model.load('../../data/models/tmpWzZ2t1')
+    # model = MilesAgeMh()
+    # model.load('../../data/models/tmpWzZ2t1')
 
     # model = MilesAgeMh()
     # model.load('../../data/models/miles_Padova00_UN_baseFe_v10.0')
@@ -600,20 +613,25 @@ if __name__ == '__main__':
     # model = MilesAgeMhAlpha()
     # model.load('../../data/models/MILES_BASTI_KB_Ep0.00')
 
+    model = MilesAgeMhAlpha()
+    model.load(['../../data/models/MILES_BASTI_KB_Ep0.00',
+                '../../data/models/MILES_BASTI_KB_Ep0.40'])
+
     # model = XSLAgeMh()
     # model.load('../../data/models/XSL_SSP_PC_Kroupa/Kroupa')
 
-    model.remove_param('mh_range', [-2.2])
-    model.remove_param('age_range', [7.7])
-    model.remove_param('alpha_range', [0])
+    # model.remove_param('mh_range', [-2.2])
+    # model.remove_param('age_range', [7.7])
+    # model.remove_param('alpha_range', [0])
 
-    model.build_name_grid()
-    model.build_flux_grid()
-    model.build_head_grid()
+    model.build()
+    # model.build_name_grid()
+    # model.build_flux_grid()
+    # model.build_head_grid()
     model.reshape()
     model.convolve()
     model.resample()
-    model.normalize(limits=[5450, 5550], weighting='light')
+    model.normalize(limits=[-np.inf, np.inf], weighting='light')
 
     # fig, ax = plt.subplots()
     # ax.plot(model.flux_grid[:, :])
