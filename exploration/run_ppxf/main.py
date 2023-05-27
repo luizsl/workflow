@@ -126,20 +126,7 @@ class Main:
 
 
 if __name__ == '__main__':
-    conf = sys.argv[1]
-    # conf = 'test_stellar_light_sn40.yaml'
+    # conf = sys.argv[1]
+    conf = 'test_stellar_light_sn40.yaml'
     ppxf_control = Main(conf)
     ppxf_control.run_all()
-
-
-
-# %% Debug
-
-    # conf = 'test.yaml'
-
-    # ppxf_prep = Main(conf)
-   	# ppxf_prep.read_config()
-    # ppxf_prep.create_output_folder()
-    # ppxf_prep.keep_conf_copy()
-    # ppxf_prep.run_all()
-

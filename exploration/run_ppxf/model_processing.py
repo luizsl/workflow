@@ -13,7 +13,6 @@ import tempfile
 from abc import ABC, abstractmethod
 
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import numpy as np
 import spectcube as sc
 from astropy.io import fits
@@ -173,7 +172,6 @@ class AbstractFactoryModel(ABC):
 class XSLAgeMh(AbstractFactoryModel):
     def __init__(self):
         self.meta = {}
-        self.name_pattern = 'XSL_SSP_logT{0:.1f}_MH{1:.1f}_Kroupa_PC.fits'
         self.parameter_pattern = 'logT[0-9]{1,2}\.[0-9]{1,2}_MH[+/-]?[0-9]{1,2}\.[0-9]{1,2}'
         self.fwhm_model_ang = None
         self.model_resolving_power = 10_000
@@ -248,7 +246,16 @@ class XSLAgeMh(AbstractFactoryModel):
                        op_axes = [[0, -1], [-1, 0], None],
                        op_dtypes = [None, None, 'U256']) as it:
             for _age, _mh, z in it:
-                z[...] = self.name_pattern.format(_age, _mh)
+                a = model.parameter_pattern.replace('T[0-9]{1,2}\\.[0-9]{1,2}', f'T{_age:.1f}')
+                if _mh == 0:
+                    a = a.replace('MH[+/-]?[0-9]{1,2}\\.[0-9]{1,2}', f'MH-{_mh:0.1f}')
+                else:
+                    a = a.replace('MH[+/-]?[0-9]{1,2}\\.[0-9]{1,2}', f'MH{_mh:0.1f}')
+
+                b = glob.glob(os.path.join(model.path_model_dir, '*') + a + '*')
+                assert len(b) == 1
+                name = os.path.split(b[0])[-1]
+                z[...] = name
             self.name_grid = it.operands[-1]
 
         self.meta['age_range'] = self.age_range
@@ -440,7 +447,6 @@ class MilesAgeMh(AbstractFactoryModel):
 class MilesAgeMhAlpha(AbstractFactoryModel):
     def __init__(self):
         self.meta = {}
-        self.name_pattern = 'Eun1.30Z{:+05.2f}T{:07.4f}_iPp0.00_baseFe_linear_FWHM_variable.fits'
         self.parameter_pattern = '[m/p][0-9]\.[0-9]{2}T[0-9]{2}\.[0-9]{4}.*[_i][T/P][m/p][0-9]\.[0-9]{2}'
         self.fwhm_model_ang = 2.51
         self.flags={}
@@ -601,6 +607,7 @@ class MilesAgeMhAlpha(AbstractFactoryModel):
                     data = hdul[0].header
             return data
 
+
 #%%
 if __name__ == '__main__':
 
@@ -610,31 +617,34 @@ if __name__ == '__main__':
     # model = MilesAgeMh()
     # model.load('../../data/models/miles_Padova00_UN_baseFe_v10.0')
 
-    # model = MilesAgeMhAlpha()
-    # model.load('../../data/models/MILES_BASTI_KB_Ep0.00')
-
     model = MilesAgeMhAlpha()
-    model.load(['../../data/models/MILES_BASTI_KB_Ep0.00',
-                '../../data/models/MILES_BASTI_KB_Ep0.40'])
+    model.load('../../data/models/MILES_BASTI_KB_Ep0.00')
+
+    # model = MilesAgeMhAlpha()
+    # model.load(['../../data/models/MILES_BASTI_KB_Ep0.00',
+    #             '../../data/models/MILES_BASTI_KB_Ep0.40'])
 
     # model = XSLAgeMh()
     # model.load('../../data/models/XSL_SSP_PC_Kroupa/Kroupa')
+
+    # model = XSLAgeMh()
+    # model.load('../../data/models/XSL_SSP_P00_Kroupa_renamed/Kroupa')
 
     # model.remove_param('mh_range', [-2.2])
     # model.remove_param('age_range', [7.7])
     # model.remove_param('alpha_range', [0])
 
-    model.build()
-    # model.build_name_grid()
-    # model.build_flux_grid()
-    # model.build_head_grid()
+    # model.build()
+    model.build_name_grid()
+    model.build_flux_grid()
+    model.build_head_grid()
     model.reshape()
     model.convolve()
     model.resample()
     model.normalize(limits=[-np.inf, np.inf], weighting='light')
 
-    # fig, ax = plt.subplots()
-    # ax.plot(model.flux_grid[:, :])
+    fig, ax = plt.subplots()
+    ax.plot(model.flux_grid[:, :])
 
 #%%
     # import ppxf.miles_util as lib
@@ -646,3 +656,4 @@ if __name__ == '__main__':
     # ax[0].plot(model.flux_grid[:, :])
     # ax[1].plot(miles.templates.reshape((-1, 53*12))[:, :])
     # ax[2].plot(model.flux_grid[:, :] / miles.templates.reshape((-1, 53*12))[:, :])
+
