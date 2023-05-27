@@ -246,13 +246,13 @@ class XSLAgeMh(AbstractFactoryModel):
                        op_axes = [[0, -1], [-1, 0], None],
                        op_dtypes = [None, None, 'U256']) as it:
             for _age, _mh, z in it:
-                a = model.parameter_pattern.replace('T[0-9]{1,2}\\.[0-9]{1,2}', f'T{_age:.1f}')
+                a = self.parameter_pattern.replace('T[0-9]{1,2}\\.[0-9]{1,2}', f'T{_age:.1f}')
                 if _mh == 0:
                     a = a.replace('MH[+/-]?[0-9]{1,2}\\.[0-9]{1,2}', f'MH-{_mh:0.1f}')
                 else:
                     a = a.replace('MH[+/-]?[0-9]{1,2}\\.[0-9]{1,2}', f'MH{_mh:0.1f}')
 
-                b = glob.glob(os.path.join(model.path_model_dir, '*') + a + '*')
+                b = glob.glob(os.path.join(self.path_model_dir, '*') + a + '*')
                 assert len(b) == 1
                 name = os.path.split(b[0])[-1]
                 z[...] = name
