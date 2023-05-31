@@ -13,7 +13,6 @@ import tempfile
 from abc import ABC, abstractmethod
 
 import matplotlib.pyplot as plt
-import matplotlib.ticker as ticker
 import numpy as np
 import spectcube as sc
 from astropy.io import fits
@@ -153,20 +152,26 @@ class AbstractFactoryModel(ABC):
 
     def remove_param(self, param, values = []):
         assert self.flags['build'] is False
-        attribute = getattr(self, param)
-        _, _, index = np.intersect1d(values, attribute, return_indices=True)
-        mask = np.zeros_like(attribute)
-        mask[index] = 1
-        masked_attribute = np.ma.masked_where(mask, attribute)
-        masked_attribute = masked_attribute.compressed()
-        setattr(self, param, masked_attribute)
-        setattr(self, param + '_mask', mask)
+        try:
+            attribute = getattr(self, param)
+            _, _, index = np.intersect1d(values, attribute,
+                                         return_indices=True)
+            mask = np.zeros_like(attribute)
+            mask[index] = 1
+            masked_attribute = np.ma.masked_where(mask, attribute)
+            masked_attribute = masked_attribute.compressed()
+            setattr(self, param, masked_attribute)
+            setattr(self, param + '_mask', mask)
+        except AttributeError as e:
+            msg = f'Cannot remove {param}=={values}: {str(e)}'
+            raise AttributeError(msg)
+        except Exception:
+            raise Exception
 
 
 class XSLAgeMh(AbstractFactoryModel):
     def __init__(self):
         self.meta = {}
-        self.name_pattern = 'XSL_SSP_logT{0:.1f}_MH{1:.1f}_Kroupa_PC.fits'
         self.parameter_pattern = 'logT[0-9]{1,2}\.[0-9]{1,2}_MH[+/-]?[0-9]{1,2}\.[0-9]{1,2}'
         self.fwhm_model_ang = None
         self.model_resolving_power = 10_000
@@ -241,7 +246,16 @@ class XSLAgeMh(AbstractFactoryModel):
                        op_axes = [[0, -1], [-1, 0], None],
                        op_dtypes = [None, None, 'U256']) as it:
             for _age, _mh, z in it:
-                z[...] = self.name_pattern.format(_age, _mh)
+                a = self.parameter_pattern.replace('T[0-9]{1,2}\\.[0-9]{1,2}', f'T{_age:.1f}')
+                if _mh == 0:
+                    a = a.replace('MH[+/-]?[0-9]{1,2}\\.[0-9]{1,2}', f'MH-{_mh:0.1f}')
+                else:
+                    a = a.replace('MH[+/-]?[0-9]{1,2}\\.[0-9]{1,2}', f'MH{_mh:0.1f}')
+
+                b = glob.glob(os.path.join(self.path_model_dir, '*') + a + '*')
+                assert len(b) == 1
+                name = os.path.split(b[0])[-1]
+                z[...] = name
             self.name_grid = it.operands[-1]
 
         self.meta['age_range'] = self.age_range
@@ -433,14 +447,20 @@ class MilesAgeMh(AbstractFactoryModel):
 class MilesAgeMhAlpha(AbstractFactoryModel):
     def __init__(self):
         self.meta = {}
-        self.name_pattern = 'Eun1.30Z{:+05.2f}T{:07.4f}_iPp0.00_baseFe_linear_FWHM_variable.fits'
         self.parameter_pattern = '[m/p][0-9]\.[0-9]{2}T[0-9]{2}\.[0-9]{4}.*[_i][T/P][m/p][0-9]\.[0-9]{2}'
         self.fwhm_model_ang = 2.51
         self.flags={}
         self.flags['build'] = False
 
     def load(self, path_model_dir):
-        assert os.path.isdir(path_model_dir), f'{path_model_dir} is NOT a directory'
+        if isinstance(path_model_dir, str):
+            path_model_dir = [path_model_dir]
+
+        model_files = []
+        for path in path_model_dir:
+            assert os.path.isdir(path), f'{path_model_dir} is NOT a directory'
+            model_files.extend(glob.glob(os.path.join(path, '*.fits')))
+
         self.path_model_dir = path_model_dir
         self.meta['o_sampling_type'] = 'linear'
 
@@ -449,7 +469,7 @@ class MilesAgeMhAlpha(AbstractFactoryModel):
         self.name_grid = None
         self.mask = None
 
-        model_files = glob.glob(os.path.join(self.path_model_dir, '*.fits'))
+        # model_files = glob.glob(os.path.join(self.path_model_dir, '*.fits'))
         self.meta['model_files'] = model_files
 
         with fits.open(self.meta['model_files'][0]) as hdu:
@@ -524,8 +544,9 @@ class MilesAgeMhAlpha(AbstractFactoryModel):
                               f'{_alpha:+0.2f}', 1)
                 a = a.replace('+', 'p')
                 a = a.replace('-', 'm')
-
-                b = glob.glob(os.path.join(self.path_model_dir, '*') + a + '*')
+                a = a.replace('*', '.*')
+                r = re.compile('.*' + a + '.*')
+                b = list(filter(r.match, self.meta['model_files']))
                 assert len(b) == 1
 
                 name = os.path.split(b[0])[-1]
@@ -534,24 +555,29 @@ class MilesAgeMhAlpha(AbstractFactoryModel):
 
         self.meta['age_range'] = self.age_range
         self.meta['mh_range'] = self.mh_range
+        self.meta['alpha_range'] = self.alpha_range
 
         self.flags['build'] = True
 
     def build_flux_grid(self):
-        out_shape = self.read_model(
-            self.path_model_dir, self.name_grid[0,0,0]).shape + self.name_grid.shape
+        path = os.path.split(self.meta['model_files'][0])
+        out_shape = self.read_model(*path).shape + self.name_grid.shape
         out = np.zeros(out_shape)
-
         with np.nditer([self.name_grid], flags = ['multi_index']) as it:
             for x in it:
-                out[(...,) + it.multi_index] = \
-                    self.read_model(self.path_model_dir, x[()])
+                r = re.compile('.*' + x[()] + '.*')
+                b = list(filter(r.match, self.meta['model_files']))
+                path = os.path.split(b[0])
+                out[(...,) + it.multi_index] = self.read_model(*path)
             self.flux_grid = out
 
     def build_head_grid(self):
         with np.nditer([self.name_grid, None]) as it:
             for x, y in it:
-                y[...] = dict(self.read_model(self.path_model_dir, x[()], 'header'))
+                r = re.compile('.*' + x[()] + '.*')
+                b = list(filter(r.match, self.meta['model_files']))
+                path = os.path.split(b[0])
+                y[...] = dict(self.read_model(*path, 'header'))
 
             self.head_grid = it.operands[-1]
 
@@ -581,6 +607,7 @@ class MilesAgeMhAlpha(AbstractFactoryModel):
                     data = hdul[0].header
             return data
 
+
 #%%
 if __name__ == '__main__':
 
@@ -593,19 +620,28 @@ if __name__ == '__main__':
     model = MilesAgeMhAlpha()
     model.load('../../data/models/MILES_BASTI_KB_Ep0.00')
 
+    # model = MilesAgeMhAlpha()
+    # model.load(['../../data/models/MILES_BASTI_KB_Ep0.00',
+    #             '../../data/models/MILES_BASTI_KB_Ep0.40'])
+
     # model = XSLAgeMh()
     # model.load('../../data/models/XSL_SSP_PC_Kroupa/Kroupa')
 
+    # model = XSLAgeMh()
+    # model.load('../../data/models/XSL_SSP_P00_Kroupa_renamed/Kroupa')
+
     # model.remove_param('mh_range', [-2.2])
     # model.remove_param('age_range', [7.7])
+    # model.remove_param('alpha_range', [0])
 
+    # model.build()
     model.build_name_grid()
     model.build_flux_grid()
     model.build_head_grid()
     model.reshape()
     model.convolve()
     model.resample()
-    model.normalize(limits=[5450, 5550], weighting='light')
+    model.normalize(limits=[-np.inf, np.inf], weighting='light')
 
     fig, ax = plt.subplots()
     ax.plot(model.flux_grid[:, :])
@@ -620,3 +656,4 @@ if __name__ == '__main__':
     # ax[0].plot(model.flux_grid[:, :])
     # ax[1].plot(miles.templates.reshape((-1, 53*12))[:, :])
     # ax[2].plot(model.flux_grid[:, :] / miles.templates.reshape((-1, 53*12))[:, :])
+
