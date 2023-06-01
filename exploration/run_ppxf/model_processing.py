@@ -246,14 +246,18 @@ class XSLAgeMh(AbstractFactoryModel):
                        op_axes = [[0, -1], [-1, 0], None],
                        op_dtypes = [None, None, 'U256']) as it:
             for _age, _mh, z in it:
-                a = self.parameter_pattern.replace('T[0-9]{1,2}\\.[0-9]{1,2}', f'T{_age:.1f}')
                 if _mh == 0:
-                    a = a.replace('MH[+/-]?[0-9]{1,2}\\.[0-9]{1,2}', f'MH-{_mh:0.1f}')
+                    r = re.compile(f'.*({_age})[0]{{0,3}}_.*MH-({_mh})[0]{{0,3}}_.*')
                 else:
-                    a = a.replace('MH[+/-]?[0-9]{1,2}\\.[0-9]{1,2}', f'MH{_mh:0.1f}')
+                    r = re.compile(f'.*({_age})[0]{{0,3}}_.*MH({_mh})[0]{{0,3}}_.*')
 
-                b = glob.glob(os.path.join(self.path_model_dir, '*') + a + '*')
-                assert len(b) == 1
+                b = list(filter(r.match, self.meta['model_files']))
+
+                try:
+                    assert len(b) == 1
+                except:
+                    raise Exception(f'models: {b}')
+
                 name = os.path.split(b[0])[-1]
                 z[...] = name
             self.name_grid = it.operands[-1]
@@ -617,24 +621,27 @@ if __name__ == '__main__':
     # model = MilesAgeMh()
     # model.load('../../data/models/miles_Padova00_UN_baseFe_v10.0')
 
-    model = MilesAgeMhAlpha()
-    model.load('../../data/models/MILES_BASTI_KB_Ep0.00')
+    # model = MilesAgeMhAlpha()
+    # model.load('../../data/models/MILES_BASTI_KB_Ep0.00')
 
     # model = MilesAgeMhAlpha()
     # model.load(['../../data/models/MILES_BASTI_KB_Ep0.00',
     #             '../../data/models/MILES_BASTI_KB_Ep0.40'])
 
     # model = XSLAgeMh()
-    # model.load('../../data/models/XSL_SSP_PC_Kroupa/Kroupa')
-
-    # model = XSLAgeMh()
     # model.load('../../data/models/XSL_SSP_P00_Kroupa_renamed/Kroupa')
 
-    # model.remove_param('mh_range', [-2.2])
-    # model.remove_param('age_range', [7.7])
-    # model.remove_param('alpha_range', [0])
+    # # padova
+    # model.remove_param('mh_range', [-1.7, -1.3])
+    # model.remove_param('age_range', [8.95, 10.25])
 
-    # model.build()
+    model = XSLAgeMh()
+    model.load('../../data/models/XSL_SSP_PC_Kroupa/Kroupa')
+
+    # parsec/colibri
+    model.remove_param('mh_range', [-2.2, -2.0, -1.8, -1.6, -1.4, -1.2, -0.1, 0.1])
+    model.remove_param('age_range', [7.7, 7.8, 7.9, 8.0, 8.1, 8.2, 8.3, 8.4])
+
     model.build_name_grid()
     model.build_flux_grid()
     model.build_head_grid()
@@ -647,6 +654,7 @@ if __name__ == '__main__':
     ax.plot(model.flux_grid[:, :])
 
 #%%
+
     # import ppxf.miles_util as lib
     # pathname = '../../data/models/MILES_BASTI_KB_Ep0.00/*.fits'
     # velscale = np.log(model.meta['wave_model'][1]/model.meta['wave_model'][0])*299792.458
