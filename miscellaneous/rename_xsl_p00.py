@@ -25,6 +25,7 @@ except Exception as e:
     raise e
 
 files = glob.glob(os.path.join(model_directory, '*'))
+new_names = set()
 age_range = set()
 z_range = set()
 mh_range = set()
@@ -42,12 +43,12 @@ for file in files:
     z_range.add(z)
     mh_range.add(mh)
     if mh == 0:
-        new_name = f'XSL_SSP_logT{np.log10(age):.1f}_MH-{mh:.1f}_Kroupa_P00.fits'
+        new_name = f'XSL_SSP_logT{np.log10(age):.2f}_MH-{mh:.1f}_Kroupa_P00.fits'
     else:
-        new_name = f'XSL_SSP_logT{np.log10(age):.1f}_MH{mh:.1f}_Kroupa_P00.fits'
+        new_name = f'XSL_SSP_logT{np.log10(age):.2f}_MH{mh:.1f}_Kroupa_P00.fits'
     print(new_name)
+    new_names.add(new_name)
 
     src = os.path.join(model_directory, file)
     dst = os.path.join(new_directory, new_name)
     shutil.copy(src, dst)
-
