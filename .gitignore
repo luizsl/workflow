@@ -19,8 +19,11 @@ exploration/run_ppxf/conf/*
 exploration/run_ppxf/__pycache__/*
 exploration/run_ppxf/*.pdf
 exploration/run_ppxf/test_vonoroi.py
+exploration/run_ppxf/*.yaml
+exploration/run_ppxf/slurm_files
 
 exploration/run_ppxf_emission/__pycache__/*
+exploration/run_ppxf_emission/*yaml
 
 exploration/run_inla/.Rhistory
 exploration/run_inla/*.txt
@@ -32,6 +35,7 @@ miscellaneous/*.pdf
 miscellaneous/eval_regularization/*
 
 plots/*pdf
+plots/*/
 
 duvidas.md
 melhorias.md
