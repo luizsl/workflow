@@ -473,7 +473,7 @@ def build_output_storage(out_obj=None, out_dataset=None, logger=None,
         # empty_arr = da.empty(dtype=dtype, shape=_shape, chunks=chunks)
         with tempfile.NamedTemporaryFile() as temp_file:
             empty_arr = np.memmap(temp_file, dtype = float, shape = _shape)
-            # empty_arr.fill(np.nan)
+            empty_arr.fill(np.nan)
             empty_arr.flush()
 
         logger.debug(empty_arr)
