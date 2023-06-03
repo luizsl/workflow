@@ -15,7 +15,7 @@ def run_test(sn, regul, script_path, index):
         shell=True, check=True)
 
 if __name__ == '__main__':
-    limit = 1
+    limit = 5
 
     with mp.Pool(processes=limit) as pool:
         sn = 100
