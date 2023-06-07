@@ -16,7 +16,6 @@ import yaml
 from astropy.utils.misc import JsonCustomEncoder
 
 from data_preprocessing import DataPreprocessing
-from post_processing import PopMeanProperties
 from ppxf_execution import ExecutePpxf
 from reconstruct_map import reconstruct_map
 
@@ -49,13 +48,12 @@ class Main:
         self.keep_conf_copy()
 
         self.data = DataPreprocessing(self.meta)
+
         self.execution = ExecutePpxf(self.data, self.meta)
+        self.execution.run_all_data()
+
         self.meta_to_json()
         self.results_to_map()
-
-        if 'secondary' in self.meta['output']:
-            self.logger.info(f'\nComputing secondary properties\n{30*"-"}')
-            self.compute_secondary()
 
     def read_config(self):
         with open(self.conf_file) as f:
@@ -121,47 +119,14 @@ class Main:
                 reconstruct_map(data=data, out_metadata=out_metadata,
                                 parameter=parameter, binned=binned,
                                 directory=self.meta['output_run_ppxf'])
+            except KeyError as e:
+                self.logger.info(f'Could not find {str(e)}')
             except Exception as e:
                 self.logger.info(str(e))
-
-    def compute_secondary(self):
-        base = self.meta['output_run_ppxf']
-        datapath = os.path.join(base, 'weights.fits')
-        metadatapath = os.path.join(base, 'metadata.json')
-        stellar = PopMeanProperties(
-            datapath=datapath,
-            metadatapath=metadatapath,
-            age_log10=self.data.model.meta['age_log10'])
-
-        if 'mean_log_age_light' in self.meta['output']['secondary']:
-            stellar.save(stellar.log10_age_light, 'mean_log10_age_light',
-                         self.meta['output_run_ppxf'])
-
-        if 'mean_mh_light' in self.meta['output']['secondary']:
-            stellar.save(stellar.mh_light, 'mean_mh_light',
-                         self.meta['output_run_ppxf'])
 
 
 if __name__ == '__main__':
     conf = sys.argv[1]
+    # conf = 'test_stellar_light_sn40.yaml'
     ppxf_control = Main(conf)
     ppxf_control.run_all()
-
-# %% Debug
-
-    # conf = 'test.yaml'
-
-    # ppxf_prep = Main(conf)
-   	# ppxf_prep.read_config()
-    # ppxf_prep.create_output_folder()
-    # ppxf_prep.keep_conf_copy()
-    # ppxf_prep.run_all()
-
-    # import matplotlib.pyplot as plt
-
-    # fig, ax = plt.subplots(1, 3)
-    # ax[0].imshow(10**(age-9), origin='lower')
-    # ax[1].imshow(mh, origin='lower')
-
-    # w = ppxf_prep.ppxf_out.ppxf.weights
-    # ax[2].imshow(w[:, 0].reshape(24,6))

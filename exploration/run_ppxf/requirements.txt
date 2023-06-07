@@ -1,0 +1,12 @@
+astropy
+cvxopt
+extinction
+matplotlib
+numpy
+plotbin
+ppxf
+PyYAML
+scipy
+spectcube
+vorbin
+xarray

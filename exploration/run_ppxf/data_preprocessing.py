@@ -63,11 +63,26 @@ class DataPreprocessing:
         self.model = factory.get_model(self.main_meta['model']['class_'])
         self.logger.info(f"--{self.main_meta['model']['class_']}")
         self.model.load(self.main_meta['resources']['model'])
-        self.logger.info('--log10 age: %s', self.model.meta['age_log10'])
 
-        if 'remove' in self.main_meta['model']:
+        try:
+            age_log10 = self.main_meta['model']['age_log10']
+            self.logger.info('--log10 age: %s', age_log10)
+        except Exception:
+            self.logger.info(
+                'Could not identify whether the age is in a log scale')
+
+        try:
+            age_gyr = self.main_meta['model']['age_gyr']
+            self.logger.info('--age Gyr: %s', age_gyr)
+        except Exception:
+            self.logger.info(
+                'Could not identify whether the age is in Gyr')
+
+        try:
             for key, value in self.main_meta['model']['remove'].items():
                 self.model.remove_param(key, value)
+        except Exception:
+            pass
 
         # Reading observations to gather information
         self.logger.info('Reading observations data')
@@ -116,9 +131,21 @@ class DataPreprocessing:
             log_step/oversample))
         self.model.resample(wave)
 
-        if 'normalization' in self.main_meta['common']:
-            limits = self.main_meta['common']['normalization']
-        self.model.normalize(limits=limits)
+        try:
+            limits = self.main_meta['model']['normalization']
+            if limits == []:
+                limits = [-np.inf, np.inf]
+        except Exception:
+            limits = [-np.inf, np.inf]
+        self.logger.info(f'--scaling band: {limits}')
+
+        try:
+            weighting = self.main_meta['model']['weighting']
+        except:
+            weighting = 'light'
+        self.logger.info(f'--weighting: {weighting}')
+
+        self.model.normalize(limits=[-np.inf, np.inf], weighting=weighting)
 
         self.model.convert_to_mmap()
         self.logger.info(f'{round(clock()-t,2)} s')
@@ -162,9 +189,21 @@ class DataPreprocessing:
             )
             self.obs.vorbin(target_sn=target_sn, sn_func=sn_func)
 
-        if 'normalization' in self.main_meta['common']:
-            limits = self.main_meta['common']['normalization']
-        self.obs.normalize(limits=limits)
+        try:
+            limits = self.main_meta['observation']['normalization']
+            if limits == []:
+                limits = [-np.inf, np.inf]
+        except Exception:
+            limits = [-np.inf, np.inf]
+        self.logger.info(f'--scaling band: {limits}')
+
+        try:
+            weighting = self.main_meta['observation']['scaling']
+        except:
+            weighting = 'scalar'
+        self.logger.info(f'--normalisation scale: {weighting}')
+
+        self.obs.normalize(limits=limits, weighting=weighting)
 
         self.obs.convert_to_mmap()
 
