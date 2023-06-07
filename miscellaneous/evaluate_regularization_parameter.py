@@ -227,7 +227,7 @@ if __name__ == "__main__":
     #%%     Increase of the chi**2 due to regularization
     filename_pattern = 'sn100_regul[regul]_fov1x3_norm_obs.yaml'
     # root_directory = '../data_products/regularization/sn100_fov_sample_1_3'
-    root_directory = '../data_products/regularization/sn100_fov_sample_1_3_rescaling_uncertainty'
+    root_directory = '../data_products/regularization/sn100_fov_sample_1_3_goodpixels'
     # root_directory = '../data_products/regularization/sn40_fov_sample_1_3'
 
     reguls = [0, 0.05, 0.04, 0.03, 0.02, 0.01]
