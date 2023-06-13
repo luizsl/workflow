@@ -5,6 +5,7 @@ Created on Sat Sep 25 12:54:40 2021
 @author: Luiz
 """
 import ctypes
+import json
 import io
 import logging
 import multiprocessing as mp
@@ -12,26 +13,27 @@ import os
 import pickle
 import tempfile
 from contextlib import redirect_stdout
-from dataclasses import dataclass
 from datetime import datetime
 from time import perf_counter as clock
 
+# import dask.array as da
 import numpy as np
-from astropy.io import fits
+import xarray as xr
 from ppxf.ppxf import ppxf, robust_sigma
 from scipy.constants import physical_constants
+from astropy.utils.misc import JsonCustomEncoder
 
 from bounds_processing import build_bounds
 
 
 class ExecutePpxf:
     C = physical_constants['speed of light in vacuum'][0]/1e3  # km/s
-    meta = {}
 
     def __init__(self, data=None, metadata=None):
         assert data is not None
         assert metadata is not None
 
+        self.meta = {}
         self.data = data
         self.main_meta = metadata
         self.storage = mp.Value(ctypes.c_bool, False)
@@ -39,7 +41,8 @@ class ExecutePpxf:
         self.lock = mp.Lock()
 
         self.start_logging()
-        self.out_ppxf = self.process_manager.dict()
+        self.out_ppxf = xr.Dataset()
+        self.out_locks = self.process_manager.dict()
 
         # NOTE: Adding an exception to deal with a single spectrum
         # not neat but should work. <>
@@ -50,11 +53,6 @@ class ExecutePpxf:
                 self.data.obs.flux_grid_unc, axis=1)
 
         self.size = self.data.obs.flux_grid[0, ...].size
-
-        # par = ['gas_reddening', 'reddening', 'status', 'gas_flux', 'gas_any',
-        #        'gas_flux_error', 'gas_bestfit', 'phot_npix', 'gas_any_zero',
-        #        'weights', 'bestfit','mpoly', 'gas_mpoly', 'dof', 'chi2',
-        #        'sol', 'error', 'polyweights', 'apoly','goodpixels']
 
         par = []
 
@@ -99,43 +97,29 @@ class ExecutePpxf:
         self.meta['ppxf_start_time'] = start_time
         self.logger.info(start_time)
 
-        if 'n_process' in self.main_meta['common']:
-            N_PROCESS = self.main_meta['common']['n_process']
-        else:
-            N_PROCESS = mp.cpu_count()
+        try:
+            self.N_PROCESS = self.main_meta['common']['n_process']
+        except Exception:
+            self.N_PROCESS = mp.cpu_count()
 
         input_queue = self.process_manager.Queue()
-        output_queue = self.process_manager.Queue(maxsize=20)
+        output_queue = self.process_manager.Queue(maxsize=self.N_PROCESS)
 
         ps = [mp.Process(target=self.worker, args=[input_queue, output_queue])
-              for _ in range(N_PROCESS)]
+              for _ in range(self.N_PROCESS)]
 
         for p in ps:
             p.start()
-            self.logger.debug('Start multiprocessing')
+            self.logger.debug('Start multiprocessing of fitting')
         for i in range(self.size):
             input_queue.put(i)
-        for _ in range(N_PROCESS):
+        for _ in range(self.N_PROCESS):
             input_queue.put(None)
 
-        ps_out = [mp.Process(target=self.store_output, args=[output_queue])
-                  for _ in range(N_PROCESS)]
-
-        for p_out in ps_out:
-            p_out.start()
-            self.logger.debug('Start multiprocessing of output')
+        self.store_output(input_queue, output_queue)
 
         for p in ps:
             p.join()
-
-        # output_queue.put(None)
-        # p_out.join()
-
-        for p_out in ps_out:
-            output_queue.put(None)
-
-        for p_out in ps_out:
-            p_out.join()
 
         # keep end time
         end_time = datetime.now().strftime("%d/%m/%Y %H:%M")
@@ -203,7 +187,7 @@ class ExecutePpxf:
         t = clock()
 
         lam = self.data.obs.meta['wave_obs']
-        velscale = self.C*np.diff(np.log(lam[-2:]))
+        velscale = self.C*np.diff(np.log(lam[-2:]))[0]
         start_stellar_kinematics = [0, 1, 0, 0]
         component = np.array([0])
         moments = [-4]
@@ -237,7 +221,7 @@ class ExecutePpxf:
         gas_names = self.data.em_model.label
         label_wave = self.data.em_model.label_wave
         lam = self.data.obs.meta['wave_obs']
-        velscale = self.C*np.diff(np.log(lam[-2:]))
+        velscale = self.C*np.diff(np.log(lam[-2:]))[0]
         gas_moments = self.data.main_meta['gas_template']['moments']
         ngas_comp = self.data.main_meta['gas_template']['components']
         em_shape = self.data.em_model.size
@@ -252,7 +236,7 @@ class ExecutePpxf:
 
         gas_templates = np.tile(gas_templates, ngas_comp)
         gas_names = np.asarray(
-            [a + f"_({p+1})" for p in range(ngas_comp) for a in gas_names])
+            [gas + f"_({p+1})" for p in range(ngas_comp) for gas in gas_names])
         label_wave = np.tile(label_wave, ngas_comp)
         gas_component = np.array(component) > 0
         stars_gas_templates = np.column_stack([pp.bestfit, gas_templates])
@@ -280,10 +264,22 @@ class ExecutePpxf:
             b_ineq_kin = self.data.main_meta['gas_template']['b_ineq_kin']
             A_ineq_kin = np.asarray(A_ineq_kin, dtype=float)
             b_ineq_kin = np.asarray(b_ineq_kin, dtype=float)
+
+            # Adjust Constraint conditioning
+            p = np.concatenate(start)
+            if not A_ineq_kin.dot(p) < b_ineq_kin:
+                self.logger.info('Try to get obtain well-posed constraint')
+                try:
+                    A_ineq_kin, b_ineq_kin = constr_cond(
+                        A_ineq_kin, b_ineq_kin, p)
+                except Exception:
+                    raise Exception
+
             b_ineq_kin = b_ineq_kin / velscale
             constr_kinem = {"A_ineq": A_ineq_kin, "b_ineq": b_ineq_kin}
+
         except Exception:
-            constr_kinem = None
+            constr_kinem = {}
         self.logger.debug(constr_kinem)
 
         pp = ppxf(stars_gas_templates, galaxy, noise, velscale, start,
@@ -318,6 +314,47 @@ class ExecutePpxf:
         print('Elapsed time in PPXF: %.2f s' % (clock() - t))
         return pp
 
+    def store_output(self, input_queue, output_queue):
+        while not all([output_queue.empty(), input_queue.empty()]):
+            serial_out = output_queue.get()
+            self.logger.debug(output_queue.qsize())
+            total_time = clock()
+
+            index, out_obj = pickle.loads(serial_out)
+
+            if out_obj is None:
+                continue
+
+            with self.lock:
+                if self.storage.value is False:
+                    self.build_output_storage(out_obj)
+
+                    add_param = self.main_meta['output']['additional_param']
+                    self.keep_add_param(out_obj, parameters=add_param)
+
+            [self._store(index=index, out_obj=out_obj, _p=_p)
+             for _p in self.par]
+
+            self.logger.debug(
+                f'Elapsed time to save {index}: %.5f s' % (clock()-total_time))
+
+    def _store(self, index, out_obj, _p):
+        t = clock()
+        _obj = out_obj.__getattribute__(_p)
+
+        if isinstance(_obj, list):
+            _obj = np.concatenate(_obj)
+            _obj = _obj.ravel()
+
+        try:
+            self.out_ppxf[_p][..., index] = _obj
+        except ValueError:
+            shape = _obj.shape[0]
+            self.out_ppxf[_p][..., :shape, index] = _obj
+
+        self.logger.debug(
+            f'Time to save {_p: >15}_{index}: %.5f s' % (clock() - t))
+
     def build_output_storage(self, out_obj=None):
         assert out_obj is not None
 
@@ -349,51 +386,77 @@ class ExecutePpxf:
                 dtype = _obj.dtype
             except Exception:
                 dtype = type(_obj)
-            print(dtype)
+            finally:
+                if dtype == float:
+                    dtype = np.float32
+                self.logger.debug(dtype)
 
+            if len(_shape) == 1:
+                chunks = 100*self.N_PROCESS
+
+                index_axis = np.arange(n_obj)
+                coords = [index_axis]
+                dims = ['index']
+
+            elif len(_shape) == 2:
+                chunks = list(_shape)
+                chunks[1] = 100*self.N_PROCESS
+
+                data_axis = np.arange(_obj.shape[0])
+                index_axis = np.arange(n_obj)
+                coords = [data_axis, index_axis]
+                dims = [f'{_p}_data', 'index']
+
+            self.logger.debug(chunks)
+
+            # empty_arr = np.empty(dtype=dtype, shape=_shape)
+            # empty_arr = da.empty(1dtype=dtype, shape=_shape, chunks=chunks)
             with tempfile.NamedTemporaryFile() as temp_file:
-                arr = np.memmap(temp_file, dtype=dtype, shape=_shape)
-                arr.fill(np.nan)
-                arr.flush()
-                self.out_ppxf.__setitem__(_p, arr)
+                empty_arr = np.memmap(temp_file, dtype = float, shape = _shape)
+                # empty_arr.fill(np.nan)
+                empty_arr.flush()
+
+            self.logger.debug(empty_arr)
+            self.logger.debug(_p)
+            self.logger.debug(empty_arr.dtype)
+            self.logger.debug(empty_arr.shape)
+            self.logger.debug(coords)
+            self.logger.debug(dims)
+            self.logger.debug('\n')
+
+            data_array = xr.DataArray(
+                empty_arr, coords=coords, dims=dims, name=_p)
+            self.logger.debug(data_array)
+
+            self.out_ppxf[_p] = data_array
+            self.logger.debug(self.out_ppxf)
 
         self.storage.value = True
         self.logger.info('Storage built')
 
-    def store_output(self, output_queue):
-        for serial_out in iter(output_queue.get, None):
-            # t = clock()
+    def keep_add_param(self, out_obj=None, parameters=[]):
+        assert out_obj is not None
 
-            index, out_obj = pickle.loads(serial_out)
+        for parameter in parameters:
+            data = out_obj.__getattribute__(parameter)
+            path = os.path.join(self.main_meta['output_run'],
+                                f'{parameter}.json')
 
-            if out_obj is None:
-                continue
+            with open(path, 'w') as out:
+                json.dump(data, fp=out, indent=4, cls=JsonCustomEncoder)
 
-            with self.lock:
-                if self.storage.value is False:
-                    self.build_output_storage(out_obj)
 
-            for _p in self.par:
-                _obj = out_obj.__getattribute__(_p)
-
-                if isinstance(_obj, list):
-                    _obj = np.concatenate(_obj)
-                    _obj = _obj.ravel()
-
-                with self.lock:
-                    try:
-                        item = self.out_ppxf.__getitem__(_p)
-                        item[..., index] = _obj
-                    except ValueError:
-                        shape = _obj.shape[0]
-                        item = self.out_ppxf.__getitem__(_p)
-                        item[..., :shape, index] = _obj
-                    finally:
-                        self.out_ppxf.__setitem__(_p, item)
-                    # print(self.out_ppxf.__getitem__(_p))
-
-                    self.out_ppxf.__getitem__(_p).flush()
-            # print(f'Elapsed time to save {index}: %.5f s' % (clock() - t))
+def constr_cond(A, b, p):
+    A_new = A.copy()
+    b_new = b.copy()
+    n_iter = 0
+    while np.any(A_new.dot(p) > b_new):
+        if n_iter > 1_000:
+            raise StopIteration
+        else:
+            A_new[A < 0] = A_new[A < 0] * 1.01
+            n_iter += 1
+    return A_new, b_new
 
 
 if __name__ == '__main__':

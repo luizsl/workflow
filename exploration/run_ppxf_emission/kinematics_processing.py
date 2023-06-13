@@ -182,23 +182,19 @@ if __name__ == '__main__':
 
     # Stellar kinematics
 
-    # path_stellar_kinematics = (
-    #     '../../data_products/toy_trick/MilesAgeMh/'
-    #     'ppxf/sol.fits'
-    #     )
+    path_stellar_kinematics = (
+        '../../data_products/toy_trick/MilesAgeMh/'
+        'ppxf/sol.fits'
+        )
 
-    path_stellar_kinematics = '../../data_products/NGC0613_DATACUBE_FINAL_clean/XSLAgeMh_3/ppxf/sol.fits'
-    
     # path_stellar_kinematics_unc = (
     #     '../../data_products/toy_trick/MilesAgeMh/'
     #     'ppxf/sol.fits'
     #     )
 
-    # metadatapath = ('../../data_products/toy_trick/MilesAgeMh/ppxf/'
-    #                 'metadata.json')
+    metadatapath = ('../../data_products/toy_trick/MilesAgeMh/ppxf/'
+                    'metadata.json')
 
-    metadatapath = '../../data_products/NGC0613_DATACUBE_FINAL_clean/XSLAgeMh_3/ppxf/metadata.json'
-    
     with open(metadatapath) as f:
         metadata = json.load(f)
         bin_num = np.array(metadata['obs']['bin_num'])
@@ -214,15 +210,12 @@ if __name__ == '__main__':
 
     # Gas kinematics
 
-    # datapath = ('../../data_products/toy_trick/MilesAgeMh/'
-    #             'ppxf_emission_line_binned500_1components/sol.fits'
-    #             )
-
-    # metadatapath = '../../data_products/toy_trick/ppxf_emission_line_binned500_1components/metadata.json'
-    
-    datapath = '../../data_products/NGC0613_DATACUBE_FINAL_clean/XSLAgeMh_3/ppxf_emission_line_binned100_2components/sol.fits'
-    
-    metadatapath = '../../data_products/NGC0613_DATACUBE_FINAL_clean/XSLAgeMh_3/ppxf_emission_line_binned100_2components/metadata.json'
+    datapath = ('../../data_products/toy_trick/MilesAgeMh/'
+                'ppxf_emission_line_1/sol.fits'
+                )
+    metadatapath = ('../../data_products/toy_trick/MilesAgeMh'
+                    '/ppxf_emission_line_1/metadata.json'
+                    )
 
     with open(metadatapath) as f:
         metadata = json.load(f)
@@ -235,8 +228,7 @@ if __name__ == '__main__':
         y_full = np.array(metadata['obs']['y_full'])
 
     gas_kin = Kinematics()
-    # gas_kin.from_file(path_stellar_kinematics)
-    gas_kin.from_file(datapath)
+    gas_kin.from_file(path_stellar_kinematics)
     gas_kin.reshape()
 
     gas_field = gas_kin.mean_binning_field(bin_num, npixels, valid, xbin, ybin)
@@ -244,7 +236,7 @@ if __name__ == '__main__':
     #  Find neighbour
     n_neighbors = 3
     iteractions = 3
-    values = gas_field.kinematics_grid[6]
+    values = gas_field.kinematics_grid[0]
     coordinates = np.vstack([gas_field.xbin, gas_field.ybin]).T
 
     # Stuck detector
@@ -333,69 +325,3 @@ if __name__ == '__main__':
     # fig.colorbar(base, cax = cbar_ax)
 
     fig.tight_layout()
-    plt.savefig('../../plots/kinematics_interpolation_rbf.pdf')
-    
-    #%%
-    from scipy.ndimage import gaussian_filter
-    
-    path = '../../data_products/NGC0613_DATACUBE_FINAL_clean/XSLAgeMh_3/ppxf_emission_line_2components/sol.fits'
-    with fits.open(path) as f:
-        kk = f[0].data[6]
-        
-    result = gaussian_filter(kk, sigma=0.3)
-    # plot
-
-    fig, axs = plt.subplots()
-    cmap = 'inferno'
-    # common = {'vmin': data.min(), 'vmax': data.max(), 'alpha': 0.8}
-
-    extent = [x_full.min(), x_full.max(),
-              y_full.min(), y_full.max()]
-    # axs.imshow(result, origin='lower', cmap=cmap, extent=extent,
-    #                  **common)
-    axs.imshow(kk, origin='lower', cmap=cmap, extent=extent,
-               vmin=-250, vmax=250)
-
-
-    axs.set_ylabel('arcsec')
-    axs.set_xlabel('arcsec')
-
-    # fig.legend()
-
-    # cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-    # fig.colorbar(base, cax = cbar_ax)
-
-    fig.tight_layout()
-    plt.savefig('../../plots/kinematics_without_tesselation.pdf')
-
-    #%%
-    from scipy.ndimage import gaussian_filter
-    
-    path = '../../data_products/NGC0613_DATACUBE_FINAL_clean/XSLAgeMh_3/ppxf_emission_line_2components/corrected_flux.fits'
-    with fits.open(path) as f:
-        kk = f[0].data
-        
-    # result = gaussian_filter(kk, sigma=0.3)
-    # plot
-
-    fig, axs = plt.subplots()
-    cmap = 'viridis'
-    # common = {'vmin': data.min(), 'vmax': data.max(), 'alpha': 0.8}
-
-    extent = [x_full.min(), x_full.max(),
-              y_full.min(), y_full.max()]
-    # axs.imshow(result, origin='lower', cmap=cmap, extent=extent,
-    #                  **common)
-    axs.imshow(np.log10(kk[9].clip(10)), origin='lower', cmap=cmap, extent=extent, vmin=0, vmax=5.05)
-
-
-    axs.set_ylabel('arcsec')
-    axs.set_xlabel('arcsec')
-
-    # fig.legend()
-
-    # cbar_ax = fig.add_axes([0.85, 0.15, 0.05, 0.7])
-    # fig.colorbar(base, cax = cbar_ax)
-
-    fig.tight_layout()
-    # plt.savefig('../../plots/kinematics_without_tesselation.pdf')

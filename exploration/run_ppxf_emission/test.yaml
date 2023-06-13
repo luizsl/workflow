@@ -1,14 +1,11 @@
 ---
 resources:
-    # ppxf_stellar_dir: ../../data_products/fov_sample_1_3/XSLAgeMh/ppxf
-    # ppxf_stellar_dir: ../../data_products/toy_10x10/XSLAgeMh/ppxf
     observation: ../../data/
 
     ppxf_stellar_dir: ../../data_products/toy_trick/MilesAgeMh/ppxf/
     stellar_kinematics_file: sol.fits
-    # stellar_kinematics_metadata: metadata.json
 
-    # ppxf_emission_dir: ../../data_products/toy_trick/MilesAgeMh/ppxf_emission_line_1
+    # ppxf_emission_dir: ../../data_products/toy_trick/MilesAgeMh/ppxf_emission_line_binned300_1components
     # emission_kinematics_file: sol.fits
     # emission_kinematics_metadata: metadata.json
 
@@ -56,7 +53,7 @@ observation:
         min: 3
 
 gas_template:
-    components: 2
+    components: 1
     moments: 2
     bounds: [
         !Interval [-200,  200],    # high-potential V_a
@@ -95,7 +92,8 @@ ppxf_stellar_continuum:
 ppxf_emission_fit:
     degree : -1
     mdegree : -1
-    global_search: {'tol': 0.1, 'disp': 0, 'popsize': 5, 'recombination': 0.8}
+    # global_search: {'tol': 0.1, 'disp': 0, 'popsize': 5, 'recombination': 0.8}
+    global_search: False
 
 guess_handling:
     n_stellar_moments: 4
@@ -112,10 +110,11 @@ guess_handling:
 
 output:
     output_root: ../../data_products/
-    to_save: ['bestfit', 'sol', 'chi2', 'gas_bestfit', 'gas_flux', 'gas_names',
-     'gas_flux_error', 'error', 'corrected_flux', 'amplitude_rms']
+    to_save: ['bestfit', 'sol', 'chi2', 'gas_bestfit', 'gas_flux',
+    'gas_flux_error', 'error', 'corrected_flux', 'amplitude_rms']
+    additional_param: ['gas_names']
     to_map: ['sol', 'chi2', 'corrected_flux', 'amplitude_rms']
 
 vorbin:
     apply: True
-    target_sn: 300
+    target_sn: 800

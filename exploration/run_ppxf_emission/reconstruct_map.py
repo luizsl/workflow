@@ -12,9 +12,10 @@ import numpy as np
 from astropy.io import fits
 
 
-def reconstruct_map(out_ppxf=None, out_metadata=None, parameter=[],
+def reconstruct_map(data=None, out_metadata=None, parameter=None,
                     binned=None, save=True):
     assert binned is not None
+    assert isinstance(parameter, str)
 
     try:
         valid = np.asarray(out_metadata['obs']['valid'])
@@ -25,49 +26,47 @@ def reconstruct_map(out_ppxf=None, out_metadata=None, parameter=[],
     finally:
         shape_obs = tuple(out_metadata['obs']['shape_obs'])
 
-    for _p in parameter:
-        item = out_ppxf['results'].__getitem__(_p)
-        item = np.asarray(item)
+    data = np.asarray(data)
 
-        if item.dtype.kind in ('biufcmM'):
-            pass
-        else:
-            print(f'{_p} cannot be converted into a map')
-            continue
+    if data.dtype.kind in ('biufcmM'):
+        pass
+    else:
+        print(f'{parameter} cannot be converted into a map')
+        raise Exception
 
-        if binned is True:
-            if item.ndim < 2:
-                map_shape = bin_num.shape
-            elif item.ndim >= 2:
-                map_shape = (item.shape[:1] + bin_num.shape)
+    if binned is True:
+        if data.ndim < 2:
+            map_shape = bin_num.shape
+        elif data.ndim >= 2:
+            map_shape = (data.shape[:1] + bin_num.shape)
 
-            map_ = np.zeros(map_shape)
-            for i in range(item.shape[-1]):
-                match = bin_num == i
-                map_[..., match] = item[..., i:i+1]
+        map_ = np.zeros(map_shape)
+        for i in range(data.shape[-1]):
+            match = bin_num == i
+            map_[..., match] = data[..., i:i+1]
 
-            map_shape_full = np.array(shape_obs).prod()
-            if item.ndim >= 2:
-                map_shape_full = (item.shape[:1] + (map_shape_full,))
+        map_shape_full = np.array(shape_obs).prod()
+        if data.ndim >= 2:
+            map_shape_full = (data.shape[:1] + (map_shape_full,))
 
-            map_full = np.full(map_shape_full, fill_value=np.nan)
-            map_full[..., valid] = map_
+        map_full = np.full(map_shape_full, fill_value=np.nan)
+        map_full[..., valid] = map_
 
-            if map_full.ndim < 2:
-                new_shape = shape_obs
-            elif map_full.ndim >= 2:
-                new_shape = (-1,) + shape_obs
-            map_full = map_full.reshape(new_shape)
+        if map_full.ndim < 2:
+            new_shape = shape_obs
+        elif map_full.ndim >= 2:
+            new_shape = (-1,) + shape_obs
+        map_full = map_full.reshape(new_shape)
 
-        else:
-            map_shape_full = shape_obs
-            if item.ndim >= 2:
-                map_shape_full = (item.shape[:1] + map_shape_full)
-            map_full = item.reshape(map_shape_full)
+    else:
+        map_shape_full = shape_obs
+        if data.ndim >= 2:
+            map_shape_full = (data.shape[:1] + map_shape_full)
+        map_full = data.reshape(map_shape_full)
 
-        if save:
-            directory = out_metadata['conf']['output_run']
-            save_fits(map_full, _p, directory)
+    if save:
+        directory = out_metadata['conf']['output_run']
+        save_fits(map_full, parameter, directory)
 
 
 def save_fits(data_param, name, directory='.', overwrite=True):
@@ -80,12 +79,12 @@ def save_fits(data_param, name, directory='.', overwrite=True):
 
 if __name__ == '__main__':
     file_metadata = ('../../data_products/toy_trick/MilesAgeMh/'
-                     'ppxf_emission_line_binned2000_2components_1/'
+                     'ppxf_emission_line_binned300_2components/'
                      'metadata.json'
                      )
 
     file_output = ('../../data_products/toy_trick/MilesAgeMh/'
-                   'ppxf_emission_line_binned2000_2components_1/'
+                   'ppxf_emission_line_binned300_2components/'
                    'ppxf_output.json'
                    )
 
@@ -95,5 +94,5 @@ if __name__ == '__main__':
     with open(file_metadata) as fp:
         out_metadata = json.load(fp)
 
-    reconstruct_map(out_ppxf=out_ppxf, out_metadata=out_metadata,
-                    parameter=['chi2', 'sol'], binned=True)
+    reconstruct_map(data=out_ppxf, out_metadata=out_metadata,
+                    parameter='sol', binned=True, save=False)

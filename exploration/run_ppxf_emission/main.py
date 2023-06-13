@@ -50,10 +50,10 @@ class Main:
         self.create_output_folder()
         self.keep_conf_copy()
         self.data = DataPreprocessing(self.meta)
-        self.execution = ExecutePpxf(self.data, self.meta)
-        self.meta_to_json()
-        self.results_to_json()
-        self.to_map()
+        # self.execution = ExecutePpxf(self.data, self.meta)
+        # self.meta_to_json()
+        # self.results_to_json()
+        # self.results_to_map()
 
     def read_config(self):
         with open(self.conf_file) as f:
@@ -114,23 +114,18 @@ class Main:
             json.dump(meta, fp=out, indent=4, cls=JsonCustomEncoder)
 
     def results_to_json(self):
-        meta = {}
+        parameters = self.meta['output']['to_save']
 
-        ppxf_output = self.execution.out_ppxf.copy()
-        meta.update({'results': ppxf_output})
+        for parameter in parameters:
+            data = self.execution.out_ppxf[parameter].values
+            path = os.path.join(self.meta['output_run'], f'{parameter}.json')
 
-        path = os.path.join(self.meta['output_run'], 'ppxf_output.json')
+            with open(path, 'w') as out:
+                json.dump(data, fp=out, indent=4, cls=JsonCustomEncoder)
 
-        with open(path, 'w') as out:
-            json.dump(meta, fp=out, indent=4, cls=JsonCustomEncoder)
-
-    def to_map(self):
-        parameter = self.meta['output']['to_map']
+    def results_to_map(self):
+        parameters = self.meta['output']['to_map']
         file_metadata = os.path.join(self.meta['output_run'], 'metadata.json')
-        file_output = os.path.join(self.meta['output_run'], 'ppxf_output.json')
-
-        with open(file_output) as fp:
-            out_ppxf = json.load(fp)
 
         with open(file_metadata) as fp:
             out_metadata = json.load(fp)
@@ -140,18 +135,18 @@ class Main:
         except Exception:
             binned = False
 
-        reconstruct_map(out_ppxf=out_ppxf, out_metadata=out_metadata,
-                        parameter=parameter, binned=binned)
+        for parameter in parameters:
+            data = self.execution.out_ppxf[parameter].values
+            reconstruct_map(data=data, out_metadata=out_metadata,
+                            parameter=parameter, binned=binned)
 
 
 if __name__ == '__main__':
-    conf = sys.argv[1]
-    ppxf_control = Main(conf)
-    ppxf_control.run_all()
+    # conf = sys.argv[1]
+    # ppxf_control = Main(conf)
+    # ppxf_control.run_all()
 
-#  Debug
-
-   	# conf = 'test.yaml'
-
-   	# ppxf_prep = Main(conf)
-   	# ppxf_prep.run_all()
+# Debug
+    conf = 'test.yaml'
+    ppxf_prep = Main(conf)
+    ppxf_prep.run_all()
