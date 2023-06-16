@@ -47,9 +47,10 @@ class Line(LineFactory):
         self.ratios = np.asarray(ratios)
 
         self.template = util.gaussian(
-            ln_lam_temp=np.log(self.spectral_axis),
+            np.log(self.spectral_axis),
             line_wave=self.line_wave,
-            FWHM_gal=fwhm)
+            FWHM_gal=fwhm,
+            pixel=True)
 
         if ratios is not None:
             self._apply_ratio()

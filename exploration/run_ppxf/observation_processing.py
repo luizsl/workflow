@@ -247,7 +247,7 @@ class Observation(ABC):
 
         self.meta[kind] = goodpixels
 
-    def trim_spectral_axis(self, lower=None, upper=None):
+    def trim_spectral_axis(self, lower=-np.inf, upper=np.inf):
         mask = np.ma.masked_outside(self.meta['wave_obs'], lower, upper)
         if mask.mask.size == 1:
             pass

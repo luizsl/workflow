@@ -18,7 +18,8 @@ from astropy.utils.misc import JsonCustomEncoder
 from data_preprocessing import DataPreprocessing
 from ppxf_execution import ExecutePpxf
 from reconstruct_map import reconstruct_map
-
+from bounds_processing import (bounds_fixed_constructor,
+                               bounds_interval_constructor)
 
 class Main:
     def __init__(self, conf_file):
@@ -49,15 +50,21 @@ class Main:
 
         self.data = DataPreprocessing(self.meta)
 
-        self.execution = ExecutePpxf(self.data, self.meta)
-        self.execution.run_all_data()
+        # self.execution = ExecutePpxf(self.data, self.meta)
+        # self.execution.run_all_data()
 
-        self.meta_to_json()
-        self.results_to_map()
+        # self.meta_to_json()
+        # self.results_to_map()
 
     def read_config(self):
         with open(self.conf_file) as f:
-            self.meta = yaml.load(f, Loader=yaml.Loader)
+            loader = yaml.Loader
+            loader.add_constructor(tag='!Interval',
+                                   constructor=bounds_interval_constructor)
+            loader.add_constructor(tag='!Fixed',
+                                   constructor=bounds_fixed_constructor)
+
+            self.meta = yaml.load(f, Loader=loader)
 
     def create_output_folder(self):
         dir_ = os.path.join(
@@ -126,7 +133,7 @@ class Main:
 
 
 if __name__ == '__main__':
-    conf = sys.argv[1]
-    # conf = 'test_stellar_light_sn40.yaml'
+    # conf = sys.argv[1]
+    conf = 'test_stellar_light_sn40.yaml'
     ppxf_control = Main(conf)
     ppxf_control.run_all()

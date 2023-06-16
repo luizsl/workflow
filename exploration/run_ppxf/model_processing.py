@@ -23,7 +23,6 @@ from normalize import normalize_band
 
 
 class AbstractModel(ABC):
-
     @abstractmethod
     def __init__(self):
         pass
@@ -34,7 +33,6 @@ class AbstractModel(ABC):
 
 
 class Model(AbstractModel):
-
     def __init__(self):
         pass
 
@@ -49,7 +47,6 @@ class Model(AbstractModel):
 
 
 class AbstractFactoryModel(ABC):
-
     @abstractmethod
     def __init__(self):
         pass
@@ -70,42 +67,41 @@ class AbstractFactoryModel(ABC):
     def build_head_grid(self):
         pass
 
-    def convolve(self, bound = [4600, 9400], z=None):
-        fwhm_obs_ang = lsf.equation_lsf(self.meta['o_wave_model'],
-                                        bound[0],
-                                        bound[1],
-                                        z=z)
+    def convolve(self, bound=[4600, 9400], z=None):
+        fwhm_obs_ang = lsf.equation_lsf(self.meta['wave_model'],
+                                        bound[0], bound[1], z=z)
 
         if self.fwhm_model_ang is None:
-            self.fwhm_model_ang = self.meta['o_wave_model'] / self.model_resolving_power
+            self.fwhm_model_ang = self.meta['wave_model'] / self.model_resolving_power
 
         fwhm_dif = np.sqrt((fwhm_obs_ang**2 - self.fwhm_model_ang**2).clip(0))
 
         edges = sc.util._build_edges(
-            self.meta['o_wave_model'],
+            self.meta['wave_model'],
             sampling_type=self.meta['o_sampling_type'])
         sigma = fwhm_dif / (2.355 * np.diff(edges)) # Sigma difference in pixels
 
-        self.flux_grid = convolve(flux = self.flux_grid, sigma = sigma)
+        self.flux_grid = convolve(flux=self.flux_grid, sigma=sigma)
 
     def resample(self, wave=None):
         self.meta['new_model_sampling'] = 'ln'
 
         if wave is None:
-            self.meta['wave_model'] = sc.util.fit_wave_interval(
-                self.meta['o_wave_model'],
-                old_sampling = self.meta['o_sampling_type'],
-                new_sampling = self.meta['new_model_sampling'])
+            new_wave = sc.util.fit_wave_interval(
+                self.meta['wave_model'],
+                old_sampling=self.meta['o_sampling_type'],
+                new_sampling=self.meta['new_model_sampling'])
         else:
-            self.meta['wave_model'] = wave
+            new_wave = wave
 
         self.flux_grid, _, _ = sc.resampling(
-            flux = self.flux_grid,
-            old_wave = self.meta['o_wave_model'],
-            old_sampling_type = self.meta['o_sampling_type'],
-            new_wave = self.meta['wave_model'],
-            new_sampling_type = self.meta['new_model_sampling'])
+            flux=self.flux_grid,
+            old_wave=self.meta['wave_model'],
+            old_sampling_type=self.meta['o_sampling_type'],
+            new_wave=new_wave,
+            new_sampling_type=self.meta['new_model_sampling'])
 
+        self.meta['wave_model'] = new_wave
         self.meta['n_pixel_model'] = self.flux_grid.shape[0]
         self.meta['limit_model'] = self.meta['wave_model'][[0,-1]]
 
@@ -168,6 +164,16 @@ class AbstractFactoryModel(ABC):
         except Exception:
             raise Exception
 
+    def trim_spectral_axis(self, lower=-np.inf, upper=np.inf):
+        mask = np.ma.masked_outside(self.meta['wave_model'], lower, upper)
+
+        if mask.mask.size == 1:
+            pass
+        else:
+            self.meta['wave_model'] = self.meta['wave_model'][~mask.mask]
+            self.flux_grid = self.flux_grid[~mask.mask, ...]
+            self.meta['limit_obs'] = self.meta['wave_model'][[0, -1]]
+
 
 class XSLAgeMh(AbstractFactoryModel):
     def __init__(self):
@@ -203,7 +209,7 @@ class XSLAgeMh(AbstractFactoryModel):
             [self.meta['o_first_wave_model'], self.meta['o_step_wave_model']],
             sampling_type = self.meta['o_sampling_type'],
             size = self.meta['o_n_pixel_model'])
-
+        self.meta['wave_model'] = self.meta['o_wave_model']
         self.meta['o_limit_model'] = self.meta['o_wave_model'][[0,-1]]
 
         self.get_parameter_range()
@@ -346,7 +352,7 @@ class MilesAgeMh(AbstractFactoryModel):
             [self.meta['o_first_wave_model'], self.meta['o_step_wave_model']],
             sampling_type = self.meta['o_sampling_type'],
             size = self.meta['o_n_pixel_model'])
-
+        self.meta['wave_model'] = self.meta['o_wave_model']
         self.meta['o_limit_model'] = self.meta['o_wave_model'][[0,-1]]
 
         self.get_parameter_range()
@@ -487,7 +493,7 @@ class MilesAgeMhAlpha(AbstractFactoryModel):
             [self.meta['o_first_wave_model'], self.meta['o_step_wave_model']],
             sampling_type = self.meta['o_sampling_type'],
             size = self.meta['o_n_pixel_model'])
-
+        self.meta['wave_model'] = self.meta['o_wave_model']
         self.meta['o_limit_model'] = self.meta['o_wave_model'][[0,-1]]
 
         self.get_parameter_range()
@@ -621,8 +627,8 @@ if __name__ == '__main__':
     # model = MilesAgeMh()
     # model.load('../../data/models/miles_Padova00_UN_baseFe_v10.0')
 
-    # model = MilesAgeMhAlpha()
-    # model.load('../../data/models/MILES_BASTI_KB_Ep0.00')
+    model = MilesAgeMhAlpha()
+    model.load('../../data/models/MILES_BASTI_KB_Ep0.00')
 
     # model = MilesAgeMhAlpha()
     # model.load(['../../data/models/MILES_BASTI_KB_Ep0.00',
@@ -635,8 +641,8 @@ if __name__ == '__main__':
     # model.remove_param('mh_range', [-1.7, -1.3])
     # model.remove_param('age_range', [8.95, 10.25])
 
-    model = XSLAgeMh()
-    model.load('../../data/models/XSL_SSP_PC_Kroupa/Kroupa')
+    # model = XSLAgeMh()
+    # model.load('../../data/models/XSL_SSP_PC_Kroupa/Kroupa')
 
     # parsec/colibri
     model.remove_param('mh_range', [-2.2, -2.0, -1.8, -1.6, -1.4, -1.2, -0.1, 0.1])
@@ -649,9 +655,11 @@ if __name__ == '__main__':
     model.convolve()
     model.resample()
     model.normalize(limits=[-np.inf, np.inf], weighting='light')
+    model.trim_spectral_axis(4800, 5800)
 
     fig, ax = plt.subplots()
-    ax.plot(model.flux_grid[:, :])
+    ax.plot(model.meta['wave_model'], model.flux_grid[:, ])
+
 
 #%%
 

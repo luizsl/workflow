@@ -5,15 +5,20 @@ Created on Tue Aug 31 16:52:36 2021
 """
 
 import glob
+import io
 import logging
 import os
 from functools import partial
+from contextlib import redirect_stdout
 from time import perf_counter as clock
 
 import numpy as np
 
+from bounds_processing import build_bounds
 from model_processing import Model
 from observation_processing import Muse, sn_function
+from compute_muse_lsf import equation_lsf
+from emission_modelling import EmissionModel
 
 
 class DataPreprocessing:
@@ -26,6 +31,8 @@ class DataPreprocessing:
         self.pre_prepare()
         self.prepare_observation()
         self.prepare_model()
+        self.prepare_emission_model()
+        self.prepare_bound()
         self.logger.info('\nFinished\n--------\n')
 
     def start_logging(self):
@@ -114,14 +121,11 @@ class DataPreprocessing:
                 '--Not broadening templates, keyword not found'
             )
 
-        keys = ['ppxf_optimise_mask', 'ppxf_kinematics', 'ppxf_fit_reddening',
-                'ppxf_regularization']
         oversample = 1
-        for key in keys:
-            if key in self.main_meta:
-                if 'velscale_ratio' in self.main_meta[key]:
-                    oversample = self.main_meta[key]['velscale_ratio']
-                    break
+        for key in self.main_meta.keys():
+            if 'velscale_ratio' in self.main_meta[key]:
+                oversample = self.main_meta[key]['velscale_ratio']
+                break
 
         log_step = np.log(
             self.obs.meta['wave_obs'][1]/self.obs.meta['wave_obs'][0])
@@ -145,7 +149,17 @@ class DataPreprocessing:
             weighting = 'light'
         self.logger.info(f'--weighting: {weighting}')
 
-        self.model.normalize(limits=[-np.inf, np.inf], weighting=weighting)
+        self.model.normalize(limits=limits, weighting=weighting)
+
+        try:
+            limits = self.main_meta['model']['trim']
+            if limits == []:
+                limits = [-np.inf, np.inf]
+        except Exception:
+            limits = [-np.inf, np.inf]
+        finally:
+            self.model.trim_spectral_axis(*limits)
+        self.logger.info(f'--trimming spectral axis: {limits}')
 
         self.model.convert_to_mmap()
         self.logger.info(f'{round(clock()-t,2)} s')
@@ -156,6 +170,16 @@ class DataPreprocessing:
         self.obs.build_grid(
             min_valid_sn=self.main_meta['observation']['snr']['min'],
             snr_window=self.main_meta['observation']['snr']['window'])
+
+        try:
+            limits = self.main_meta['observation']['trim']
+            if limits == []:
+                limits = [-np.inf, np.inf]
+        except Exception:
+            limits = [-np.inf, np.inf]
+        finally:
+            self.obs.trim_spectral_axis(*limits)
+        self.logger.info(f'--trimming spectral axis: {limits}')
 
         if (self.model.meta['o_limit_model'][0] > self.obs.meta['limit_obs'][0] - 100
             or self.model.meta['o_limit_model'][1] < self.obs.meta['limit_obs'][1] + 100):
@@ -227,6 +251,45 @@ class DataPreprocessing:
 
         self.logger.info(f'{round(clock()-t,2)} s')
 
+    def prepare_emission_model(self):
+        t = clock()
+        self.logger.info('''\nEmission model preparation\n**************************''')
+
+        wave = self.model.meta['wave_model']
+        lower_lamb = np.min(self.obs.meta['wave_obs'])
+        upper_lamb = np.max(self.obs.meta['wave_obs'])
+
+        # wave = np.array(self.stellar_fit_metadata['obs']['wave_obs'])
+        z = self.main_meta['observation']['redshift']
+        path_line_list = self.main_meta['resources']['emission_line_list']
+        lsf_lamb = partial(equation_lsf, lower_lamb=lower_lamb,
+                           upper_lamb=upper_lamb, z=z)
+
+        with redirect_stdout(io.StringIO()) as f:
+            self.em_model = EmissionModel()
+            self.em_model.from_file(path=path_line_list, spectral_axis=wave,
+                                    fwhm=lsf_lamb)
+            out_log = f.getvalue()
+        self.logger.info(out_log)
+
+        self.logger.info(f'{round(clock()-t,2)} s')
+
+    def prepare_gas_kinematics(self):
+        t = clock()
+
+        self.logger.info('''\nGas kinematics preparation\n**************************''')
+        self.gas_kinematics = None
+
+        self.logger.info(f'{round(clock()-t,2)} s\n')
+
+    def prepare_bound(self):
+        t = clock()
+        self.logger.info('--Build bounds rule')
+        try:
+            self.bounds_rule = self.main_meta['gas_template']['bounds']
+        except:
+            self.bounds_rule = None
+        self.logger.info(f'{round(clock()-t,2)} s\n')
 
 if __name__ == '__main__':
     data = DataPreprocessing(ppxf_control.meta)

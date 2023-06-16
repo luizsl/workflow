@@ -23,6 +23,8 @@ from packaging import version
 from ppxf.ppxf import ppxf, robust_sigma
 from scipy.constants import physical_constants
 
+from bounds_processing import build_bounds
+
 
 class ExecutePpxf:
     def __init__(self, data=None, metadata=None):
@@ -54,8 +56,6 @@ class ExecutePpxf:
         # NOTE: Saving output unforeseen
         new_par = self.main_meta['output']['to_save']
         self.par = list(set(par) | set(new_par))
-
-        # self.run_all_data()
 
     def start_logging(self):
         name_log_file = os.path.join(
@@ -158,6 +158,7 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
         if np.any(np.isnan(flux_obs_unc_slice) | np.isnan(flux_obs_slice)):
             return pickle.dumps(None)
 
+        error_corr = None
         pp = None
         a_v = None
         ebv = None
@@ -170,7 +171,7 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
             print(id_, 'Trying to optimise mask', end='\n\n')
             pp = execute_ppxf(
                 galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
-                models=models, goodpixels=goodpixels,
+                models=models, goodpixels=goodpixels, main_meta=main_meta,
                 obs_meta=obs_meta, model_meta=model_meta,
                 pp=pp, kwargs_ppxf=main_meta['ppxf_optimise_mask'])
 
@@ -185,7 +186,7 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
             print(id_, 'Fit of reddening', end='\n\n')
             pp = execute_ppxf(
                 galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
-                models=models, goodpixels=goodpixels,
+                models=models, goodpixels=goodpixels,  main_meta=main_meta,
                 obs_meta=obs_meta, model_meta=model_meta,
                 pp=pp, kwargs_ppxf=main_meta['ppxf_fit_reddening'])
 
@@ -215,10 +216,12 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
             print(id_, 'Fit of kinematics', end='\n\n')
             pp = execute_ppxf(
                 galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
-                models=models, goodpixels=goodpixels,
+                models=models, goodpixels=goodpixels, main_meta=main_meta,
                 obs_meta=obs_meta, model_meta=model_meta,
                 pp=pp, kwargs_ppxf=main_meta['ppxf_kinematics'])
             print('*************', end='\n\n')
+
+        error_corr = pp.error * np.sqrt(pp.chi2)
 
         if 'ppxf_regularization' in main_meta:
             print(id_, 'Fit with regulazired solution', end='\n\n')
@@ -227,7 +230,7 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
 
             pp = execute_ppxf(
                 galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
-                models=models, goodpixels=goodpixels,
+                models=models, goodpixels=goodpixels,  main_meta=main_meta,
                 obs_meta=obs_meta, model_meta=model_meta,
                 pp=pp, kwargs_ppxf=main_meta['ppxf_regularization'])
             print('*************', end='\n\n')
@@ -258,7 +261,7 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
             av_mh = np.nan
             av_alpha = np.nan
         finally:
-            print(f'<Age>: {av_age: .2f} Gyr')
+            print(f'<age>: {av_age: .2f} Gyr')
             print(f'<metallicity>: {av_mh: .2f} dex')
             print(f'<alpha>: {av_alpha: .2f} dex')
 
@@ -267,6 +270,9 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
             pp.average_age = av_age
             pp.average_metallicity = av_mh
             pp.average_alpha = av_alpha
+
+        # Include corrected kinematics uncertainty
+        pp.error_corr = error_corr
 
         # Include reddening fitted on the fly if exists
         pp.a_v = a_v
@@ -322,33 +328,104 @@ def average(weights, reg_dim, age_range=np.asarray([np.nan]),
     return av_age, av_mh, av_alpha
 
 
-def execute_ppxf(galaxy=None, noise=None, models=None,
+def execute_ppxf(galaxy=None, noise=None, models=None, em_model=None,
                  goodpixels=None, obs_meta=None, model_meta=None,
-                 pp=None, kwargs_ppxf=None):
+                 main_meta=None, bounds_rule=None, pp=None, kwargs_ppxf=None):
     assert kwargs_ppxf is not None
     assert galaxy is not None
     assert noise is not None
 
-    C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
-
     t = clock()
 
-    star_template = models.flux_grid
-    template = star_template
+    C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
+
+    star_templates = models.flux_grid
 
     frac = obs_meta['wave_obs'][1]/obs_meta['wave_obs'][0]
     velscale = np.log(frac)*C       # Velocity scale in km/s per pixel (eq.8 of Cappellari 2017)
 
+    try:
+        gas_templates = em_model.template
+        gas_names = em_model.label
+        label_wave = em_model.label_wave
+        em_shape = em_model.size
+        gas_moments = main_meta['gas_template']['moments']
+        ngas_comp = main_meta['gas_template']['components']
+    except Exception:
+        gas_templates = None
+        gas_names = None
+        label_wave = None
+        em_shape = []
+        gas_moments = 0
+        ngas_comp = 0
+
+    comp = [star_templates.shape[-1]] + em_shape * ngas_comp
+    component = np.concatenate([[i]*value for i, value in enumerate(comp)])
+
     if pp is None:
-        start = [0., 2*velscale] # (km/s), starting guess for [V, sigma]
+        start_stellar_kinematics = np.zeros(4)
+        start_stellar_kinematics[:2] = [0., 2*velscale]
+
+        start_gas_kinematics = np.zeros(gas_moments)
+        if gas_moments > 1:
+            start_gas_kinematics[:2] = [0., 2*velscale]
+
+        start = [start_stellar_kinematics.tolist()] \
+            + start_gas_kinematics.tolist() * ngas_comp
     else:
         start = pp.sol
+
+    gas_templates = np.tile(gas_templates, ngas_comp)
+    gas_names = np.asarray(
+        [gas + f"_({p+1})" for p in range(ngas_comp) for gas in gas_names])
+    label_wave = np.tile(label_wave, ngas_comp)
+    gas_component = np.array(component) > 0
+    template = np.column_stack([star_templates, gas_templates])
+
+    try:
+        bounds_rule = bounds_rule
+        bounds_gas = np.array(build_bounds(start_gas_kinematics, bounds_rule))
+        bounds_gas = bounds_gas.reshape(
+            ngas_comp * len(em_shape), -1, gas_moments)
+        bounds_gas = bounds_gas.tolist()
+        bounds_stellar = [[-1, 1], [1, 2], [-1, 1], [-1, 1]]
+        bounds = [bounds_stellar] + bounds_gas
+    except Exception:
+        bounds = None
+
+    try:
+        A_ineq_kin = main_meta['gas_template']['A_ineq_kin']
+        b_ineq_kin = main_meta['gas_template']['b_ineq_kin']
+        A_ineq_kin = np.asarray(A_ineq_kin, dtype=float)
+        b_ineq_kin = np.asarray(b_ineq_kin, dtype=float)
+
+        # Adjust Constraint conditioning
+        p = np.concatenate(start)
+        if not A_ineq_kin.dot(p) < b_ineq_kin:
+            print('Try to get obtain well-posed constraint')
+            try:
+                A_ineq_kin, b_ineq_kin = constr_cond(
+                    A_ineq_kin, b_ineq_kin, p)
+            except Exception:
+                raise Exception
+
+        b_ineq_kin = b_ineq_kin / velscale
+        constr_kinem = {"A_ineq": A_ineq_kin, "b_ineq": b_ineq_kin}
+
+    except Exception:
+        constr_kinem = None
+
+
+    # gas_kinematics = self.data.gas_kinematics.kinematics_grid[:, index]
 
     pp = ppxf(
         template, galaxy, noise, velscale, start,
         lam=obs_meta['wave_obs'],
         lam_temp=model_meta['wave_model'],
         reg_dim=model_meta['reg_dim'],
+        component=component, gas_component=gas_component, gas_names=gas_names,
+        constr_kinem=constr_kinem,
+        bounds=bounds,
         goodpixels=goodpixels, **kwargs_ppxf)
 
     print('Elapsed time in PPXF: %.2f s' % (clock() - t))
@@ -547,6 +624,19 @@ def _store(out_obj, _p, out_dataset=None, logger=None):
         f'Time to save {_p: >15}_{index}: %.5f s' % (clock() - t))
 
 
+def constr_cond(A, b, p):
+    A_new = A.copy()
+    b_new = b.copy()
+    n_iter = 0
+    while np.any(A_new.dot(p) > b_new):
+        if n_iter > 1_000:
+            raise StopIteration
+        else:
+            A_new[A < 0] = A_new[A < 0] * 1.01
+            n_iter += 1
+    return A_new, b_new
+
+
 if __name__ == '__main__':
     t = ExecutePpxf(ppxf_control.data, ppxf_control.data.main_meta)
 
@@ -604,3 +694,119 @@ if __name__ == '__main__':
             store = store_output(out_obj, par=t.par, logger=t.logger,
                 out_dataset=t.out_ppxf)
             t.logger.debug('saving')
+
+#%%
+    i = 0
+    galaxy = ppxf_control.data.obs.flux_grid[:, i]
+    noise = ppxf_control.data.obs.flux_grid_unc[:, i]
+    goodpixels=None
+
+    pp = None
+    bounds_rule = ppxf_control.data.bounds_rule
+    models = ppxf_control.data.model
+    em_model = ppxf_control.data.em_model
+    obs_meta = ppxf_control.data.obs.meta
+    model_meta = ppxf_control.data.model.meta
+    main_meta = ppxf_control.data.main_meta
+    kwargs_ppxf=main_meta['ppxf_regularization']
+
+    t = clock()
+
+    C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
+
+    star_templates = models.flux_grid
+
+    frac = obs_meta['wave_obs'][1]/obs_meta['wave_obs'][0]
+    velscale = np.log(frac)*C       # Velocity scale in km/s per pixel (eq.8 of Cappellari 2017)
+
+    try:
+        gas_templates = em_model.template
+        gas_names = em_model.label
+        label_wave = em_model.label_wave
+        em_shape = em_model.size
+        gas_moments = main_meta['gas_template']['moments']
+        ngas_comp = main_meta['gas_template']['components']
+    except Exception:
+        gas_templates = None
+        gas_names = None
+        label_wave = None
+        em_shape = []
+        gas_moments = 0
+        ngas_comp = 0
+
+    comp = [star_templates.shape[-1]] + em_shape * ngas_comp
+    component = np.concatenate([[i]*value for i, value in enumerate(comp)])
+
+    if pp is None:
+        start_stellar_kinematics = np.zeros(4)
+        start_stellar_kinematics[:2] = [0., 2*velscale]
+
+        start_gas_kinematics = np.zeros(gas_moments)
+        if gas_moments > 1:
+            start_gas_kinematics[:2] = [0., 2*velscale]
+
+        start = [start_stellar_kinematics.tolist()] \
+            + [start_gas_kinematics.tolist()] * ngas_comp * len(em_shape)
+    else:
+        start = pp.sol
+
+    gas_templates = np.tile(gas_templates, ngas_comp)
+    gas_names = np.asarray(
+        [gas + f"_({p+1})" for p in range(ngas_comp) for gas in gas_names])
+    label_wave = np.tile(label_wave, ngas_comp)
+
+    gas_component = np.array(component) > 0
+    if np.any(gas_component) == False:
+        gas_component = None
+
+    try:
+        template = np.column_stack([star_templates, gas_templates])
+    except:
+        template = star_templates
+
+    try:
+        bounds_rule = bounds_rule
+        bounds_gas = np.array(build_bounds(start_gas_kinematics, bounds_rule))
+        bounds_gas = bounds_gas.reshape(
+            ngas_comp * len(em_shape), -1, gas_moments)
+        bounds_gas = bounds_gas.tolist()
+        bounds_stellar = [[-200, 200], [1, 200], [-1, 1], [-1, 1]]
+        bounds = [bounds_stellar] + bounds_gas
+    except Exception:
+        bounds = None
+
+    # bounds = None
+
+    try:
+        A_ineq_kin = main_meta['gas_template']['A_ineq_kin']
+        b_ineq_kin = main_meta['gas_template']['b_ineq_kin']
+        A_ineq_kin = np.asarray(A_ineq_kin, dtype=float)
+        b_ineq_kin = np.asarray(b_ineq_kin, dtype=float)
+
+        # Adjust Constraint conditioning
+        p = np.concatenate(start)
+        if not A_ineq_kin.dot(p) < b_ineq_kin:
+            print('Try to get obtain well-posed constraint')
+            try:
+                A_ineq_kin, b_ineq_kin = constr_cond(
+                    A_ineq_kin, b_ineq_kin, p)
+            except Exception:
+                raise Exception
+
+        b_ineq_kin = b_ineq_kin / velscale
+        constr_kinem = {"A_ineq": A_ineq_kin, "b_ineq": b_ineq_kin}
+
+    except Exception:
+        constr_kinem = None
+
+    pp = ppxf(
+        template, galaxy, noise, velscale, start,
+        lam=obs_meta['wave_obs'],
+        lam_temp=model_meta['wave_model'],
+        reg_dim=model_meta['reg_dim'],
+        component=component, gas_component=gas_component, gas_names=gas_names,
+        constr_kinem=constr_kinem,
+        bounds=bounds,
+        goodpixels=goodpixels,
+        **kwargs_ppxf
+        )
