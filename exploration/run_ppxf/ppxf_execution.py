@@ -149,8 +149,9 @@ class ExecutePpxf:
 
 
 def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
-           logger=None, size=None,
+           em_model=None, logger=None, size=None,
            main_meta=None, obs_meta=None, model_meta=None):
+    assert em_model is not None
     with redirect_stdout(io.StringIO()) as f:
         id_ = f'{i+1}/{size}'
         print(70*'*')
@@ -171,8 +172,8 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
             print(id_, 'Trying to optimise mask', end='\n\n')
             pp = execute_ppxf(
                 galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
-                models=models, goodpixels=goodpixels, main_meta=main_meta,
-                obs_meta=obs_meta, model_meta=model_meta,
+                models=models, em_model=em_model, goodpixels=goodpixels,
+                main_meta=main_meta, obs_meta=obs_meta, model_meta=model_meta,
                 pp=pp, kwargs_ppxf=main_meta['ppxf_optimise_mask'])
 
             # Determine actual goodpixels
@@ -186,8 +187,8 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
             print(id_, 'Fit of reddening', end='\n\n')
             pp = execute_ppxf(
                 galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
-                models=models, goodpixels=goodpixels,  main_meta=main_meta,
-                obs_meta=obs_meta, model_meta=model_meta,
+                models=models, em_model=em_model, goodpixels=goodpixels,
+                main_meta=main_meta, obs_meta=obs_meta, model_meta=model_meta,
                 pp=pp, kwargs_ppxf=main_meta['ppxf_fit_reddening'])
 
             # Note: From the version 8.2.1 ppxf return A_V instead of
@@ -216,12 +217,12 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
             print(id_, 'Fit of kinematics', end='\n\n')
             pp = execute_ppxf(
                 galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
-                models=models, goodpixels=goodpixels, main_meta=main_meta,
-                obs_meta=obs_meta, model_meta=model_meta,
+                models=models, em_model=em_model,  goodpixels=goodpixels,
+                main_meta=main_meta, obs_meta=obs_meta, model_meta=model_meta,
                 pp=pp, kwargs_ppxf=main_meta['ppxf_kinematics'])
             print('*************', end='\n\n')
 
-        error_corr = pp.error * np.sqrt(pp.chi2)
+        error_corr = np.asarray(pp.error) * np.sqrt(pp.chi2)
 
         if 'ppxf_regularization' in main_meta:
             print(id_, 'Fit with regulazired solution', end='\n\n')
@@ -230,8 +231,8 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
 
             pp = execute_ppxf(
                 galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
-                models=models, goodpixels=goodpixels,  main_meta=main_meta,
-                obs_meta=obs_meta, model_meta=model_meta,
+                models=models, em_model=em_model, goodpixels=goodpixels,
+                main_meta=main_meta, obs_meta=obs_meta, model_meta=model_meta,
                 pp=pp, kwargs_ppxf=main_meta['ppxf_regularization'])
             print('*************', end='\n\n')
 
@@ -278,7 +279,8 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
         pp.a_v = a_v
         pp.ebv = ebv
         pp.i = i
-
+        pp.error = np.concatenate(pp.error)
+        pp.sol = np.concatenate(pp.sol)
         data_out = pickle.dumps(pp)
         out_log = f.getvalue()
         logger.info(out_log)
@@ -369,9 +371,10 @@ def execute_ppxf(galaxy=None, noise=None, models=None, em_model=None,
         start_gas_kinematics = np.zeros(gas_moments)
         if gas_moments > 1:
             start_gas_kinematics[:2] = [0., 2*velscale]
+        start_gas_kinematics = [start_gas_kinematics.tolist()]
+        start_gas_kinematics = start_gas_kinematics * ngas_comp * len(em_shape)
 
-        start = [start_stellar_kinematics.tolist()] \
-            + start_gas_kinematics.tolist() * ngas_comp
+        start = [start_stellar_kinematics.tolist()] + start_gas_kinematics
     else:
         start = pp.sol
 
@@ -379,16 +382,23 @@ def execute_ppxf(galaxy=None, noise=None, models=None, em_model=None,
     gas_names = np.asarray(
         [gas + f"_({p+1})" for p in range(ngas_comp) for gas in gas_names])
     label_wave = np.tile(label_wave, ngas_comp)
+
     gas_component = np.array(component) > 0
-    template = np.column_stack([star_templates, gas_templates])
+    if np.any(gas_component) == False:
+        gas_component = None
 
     try:
-        bounds_rule = bounds_rule
-        bounds_gas = np.array(build_bounds(start_gas_kinematics, bounds_rule))
+        template = np.column_stack([star_templates, gas_templates])
+    except:
+        template = star_templates
+
+    try:
+        aux = np.asarray(start_gas_kinematics).ravel()
+        bounds_gas = np.array(build_bounds(aux, bounds_rule))
         bounds_gas = bounds_gas.reshape(
-            ngas_comp * len(em_shape), -1, gas_moments)
+            ngas_comp * len(em_shape), -1, 2)
         bounds_gas = bounds_gas.tolist()
-        bounds_stellar = [[-1, 1], [1, 2], [-1, 1], [-1, 1]]
+        bounds_stellar = [[-200, 200], [1, 200], [-1, 1], [-1, 1]]
         bounds = [bounds_stellar] + bounds_gas
     except Exception:
         bounds = None
@@ -415,9 +425,6 @@ def execute_ppxf(galaxy=None, noise=None, models=None, em_model=None,
     except Exception:
         constr_kinem = None
 
-
-    # gas_kinematics = self.data.gas_kinematics.kinematics_grid[:, index]
-
     pp = ppxf(
         template, galaxy, noise, velscale, start,
         lam=obs_meta['wave_obs'],
@@ -426,7 +433,8 @@ def execute_ppxf(galaxy=None, noise=None, models=None, em_model=None,
         component=component, gas_component=gas_component, gas_names=gas_names,
         constr_kinem=constr_kinem,
         bounds=bounds,
-        goodpixels=goodpixels, **kwargs_ppxf)
+        goodpixels=goodpixels,
+        **kwargs_ppxf)
 
     print('Elapsed time in PPXF: %.2f s' % (clock() - t))
     return pp
@@ -662,38 +670,38 @@ if __name__ == '__main__':
                     (i,
                     t.data.obs.flux_grid[:, i],
                     t.data.obs.flux_grid_unc[:, i]),
-                    {'models':t.data.model,
+                    {'models':t.data.model, 'em_model':t.data.em_model,
                     'logger':t.logger, 'size':t.size,
                     'main_meta':t.data.main_meta, 'obs_meta':t.data.obs.meta,
                     'model_meta':t.data.model.meta})
-            futures.append(fit)
+            futures.append(fit.get())
 
-            with t.lock:
-                if t.storage_flag.value is False:
-                    future = futures.pop(0)
-                    out_obj = future.get()
-                    out_obj = pickle.loads(out_obj)
-                    try:
-                        build_output_storage(
-                            out_obj=out_obj, out_dataset=t.out_ppxf, logger=t.logger,
-                            n_obj=n_obj, par=t.par)
-                        t.storage_flag.value = True
-                        t.logger.info('Storage built')
+            # with t.lock:
+            #     if t.storage_flag.value is False:
+            #         future = futures.pop(0)
+            #         out_obj = future.get()
+            #         out_obj = pickle.loads(out_obj)
+            #         try:
+            #             build_output_storage(
+            #                 out_obj=out_obj, out_dataset=t.out_ppxf, logger=t.logger,
+            #                 n_obj=n_obj, par=t.par)
+            #             t.storage_flag.value = True
+            #             t.logger.info('Storage built')
 
-                        futures.append(future)
-                    except Exception as e:
-                        if str(e) == ('Invalid data'):
-                            pass
-                        else:
-                            raise Exception
+        #                 futures.append(future)
+        #             except Exception as e:
+        #                 if str(e) == ('Invalid data'):
+        #                     pass
+        #                 else:
+        #                     raise Exception
 
-        while len(futures) > 0:
-            future = futures.pop(0)
-            out_obj = future.get()
-            out_obj = pickle.loads(out_obj)
-            store = store_output(out_obj, par=t.par, logger=t.logger,
-                out_dataset=t.out_ppxf)
-            t.logger.debug('saving')
+        # while len(futures) > 0:
+        #     future = futures.pop(0)
+        #     out_obj = future.get()
+            # out_obj = pickle.loads(out_obj)
+            # store = store_output(out_obj, par=t.par, logger=t.logger,
+            #     out_dataset=t.out_ppxf)
+            # t.logger.debug('saving')
 
 #%%
     i = 0
@@ -708,8 +716,7 @@ if __name__ == '__main__':
     obs_meta = ppxf_control.data.obs.meta
     model_meta = ppxf_control.data.model.meta
     main_meta = ppxf_control.data.main_meta
-    kwargs_ppxf=main_meta['ppxf_regularization']
-
+    kwargs_ppxf=main_meta['ppxf_optimise_mask']
     t = clock()
 
     C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
@@ -744,9 +751,10 @@ if __name__ == '__main__':
         start_gas_kinematics = np.zeros(gas_moments)
         if gas_moments > 1:
             start_gas_kinematics[:2] = [0., 2*velscale]
+        start_gas_kinematics = [start_gas_kinematics.tolist()]
+        start_gas_kinematics = start_gas_kinematics * ngas_comp * len(em_shape)
 
-        start = [start_stellar_kinematics.tolist()] \
-            + [start_gas_kinematics.tolist()] * ngas_comp * len(em_shape)
+        start = [start_stellar_kinematics.tolist()] + start_gas_kinematics
     else:
         start = pp.sol
 
@@ -765,17 +773,16 @@ if __name__ == '__main__':
         template = star_templates
 
     try:
-        bounds_rule = bounds_rule
-        bounds_gas = np.array(build_bounds(start_gas_kinematics, bounds_rule))
+        # bounds_rule = bounds_rule
+        aux = np.asarray(start_gas_kinematics).ravel()
+        bounds_gas = np.array(build_bounds(aux, bounds_rule))
         bounds_gas = bounds_gas.reshape(
-            ngas_comp * len(em_shape), -1, gas_moments)
+            ngas_comp * len(em_shape), -1, 2)
         bounds_gas = bounds_gas.tolist()
         bounds_stellar = [[-200, 200], [1, 200], [-1, 1], [-1, 1]]
         bounds = [bounds_stellar] + bounds_gas
     except Exception:
         bounds = None
-
-    # bounds = None
 
     try:
         A_ineq_kin = main_meta['gas_template']['A_ineq_kin']
@@ -810,3 +817,14 @@ if __name__ == '__main__':
         goodpixels=goodpixels,
         **kwargs_ppxf
         )
+
+#%%
+
+    fit = worker(
+        0,
+        t.data.obs.flux_grid[:, i],
+        t.data.obs.flux_grid_unc[:, i],
+        models=t.data.model,
+        size=t.size,
+        main_meta=t.data.main_meta, obs_meta=t.data.obs.meta,
+        model_meta=t.data.model.meta)

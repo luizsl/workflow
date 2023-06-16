@@ -21,6 +21,7 @@ from reconstruct_map import reconstruct_map
 from bounds_processing import (bounds_fixed_constructor,
                                bounds_interval_constructor)
 
+
 class Main:
     def __init__(self, conf_file):
         self.conf_file = conf_file
