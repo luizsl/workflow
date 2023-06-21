@@ -51,11 +51,11 @@ class Main:
 
         self.data = DataPreprocessing(self.meta)
 
-        # self.execution = ExecutePpxf(self.data, self.meta)
-        # self.execution.run_all_data()
+        self.execution = ExecutePpxf(self.data, self.meta)
+        self.execution.run_all_data()
 
-        # self.meta_to_json()
-        # self.results_to_map()
+        self.meta_to_json()
+        self.results_to_map()
 
     def read_config(self):
         with open(self.conf_file) as f:
@@ -97,6 +97,10 @@ class Main:
     def meta_to_json(self):
         meta={}
         meta.update({'conf' : self.meta})
+        # NOBUG: Implement method to the serialization of 'bounds' is required.
+        # It won't be done for now, just removing it instead.
+        meta['conf']['gas_template'].pop('bounds')
+
         meta.update({'obs' : self.data.obs.meta})
         meta.update({'model' : self.data.model.meta})
 

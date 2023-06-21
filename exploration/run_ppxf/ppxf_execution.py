@@ -106,13 +106,14 @@ class ExecutePpxf:
                 fit = pool.apply_async(
                         worker,
                         (index,
-                        self.data.obs.flux_grid[:, index],
-                        self.data.obs.flux_grid_unc[:, index]),
-                        {'models':self.data.model,
-                        'logger':self.logger, 'size':self.size,
-                        'main_meta':self.data.main_meta,
-                        'obs_meta':self.data.obs.meta,
-                        'model_meta':self.data.model.meta})
+                         self.data.obs.flux_grid[:, index],
+                         self.data.obs.flux_grid_unc[:, index]),
+                        {'models': self.data.model,
+                         'em_model': self.data.em_model,
+                         'logger': self.logger, 'size':self.size,
+                         'main_meta': self.data.main_meta,
+                         'obs_meta': self.data.obs.meta,
+                         'model_meta': self.data.model.meta})
                 futures.append(fit)
 
                 with self.lock:
@@ -152,6 +153,10 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
            em_model=None, logger=None, size=None,
            main_meta=None, obs_meta=None, model_meta=None):
     assert em_model is not None
+
+    if logger is None:
+        logger = logging.getLogger(__name__)
+
     with redirect_stdout(io.StringIO()) as f:
         id_ = f'{i+1}/{size}'
         print(70*'*')
@@ -222,7 +227,7 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
                 pp=pp, kwargs_ppxf=main_meta['ppxf_kinematics'])
             print('*************', end='\n\n')
 
-        error_corr = np.asarray(pp.error) * np.sqrt(pp.chi2)
+        error_corr = np.concatenate(pp.error) * np.sqrt(pp.chi2)
 
         if 'ppxf_regularization' in main_meta:
             print(id_, 'Fit with regulazired solution', end='\n\n')
@@ -656,6 +661,7 @@ if __name__ == '__main__':
 
         n_obj = t.data.obs.flux_grid.shape[-1]
         futures = []
+        test = []
 
         # def f():
         #     return pickle.dumps(None)
@@ -664,7 +670,7 @@ if __name__ == '__main__':
         # futures.append(res)
 
         for i in np.arange(t.size):
-            t.logger.debug(i, end='\n')
+            t.logger.debug(i)
             fit = pool.apply_async(
                     worker,
                     (i,
@@ -674,34 +680,34 @@ if __name__ == '__main__':
                     'logger':t.logger, 'size':t.size,
                     'main_meta':t.data.main_meta, 'obs_meta':t.data.obs.meta,
                     'model_meta':t.data.model.meta})
-            futures.append(fit.get())
+            futures.append(fit)
 
-            # with t.lock:
-            #     if t.storage_flag.value is False:
-            #         future = futures.pop(0)
-            #         out_obj = future.get()
-            #         out_obj = pickle.loads(out_obj)
-            #         try:
-            #             build_output_storage(
-            #                 out_obj=out_obj, out_dataset=t.out_ppxf, logger=t.logger,
-            #                 n_obj=n_obj, par=t.par)
-            #             t.storage_flag.value = True
-            #             t.logger.info('Storage built')
+            with t.lock:
+                if t.storage_flag.value is False:
+                    future = futures.pop(0)
+                    out_obj = future.get()
+                    out_obj = pickle.loads(out_obj)
+                    try:
+                        build_output_storage(
+                            out_obj=out_obj, out_dataset=t.out_ppxf, logger=t.logger,
+                            n_obj=n_obj, par=t.par)
+                        t.storage_flag.value = True
+                        t.logger.info('Storage built')
+                        futures.append(future)
+                    except Exception as e:
+                        if str(e) == ('Invalid data'):
+                            pass
+                        else:
+                            raise Exception
 
-        #                 futures.append(future)
-        #             except Exception as e:
-        #                 if str(e) == ('Invalid data'):
-        #                     pass
-        #                 else:
-        #                     raise Exception
-
-        # while len(futures) > 0:
-        #     future = futures.pop(0)
-        #     out_obj = future.get()
-            # out_obj = pickle.loads(out_obj)
-            # store = store_output(out_obj, par=t.par, logger=t.logger,
-            #     out_dataset=t.out_ppxf)
-            # t.logger.debug('saving')
+        while len(futures) > 0:
+            future = futures.pop(0)
+            out_obj = future.get()
+            out_obj = pickle.loads(out_obj)
+            store = store_output(out_obj, par=t.par, logger=t.logger,
+                out_dataset=t.out_ppxf)
+            test.append(out_obj)
+            t.logger.debug('saving')
 
 #%%
     i = 0
@@ -819,12 +825,12 @@ if __name__ == '__main__':
         )
 
 #%%
-
+    i = 0
     fit = worker(
-        0,
+        i,
         t.data.obs.flux_grid[:, i],
         t.data.obs.flux_grid_unc[:, i],
-        models=t.data.model,
+        models=t.data.model, em_model=t.data.em_model,
         size=t.size,
         main_meta=t.data.main_meta, obs_meta=t.data.obs.meta,
         model_meta=t.data.model.meta)
