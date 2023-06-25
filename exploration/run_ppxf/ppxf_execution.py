@@ -257,7 +257,8 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
             ranges.append([np.nan])
 
         try:
-            weights = pp.weights / pp.weights.sum()
+            weights = pp.weights[pp.component == 0]
+            weights = weights / weights.sum()
             av_age, av_mh, av_alpha = average(
                 weights, model_meta['reg_dim'], *ranges,
                 age_log10=main_meta['model']['age_log10'],
@@ -284,8 +285,8 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
         pp.a_v = a_v
         pp.ebv = ebv
         pp.i = i
-        pp.error = np.concatenate(pp.error)
-        pp.sol = np.concatenate(pp.sol)
+        # pp.error = np.concatenate(pp.error)
+        # pp.sol = np.concatenate(pp.sol)
         data_out = pickle.dumps(pp)
         out_log = f.getvalue()
         logger.info(out_log)
@@ -382,6 +383,9 @@ def execute_ppxf(galaxy=None, noise=None, models=None, em_model=None,
         start = [start_stellar_kinematics.tolist()] + start_gas_kinematics
     else:
         start = pp.sol
+
+    if len(start) == 1:
+        start = start[0]
 
     gas_templates = np.tile(gas_templates, ngas_comp)
     gas_names = np.asarray(
@@ -654,7 +658,7 @@ if __name__ == '__main__':
     t = ExecutePpxf(ppxf_control.data, ppxf_control.data.main_meta)
 
 
-#%%
+#%%    APPLY_ASYNC
 
     with mp.Pool(4) as pool:
         t.storage_flag.value = False
@@ -709,6 +713,63 @@ if __name__ == '__main__':
             test.append(out_obj)
             t.logger.debug('saving')
 
+#%%    SUBMIT
+
+    from mpi4py.futures import MPIPoolExecutor
+
+    with MPIPoolExecutor(3) as executor:
+    # with mp.Pool(4) as pool:
+        t.storage_flag.value = False
+
+        n_obj = t.data.obs.flux_grid.shape[-1]
+        futures = []
+        test = []
+
+        # def f():
+        #     return pickle.dumps(None)
+
+        # res = pool.apply_async(f)
+        # futures.append(res)
+
+        for i in np.arange(t.size):
+            t.logger.debug(i)
+            fit = executor.submit(
+                    worker,
+                    i,
+                    t.data.obs.flux_grid[:, i],
+                    t.data.obs.flux_grid_unc[:, i],
+                    models=t.data.model, em_model=t.data.em_model,
+                    logger=t.logger, size=t.size,
+                    main_meta=t.data.main_meta, obs_meta=t.data.obs.meta,
+                    model_meta=t.data.model.meta)
+            futures.append(fit)
+
+            with t.lock:
+                if t.storage_flag.value is False:
+                    future = futures.pop(0)
+                    out_obj = future.result()
+                    out_obj = pickle.loads(out_obj)
+                    try:
+                        build_output_storage(
+                            out_obj=out_obj, out_dataset=t.out_ppxf, logger=t.logger,
+                            n_obj=n_obj, par=t.par)
+                        t.storage_flag.value = True
+                        t.logger.info('Storage built')
+                        futures.append(future)
+                    except Exception as e:
+                        if str(e) == ('Invalid data'):
+                            pass
+                        else:
+                            raise Exception
+
+        while len(futures) > 0:
+            future = futures.pop(0)
+            out_obj = future.result()
+            out_obj = pickle.loads(out_obj)
+            store = store_output(out_obj, par=t.par, logger=t.logger,
+                out_dataset=t.out_ppxf)
+            test.append(out_obj)
+            t.logger.debug('saving')
 #%%
     i = 0
     galaxy = ppxf_control.data.obs.flux_grid[:, i]
@@ -763,6 +824,9 @@ if __name__ == '__main__':
         start = [start_stellar_kinematics.tolist()] + start_gas_kinematics
     else:
         start = pp.sol
+
+    if len(start) == 1:
+        start = start[0]
 
     gas_templates = np.tile(gas_templates, ngas_comp)
     gas_names = np.asarray(
@@ -824,6 +888,9 @@ if __name__ == '__main__':
         **kwargs_ppxf
         )
 
+    pp.plot()
+
+
 #%%
     i = 0
     fit = worker(
@@ -834,3 +901,35 @@ if __name__ == '__main__':
         size=t.size,
         main_meta=t.data.main_meta, obs_meta=t.data.obs.meta,
         model_meta=t.data.model.meta)
+
+    import matplotlib.pyplot as plt
+    a = pickle.loads(fit)
+    fig, ax = plt.subplots()
+    a.plot()
+
+#%%
+    from mpi4py.futures import MPIPoolExecutor
+
+    fits = []
+    with MPIPoolExecutor(3) as executor:
+        # executor =  MPIPoolExecutor(1)
+        # i = 0
+        for i in range(3):
+            fit = executor.submit(
+                    worker,
+                    i,
+                    t.data.obs.flux_grid[:, i],
+                    t.data.obs.flux_grid_unc[:, i],
+                    models=t.data.model, em_model=t.data.em_model,
+                    logger=t.logger, size=t.size,
+                    main_meta=t.data.main_meta, obs_meta=t.data.obs.meta,
+                    model_meta=t.data.model.meta)
+            fits.append(fit)
+
+        for _ in fits:
+            import matplotlib.pyplot as plt
+            a = pickle.loads(_.result())
+            fig, ax = plt.subplots()
+            a.plot()
+
+
