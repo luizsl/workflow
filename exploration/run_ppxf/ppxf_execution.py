@@ -227,7 +227,7 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
                 pp=pp, kwargs_ppxf=main_meta['ppxf_kinematics'])
             print('*************', end='\n\n')
 
-        error_corr = np.concatenate(pp.error) * np.sqrt(pp.chi2)
+        error_corr = np.hstack(pp.error) * np.sqrt(pp.chi2)
 
         if 'ppxf_regularization' in main_meta:
             print(id_, 'Fit with regulazired solution', end='\n\n')
@@ -519,7 +519,7 @@ def build_output_storage(out_obj=None, out_dataset=None, logger=None,
             _aux = out_obj.__getattribute__('galaxy')
             _shape = _aux.shape + (n_obj,)
         elif isinstance(_obj, list):
-            _obj = np.concatenate(_obj)
+            _obj = np.hstack(_obj)
             _obj = _obj.ravel()
             _shape = _obj.shape + (n_obj,)
         else:
@@ -623,7 +623,7 @@ def _store(out_obj, _p, out_dataset=None, logger=None):
     _obj = out_obj.__getattribute__(_p)
 
     if isinstance(_obj, list):
-        _obj = np.concatenate(_obj)
+        _obj = np.hstack(_obj)
         _obj = _obj.ravel()
 
     try:
