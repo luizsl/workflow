@@ -25,6 +25,10 @@ from scipy.constants import physical_constants
 
 from bounds_processing import build_bounds
 
+from concurrent.futures import ProcessPoolExecutor
+from mpi4py import MPI
+from mpi4py.futures import MPIPoolExecutor
+
 
 class ExecutePpxf:
     def __init__(self, data=None, metadata=None):
@@ -95,7 +99,10 @@ class ExecutePpxf:
         except Exception:
             self.N_PROCESS = mp.cpu_count()
 
-        with mp.Pool(self.N_PROCESS, maxtasksperchild=5) as pool:
+        n_procs = MPI.COMM_WORLD.Get_size()
+        print(n_procs)
+        with MPIPoolExecutor(self.N_PROCESS) as executor:
+        # with ProcessPoolExecutor(self.N_PROCESS, max_tasks_per_child=5) as executor:
             self.storage_flag.value = False
 
             n_obj = self.data.obs.flux_grid.shape[-1]
@@ -103,23 +110,23 @@ class ExecutePpxf:
 
             for index in np.arange(self.size):
                 self.logger.debug(index, end='\n')
-                fit = pool.apply_async(
+                fit = executor.submit(
                         worker,
-                        (index,
-                         self.data.obs.flux_grid[:, index],
-                         self.data.obs.flux_grid_unc[:, index]),
-                        {'models': self.data.model,
-                         'em_model': self.data.em_model,
-                         'logger': self.logger, 'size':self.size,
-                         'main_meta': self.data.main_meta,
-                         'obs_meta': self.data.obs.meta,
-                         'model_meta': self.data.model.meta})
+                        index,
+                        self.data.obs.flux_grid[:, index],
+                        self.data.obs.flux_grid_unc[:, index],
+                        models=self.data.model,
+                        em_model=self.data.em_model,
+                        logger=self.logger, size=self.size,
+                        main_meta=self.data.main_meta,
+                        obs_meta=self.data.obs.meta,
+                        model_meta=self.data.model.meta)
                 futures.append(fit)
 
                 with self.lock:
                     if self.storage_flag.value is False:
                         future = futures.pop(0)
-                        out_obj = future.get()
+                        out_obj = future.result()
                         out_obj = pickle.loads(out_obj)
                         try:
                             build_output_storage(
@@ -136,7 +143,7 @@ class ExecutePpxf:
 
             while len(futures) > 0:
                 future = futures.pop(0)
-                out_obj = future.get()
+                out_obj = future.result()
                 out_obj = pickle.loads(out_obj)
                 store_output(out_obj, par=self.par, logger=self.logger,
                     out_dataset=self.out_ppxf)
@@ -657,7 +664,7 @@ def constr_cond(A, b, p):
 if __name__ == '__main__':
     t = ExecutePpxf(ppxf_control.data, ppxf_control.data.main_meta)
 
-
+    t.run_all_data()
 #%%    APPLY_ASYNC
 
     with mp.Pool(4) as pool:
@@ -713,12 +720,16 @@ if __name__ == '__main__':
             test.append(out_obj)
             t.logger.debug('saving')
 
-#%%    SUBMIT
+#%%    SUBMIT MPI
 
+    from concurrent.futures import ProcessPoolExecutor
+    from mpi4py import MPI
     from mpi4py.futures import MPIPoolExecutor
 
-    with MPIPoolExecutor(3) as executor:
-    # with mp.Pool(4) as pool:
+    # n_procs = MPI.COMM_WORLD.Get_size()  # Size of communicator
+    # print(n_procs)
+    # with MPIPoolExecutor(1) as executor:
+    with ProcessPoolExecutor(4) as executor:
         t.storage_flag.value = False
 
         n_obj = t.data.obs.flux_grid.shape[-1]
