@@ -101,7 +101,7 @@ class ExecutePpxf:
 
         n_procs = MPI.COMM_WORLD.Get_size()
         print(n_procs)
-        with MPIPoolExecutor(self.N_PROCESS) as executor:
+        with MPIPoolExecutor() as executor:
         # with ProcessPoolExecutor(self.N_PROCESS, max_tasks_per_child=5) as executor:
             self.storage_flag.value = False
 
