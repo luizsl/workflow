@@ -99,8 +99,6 @@ class ExecutePpxf:
         except Exception:
             self.N_PROCESS = mp.cpu_count()
 
-        n_procs = MPI.COMM_WORLD.Get_size()
-        print(n_procs)
         with MPIPoolExecutor() as executor:
         # with ProcessPoolExecutor(self.N_PROCESS, max_tasks_per_child=5) as executor:
             self.storage_flag.value = False
@@ -147,6 +145,7 @@ class ExecutePpxf:
                 out_obj = pickle.loads(out_obj)
                 store_output(out_obj, par=self.par, logger=self.logger,
                     out_dataset=self.out_ppxf)
+                self.logger.info(out_obj.out_log)
                 self.logger.debug('saving')
 
         # keep end time
@@ -291,9 +290,13 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
         # Include reddening fitted on the fly if exists
         pp.a_v = a_v
         pp.ebv = ebv
+
+        # Include index
         pp.i = i
-        # pp.error = np.concatenate(pp.error)
-        # pp.sol = np.concatenate(pp.sol)
+
+        # Include log
+        pp.out_log = f.getvalue()
+
         data_out = pickle.dumps(pp)
         out_log = f.getvalue()
         logger.info(out_log)
@@ -665,6 +668,7 @@ if __name__ == '__main__':
     t = ExecutePpxf(ppxf_control.data, ppxf_control.data.main_meta)
 
     t.run_all_data()
+
 #%%    APPLY_ASYNC
 
     with mp.Pool(4) as pool:
@@ -728,8 +732,8 @@ if __name__ == '__main__':
 
     # n_procs = MPI.COMM_WORLD.Get_size()  # Size of communicator
     # print(n_procs)
-    # with MPIPoolExecutor(1) as executor:
-    with ProcessPoolExecutor(4) as executor:
+    with MPIPoolExecutor() as executor:
+    # with ProcessPoolExecutor(4) as executor:
         t.storage_flag.value = False
 
         n_obj = t.data.obs.flux_grid.shape[-1]
@@ -780,6 +784,7 @@ if __name__ == '__main__':
             store = store_output(out_obj, par=t.par, logger=t.logger,
                 out_dataset=t.out_ppxf)
             test.append(out_obj)
+            t.logger.info(out_obj.out_log)
             t.logger.debug('saving')
 #%%
     i = 0
@@ -943,4 +948,10 @@ if __name__ == '__main__':
             fig, ax = plt.subplots()
             a.plot()
 
+#%% I/O
 
+    with redirect_stdout(io.StringIO()) as f:
+        print('a')
+        print('b')
+
+        out_log = f.getvalue()
