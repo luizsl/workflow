@@ -192,6 +192,11 @@ class DataPreprocessing:
         self.obs.resample()
 
         if self.main_meta['vorbin']['apply'] is True:
+
+            os.environ["MKL_NUM_THREADS"]     = "1"
+            os.environ["NUMEXPR_NUM_THREADS"] = "1"
+            os.environ["OMP_NUM_THREADS"]     = "1"
+
             target_sn = self.main_meta['vorbin']['target_sn']
 
             try:
@@ -212,6 +217,10 @@ class DataPreprocessing:
                 '--Voronoi binning with target SNR:{}'.format(target_sn)
             )
             self.obs.vorbin(target_sn=target_sn, sn_func=sn_func)
+
+            os.environ.pop("MKL_NUM_THREADS")
+            os.environ.pop("NUMEXPR_NUM_THREADS")
+            os.environ.pop("OMP_NUM_THREADS")
 
         try:
             limits = self.main_meta['observation']['normalization']
