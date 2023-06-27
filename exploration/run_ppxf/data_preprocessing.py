@@ -193,9 +193,9 @@ class DataPreprocessing:
 
         if self.main_meta['vorbin']['apply'] is True:
 
-            os.environ["MKL_NUM_THREADS"]     = "1"
-            os.environ["NUMEXPR_NUM_THREADS"] = "1"
-            os.environ["OMP_NUM_THREADS"]     = "1"
+            os.environ["MKL_NUM_THREADS"]     = "2"
+            os.environ["NUMEXPR_NUM_THREADS"] = "2"
+            os.environ["OMP_NUM_THREADS"]     = "2"
 
             target_sn = self.main_meta['vorbin']['target_sn']
 
