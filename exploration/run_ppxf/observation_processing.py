@@ -18,10 +18,10 @@ from astropy.io import fits
 from vorbin.voronoi_2d_binning import voronoi_2d_binning
 
 from normalize import normalize_band
+from ppxf_execution import dered
 
 
 class Observation(ABC):
-
     @abstractmethod
     def __init__(self):
         pass
@@ -264,11 +264,15 @@ class Observation(ABC):
         valid = np.asarray(valid, dtype=bool)
         return valid
 
+    def foreground_extinction(self, law='calzetti00', r_v=4.05, ebv=None,
+                              a_v=None):
+        size = self.flux_grid[0,...].size
+        wave = self.meta['wave_obs']
 
-def sn_function(index, signal=None, noise=None, covar_sn_a=0, covar_sn_b=1):
-    sn = np.sum(signal[index])/np.sqrt(np.sum(noise[index]**2))
-    sn = sn / (1 + covar_sn_a * (np.log10(index.size))**covar_sn_b)
-    return sn
+        for i in range(size):
+            flux_corrected, _, _ = dered(
+                self.flux_grid[:, i], wave=wave, ebv=ebv, a_v=a_v)
+            self.flux_grid[:, i] = flux_corrected
 
 
 class Muse(Observation):
@@ -347,11 +351,18 @@ class Muse(Observation):
                 self.build_coordinate()
 
 
+def sn_function(index, signal=None, noise=None, covar_sn_a=0, covar_sn_b=1):
+    sn = np.sum(signal[index])/np.sqrt(np.sum(noise[index]**2))
+    sn = sn / (1 + covar_sn_a * (np.log10(index.size))**covar_sn_b)
+    return sn
+
 #%%
 if __name__ == '__main__':
     # obs = Muse('../../data/NGC613/Muse/NGC0613_DATACUBE_FINAL_clean.fits.gz', 0.004951)
     obs_bin = Muse('../../data/fov_sample_1_5.fits', 0.004951)
     obs_bin.build_grid(min_valid_sn=3, snr_window=[5450, 5550])
+    obs_bin.reshape()
+    obs_bin.foreground_extinction(ebv=0.1)
     obs_bin.resample()
 
     # covar_a = 1.06
@@ -360,5 +371,6 @@ if __name__ == '__main__':
     # obs_bin.vorbin(target_sn=100, sn_func=sn_func)
 
     obs_bin.vorbin(target_sn=200)
-    # obs_bin.normalize(limits=[5450, 5550])
-    # obs_bin.convert_to_mmap()
+    obs_bin.normalize(limits=[5450, 5550])
+    obs_bin.convert_to_mmap()
+
