@@ -171,6 +171,31 @@ class DataPreprocessing:
             min_valid_sn=self.main_meta['observation']['snr']['min'],
             snr_window=self.main_meta['observation']['snr']['window'])
 
+        self.logger.info('--Foreground extinction')
+        try:
+            ext_conf = self.main_meta['observation']['foreground_extinction']
+
+            map_name = ext_conf['dust_map']
+            self.logger.info(f'\tdust_map: {map_name}')
+
+            law = ext_conf['law']
+            self.logger.info(f'\tlaw: {law}')
+
+            r_v = ext_conf['r_v']
+            self.logger.info(f'\tr_v: {r_v}')
+
+            parameter = ext_conf['parameter']
+            self.logger.info(f'\tparam: {parameter}')
+
+            mode = ext_conf['mode']
+            self.logger.info(f'\tmode: {mode}')
+
+            self.obs.foreground_extinction(
+                law=law, r_v=r_v, map_parameter=parameter, mode=mode,
+                map_name=map_name)
+        except:
+            self.logger.info('\tNot applying')
+
         try:
             limits = self.main_meta['observation']['trim']
             if limits == []:
@@ -305,3 +330,6 @@ if __name__ == '__main__':
 
     # plt.plot(data.model.meta['wave_model'], data.model.flux_grid[:, 0])
     # plt.plot(data.obs.meta['wave_obs'], data.obs.flux_grid[:, 0])
+
+#%%
+

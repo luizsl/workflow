@@ -14,10 +14,12 @@ from functools import partial
 
 import numpy as np
 import spectcube as sc
+from astropy import wcs
 from astropy.io import fits
 from vorbin.voronoi_2d_binning import voronoi_2d_binning
 
 from normalize import normalize_band
+from reddening import get_dust_map
 from ppxf_execution import dered
 
 
@@ -111,7 +113,7 @@ class Observation(ABC):
 
         row, col = map(np.ravel, np.indices(self.meta['shape_obs']))
 
-        pixsize = abs(self.header[1]['CD1_1'])*3600    # 0.2"
+        pixsize = abs(self.header_list[1]['CD1_1'])*3600    # 0.2"
         x = (col - col[jm])*pixsize
         y = (row - row[jm])*pixsize
 
@@ -129,7 +131,7 @@ class Observation(ABC):
         signal = self.original_signal
         noise = self.original_noise
 
-        pixelsize = abs(self.header[1]['CD1_1']) * 3600
+        pixelsize = abs(self.header_list[1]['CD1_1']) * 3600
 
         if sn_func is None:
             covar_a = 0
@@ -264,15 +266,32 @@ class Observation(ABC):
         valid = np.asarray(valid, dtype=bool)
         return valid
 
-    def foreground_extinction(self, law='calzetti00', r_v=4.05, ebv=None,
-                              a_v=None):
+    def foreground_extinction(self, law='calzetti00', r_v=4.05,
+                              map_parameter=None, mode='map', map_name='sfd'):
+        assert map_parameter in ('ebv', 'a_v')
+
+        dust_map = get_dust_map(map_name=map_name, mode=mode, obs_wcs=self.wcs)
+
+        if dust_map.ndim == 0:
+            dust_map = np.full_like(self.flux_grid[1,...], fill_value=dust_map)
+        if dust_map.ndim == 2:
+            dust_map = dust_map.ravel()
+
         size = self.flux_grid[0,...].size
         wave = self.meta['wave_obs']
 
         for i in range(size):
-            flux_corrected, _, _ = dered(
-                self.flux_grid[:, i], wave=wave, ebv=ebv, a_v=a_v)
+            dust = dust_map[i]
+            flux = self.flux_grid[:, i]
+            flux_unc = self.flux_grid_unc[:, i]
+
+            k_args = {map_parameter: dust}
+
+            flux_corrected, _, _ = dered(flux, wave=wave, **k_args)
+            flux_unc_corrected, _, _ = dered(flux_unc, wave=wave, **k_args)
+
             self.flux_grid[:, i] = flux_corrected
+            self.flux_grid_unc[:, i] = flux_unc_corrected
 
 
 class Muse(Observation):
@@ -331,7 +350,9 @@ class Muse(Observation):
             header.append(h)
             h = {card[0]: card[1] for card in hdul['STAT'].header._cards}
             header.append(h)
-            self.header = header
+            self.header_list = header
+
+            self.wcs = wcs.WCS(self.header_list[1])
 
             self.meta['shape_obs'] = self.flux_grid.shape[1:]
 
@@ -361,16 +382,15 @@ if __name__ == '__main__':
     # obs = Muse('../../data/NGC613/Muse/NGC0613_DATACUBE_FINAL_clean.fits.gz', 0.004951)
     obs_bin = Muse('../../data/fov_sample_1_5.fits', 0.004951)
     obs_bin.build_grid(min_valid_sn=3, snr_window=[5450, 5550])
-    obs_bin.reshape()
-    obs_bin.foreground_extinction(ebv=0.1)
-    obs_bin.resample()
+    # obs_bin.reshape()
+    obs_bin.foreground_extinction(map_name='sfd', map_parameter='ebv', mode='map')
+    # obs_bin.resample()
 
     # covar_a = 1.06
     # covar_b = 1
     # sn_func = partial(sn_function, covar_sn_a=covar_a, covar_sn_b=covar_b)
     # obs_bin.vorbin(target_sn=100, sn_func=sn_func)
 
-    obs_bin.vorbin(target_sn=200)
-    obs_bin.normalize(limits=[5450, 5550])
-    obs_bin.convert_to_mmap()
-
+    # obs_bin.vorbin(target_sn=200)
+    # obs_bin.normalize(limits=[5450, 5550])
+    # obs_bin.convert_to_mmap()

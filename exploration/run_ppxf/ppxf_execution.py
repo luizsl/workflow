@@ -15,7 +15,6 @@ from contextlib import redirect_stdout
 from datetime import datetime
 from time import perf_counter as clock
 
-import extinction
 import numpy as np
 import ppxf as ppxf_package
 import xarray as xr
@@ -24,6 +23,7 @@ from ppxf.ppxf import ppxf, robust_sigma
 from scipy.constants import physical_constants
 
 from bounds_processing import build_bounds
+from reddening import dered
 
 from concurrent.futures import ProcessPoolExecutor
 from mpi4py import MPI
@@ -457,26 +457,6 @@ def execute_ppxf(galaxy=None, noise=None, models=None, em_model=None,
 
     print('Elapsed time in PPXF: %.2f s' % (clock() - t))
     return pp
-
-
-def dered(spectrum, wave=None, law='calzetti00', r_v=4.05, ebv=None, a_v=None):
-    assert (a_v, ebv) != (None, None)
-    assert wave is not None
-
-    if a_v is None:
-        a_v = ebv * r_v
-
-    if ebv is None:
-        ebv = a_v / r_v
-
-    if law == 'fm07':
-        ext_mag = extinction.__getattribute__(law)(wave=wave, a_v=a_v)
-    else:
-        ext_mag = extinction.__getattribute__(law)(wave=wave, a_v=a_v, r_v=r_v)
-
-    dered_spectrum = extinction.remove(ext_mag, spectrum)
-
-    return dered_spectrum, a_v, ebv
 
 
 def clip_outliers(galaxy, bestfit, goodpixels, sigma=3):
