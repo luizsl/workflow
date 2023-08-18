@@ -2,7 +2,7 @@
 resources:
     observation: ../../data/
 
-    ppxf_stellar_dir: ../../data_products/toy_trick/MilesAgeMh/ppxf/
+    ppxf_stellar_dir: ../../data_products/fov_sample_1_5/XSLAgeMh_1/ppxf
     stellar_kinematics_file: sol.fits
 
     # ppxf_emission_dir: ../../data_products/toy_trick/MilesAgeMh/ppxf_emission_line_binned300_1components
@@ -17,8 +17,8 @@ common:
 
 observation:
     class: Muse
-    # obs_name: fov_sample_1_3     # should not include extensions in the name
-    obs_name: toy_trick    # should not include extensions in the name
+    obs_name: fov_sample_1_5     # should not include extensions in the name
+    # obs_name: toy_trick    # should not include extensions in the name
     redshift: 0.004951
     fixed_spectral_mask: [
         [4851.6, 4871.1],  # 4861.33 Hb         (1200 km/s)
@@ -53,21 +53,24 @@ observation:
         min: 3
 
 gas_template:
-    components: 1
+    components: 2
     moments: 2
     bounds: [
         !Interval [-200,  200],    # high-potential V_a
         !Fixed    [  20,  200],    # high-potential sigma_a
+        
         !Interval [-200,  200],    # low-potential V_a
         !Fixed    [  20,  200],    # low-potential sigma_a
 
         !Interval [-500,  500],    # high potential V_b
         !Fixed    [  20,  400],    # high potential sigma_b
+        
         !Interval [-500,  500],    # low-potential V_b
         !Fixed    [  20,  400],    # low-potential sigma_b
 
         # !Interval [-500,  500],    # high potential V_c
         # !Fixed    [  20,  400],    # high potential sigma_c
+        
         # !Interval [-500,  500],    # low-potential V_c
         # !Fixed    [  20,  400],    # low-potential sigma_c
         ]
@@ -117,4 +120,4 @@ output:
 
 vorbin:
     apply: True
-    target_sn: 800
+    target_sn: 200
