@@ -455,6 +455,26 @@ def execute_ppxf(galaxy=None, noise=None, models=None, em_model=None,
         goodpixels=goodpixels,
         **kwargs_ppxf)
 
+    pp.stellar_bestfit = pp.bestfit - pp.gas_bestfit
+
+    corrected_flux = np.full_like(gas_names, np.nan, dtype=float)
+    amplitude_rms = np.full_like(gas_names, np.nan, dtype=float)
+    rms = robust_sigma(pp.galaxy - pp.bestfit, zero=1)
+    for p, name in enumerate(gas_names):
+        kk = gas_names == name
+        # Angstrom per pixel at line wavelength (dlam/lam = dv/c)
+        dlam = label_wave[kk]*velscale/C
+        # Convert to ergs/(cm^2 s)
+        corrected_flux[p] = (pp.gas_flux[kk]*dlam)[0]
+        amplitude_rms[p] = np.max(pp.gas_bestfit_templates[:, kk])/rms
+        print(f"{name:20s}",
+              f"-Amp/Res: {amplitude_rms[p]:6.2f};",
+              f"flux: {corrected_flux[p]:6.0f} ergs/(cm^2 s)")
+
+    pp.corrected_flux = corrected_flux
+    pp.amplitude_rms = amplitude_rms
+    pp.gas_names = gas_names
+
     print('Elapsed time in PPXF: %.2f s' % (clock() - t))
     return pp
 
