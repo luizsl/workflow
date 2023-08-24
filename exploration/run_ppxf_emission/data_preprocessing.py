@@ -150,6 +150,15 @@ class DataPreprocessing:
 
         self.obs.convert_to_mmap()
 
+        if 'spectral_mask' in self.main_meta['observation']:
+            self.logger.info('--Ansatz for masked pixels')
+            mask_list = self.main_meta['observation']['spectral_mask']
+            self.obs.mask_spectral_axis(mask_list, kind='guess')
+        else:
+            self.logger.info('--Ansatz for masked pixels not found')
+            mask_list = []
+            self.obs.mask_spectral_axis(mask_list, kind='guess')
+
         if 'fixed_spectral_mask' in self.main_meta['observation']:
             self.logger.info('--Fixed masked pixels')
             fixed_mask_list = self.main_meta['observation']['fixed_spectral_mask']
@@ -159,16 +168,6 @@ class DataPreprocessing:
             fixed_mask_list = []
             self.obs.mask_spectral_axis(fixed_mask_list, kind='fixed')
 
-
-        # if 'spectral_negative_mask' in self.main_meta['observation']:
-        #     self.logger.info('--Fixed masked pixels')
-        #     fixed_mask_list = self.main_meta['observation']['spectral_negative_mask']
-        #     self.obs.mask_spectral_axis(fixed_mask_list, kind='fixed')
-        # else:
-        #     self.logger.info('--Fixed masked pixels not found')
-        #     fixed_mask_list = []
-        #     self.obs.mask_spectral_axis(fixed_mask_list, kind='fixed')
-
         self.logger.info(f'{round(clock()-t,2)} s')
 
     def prepare_stellar_continuum(self):
@@ -177,7 +176,7 @@ class DataPreprocessing:
         self.logger.info('''\nStellar continuum preparation\n**************************''')
         # Path stellar continuum
         path_stellar_continuum = os.path.join(
-            self.main_meta['resources']['ppxf_stellar_dir'], 'bestfit.fits')
+            self.main_meta['resources']['ppxf_stellar_dir'], 'stellar_bestfit.fits')
 
         wave = np.array(self.stellar_fit_metadata['obs']['wave_obs'])
 

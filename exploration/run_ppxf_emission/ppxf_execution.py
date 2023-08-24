@@ -5,7 +5,6 @@ Created on Sat Sep 25 12:54:40 2021
 @author: Luiz
 """
 import ctypes
-import json
 import io
 import logging
 import multiprocessing as mp
@@ -16,19 +15,17 @@ from contextlib import redirect_stdout
 from datetime import datetime
 from time import perf_counter as clock
 
-# import dask.array as da
 import numpy as np
 import xarray as xr
 from ppxf.ppxf import ppxf, robust_sigma
 from scipy.constants import physical_constants
-from astropy.utils.misc import JsonCustomEncoder
+from concurrent.futures import ProcessPoolExecutor
+from mpi4py.futures import MPIPoolExecutor
 
 from bounds_processing import build_bounds
 
 
 class ExecutePpxf:
-    C = physical_constants['speed of light in vacuum'][0]/1e3  # km/s
-
     def __init__(self, data=None, metadata=None):
         assert data is not None
         assert metadata is not None
@@ -36,13 +33,11 @@ class ExecutePpxf:
         self.meta = {}
         self.data = data
         self.main_meta = metadata
-        self.storage = mp.Value(ctypes.c_bool, False)
-        self.process_manager = mp.Manager()
+        self.storage_flag = mp.Value(ctypes.c_bool, False)
         self.lock = mp.Lock()
 
         self.start_logging()
         self.out_ppxf = xr.Dataset()
-        self.out_locks = self.process_manager.dict()
 
         # NOTE: Adding an exception to deal with a single spectrum
         # not neat but should work. <>
@@ -61,7 +56,6 @@ class ExecutePpxf:
             + self.main_meta['output']['to_map']
         self.par = list(set(par) | set(new_par))
 
-        self.run_all_data()
 
     def start_logging(self):
         name_log_file = os.path.join(
@@ -89,6 +83,7 @@ class ExecutePpxf:
         logger.addHandler(stream_handler)
         self.logger = logger
 
+
     def run_all_data(self):
         self.logger.info('pPXF execution started')
 
@@ -102,348 +97,443 @@ class ExecutePpxf:
         except Exception:
             self.N_PROCESS = mp.cpu_count()
 
-        input_queue = self.process_manager.Queue()
-        output_queue = self.process_manager.Queue(maxsize=self.N_PROCESS)
+        with MPIPoolExecutor() as executor:
+        # with ProcessPoolExecutor(self.N_PROCESS) as executor:
+            self.storage_flag.value = False
 
-        ps = [mp.Process(target=self.worker, args=[input_queue, output_queue])
-              for _ in range(self.N_PROCESS)]
+            n_obj = self.data.obs.flux_grid.shape[-1]
+            futures = []
 
-        for p in ps:
-            p.start()
-            self.logger.debug('Start multiprocessing of fitting')
-        for i in range(self.size):
-            input_queue.put(i)
-        for _ in range(self.N_PROCESS):
-            input_queue.put(None)
+            for index in np.arange(self.size):
+                self.logger.debug(index, end='\n')
+                fit = executor.submit(
+                        worker,
+                        index,
+                        self.data.obs.flux_grid[:, index],
+                        self.data.obs.flux_grid_unc[:, index],
+                        models=self.data.stellar,
+                        em_model=self.data.em_model,
+                        logger=self.logger, size=self.size,
+                        gas_kinematics_slice=self.data.gas_kinematics.kinematics_grid[:, index],
+                        stellar_kinematics_slice=self.data.stellar_kinematics.kinematics_grid[:, index],
+                        bounds_rule=self.data.bounds_rule,
+                        main_meta=self.data.main_meta,
+                        obs_meta=self.data.obs.meta,
+                        model_meta=self.data.stellar.meta)
+                futures.append(fit)
 
-        self.store_output(input_queue, output_queue)
+                with self.lock:
+                    if self.storage_flag.value is False:
+                        future = futures.pop(0)
+                        out_obj = future.result()
+                        out_obj = pickle.loads(out_obj)
+                        try:
+                            build_output_storage(
+                                out_obj=out_obj, out_dataset=self.out_ppxf,
+                                logger=self.logger, n_obj=n_obj, par=self.par)
+                            self.storage_flag.value = True
+                            self.logger.info('Storage built')
+                            futures.append(future)
+                        except Exception as e:
+                            if str(e) == 'Invalid data':
+                                pass
+                            else:
+                                raise Exception
 
-        for p in ps:
-            p.join()
+            while len(futures) > 0:
+                future = futures.pop(0)
+                out_obj = future.result()
+                out_obj = pickle.loads(out_obj)
+                store_output(out_obj, par=self.par, logger=self.logger,
+                    out_dataset=self.out_ppxf)
+                self.logger.info(out_obj.out_log)
+                self.logger.debug('saving')
 
         # keep end time
         end_time = datetime.now().strftime("%d/%m/%Y %H:%M")
         self.meta['ppxf_end_time'] = end_time
         self.logger.info(end_time)
+        self.logger.info('pPXF execution completed\n\n')
 
-        self.logger.info('pPXF execution completed')
 
-    def worker(self, input_queue, output_queue):
-        for i in iter(input_queue.get, None):
-            pp = None
-            with redirect_stdout(io.StringIO()) as f:
-                id_ = f'{i+1}/{self.size}'
-                print(70*'*')
+def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
+           em_model=None, logger=None, size=None,
+           stellar_kinematics_slice=None, gas_kinematics_slice=None,
+           bounds_rule=None, main_meta=None, obs_meta=None, model_meta=None):
 
-                galaxy = self.data.obs.flux_grid[:, i]
-                noise = self.data.obs.flux_grid_unc[:, i]
-                stellar = self.data.stellar.flux_grid[:, i]
-                goodpixels = self.data.obs.meta['fixed_goodpixels']
+    if logger is None:
+        logger = logging.getLogger(__name__)
 
-                if np.any(np.isnan(galaxy)
-                          | np.isnan(noise)
-                          | np.isnan(stellar)):
-                    print('nan')
-                    pack = [i, pp]
-                    data_out = pickle.dumps(pack)
-                    continue
 
-                if 'ppxf_stellar_continuum' in self.main_meta:
-                    print(id_, 'Stellar continuum fine-tunning', end='\n\n')
-                    pp = self.execute_ppxf_continuum(
-                        galaxy=galaxy, noise=noise,
-                        stellar=stellar,
-                        index=i,
-                        goodpixels=goodpixels,
-                        pp=pp, conf=self.main_meta['ppxf_stellar_continuum'])
-                    print('*************', end='\n\n')
+    with redirect_stdout(io.StringIO()) as f:
+        id_ = f'{i+1}/{size}'
+        print(70*'*')
 
-                if 'ppxf_emission_fit' in self.main_meta:
-                    print(id_, 'Emission-line fitting', end='\n\n')
-                    pp = self.execute_ppxf(
-                        galaxy=galaxy, noise=noise,
-                        stellar=stellar,
-                        index=i,
-                        goodpixels=goodpixels,
-                        pp=pp, conf=self.main_meta['ppxf_emission_fit'])
-                    print('*************', end='\n\n')
+        if np.any(np.isnan(flux_obs_unc_slice) | np.isnan(flux_obs_slice)):
+                    return pickle.dumps(None)
 
-                out_log = f.getvalue()
+        pp = None
 
-            self.logger.info(out_log)
-            pack = [i, pp]
-            data_out = pickle.dumps(pack)
-            output_queue.put(data_out)
+        guess_goodpixels = obs_meta['guess_goodpixels']
+        fixed_goodpixels = obs_meta['fixed_goodpixels']
+        goodpixels = np.intersect1d(guess_goodpixels, fixed_goodpixels)
 
-    def execute_ppxf_continuum(self,
-                               galaxy=None, noise=None, stellar=None,
-                               index=None,
-                               goodpixels=None,
-                               pp=None,
-                               conf=None):
-        assert conf is not None
-        assert galaxy is not None
-        assert noise is not None
-        t = clock()
+        if 'ppxf_stellar_continuum' in main_meta:
+            print(id_, 'Stellar continuum fine-tunning', end='\n\n')
+            pp = execute_ppxf_continuum(
+                galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
+                models=models, em_model=em_model,
+                goodpixels=goodpixels, bounds_rule=bounds_rule,
+                main_meta=main_meta, obs_meta=obs_meta, model_meta=model_meta,
+                pp=pp, kwargs_ppxf=main_meta['ppxf_stellar_continuum'])
+            print('*************', end='\n\n')
 
-        lam = self.data.obs.meta['wave_obs']
-        velscale = self.C*np.diff(np.log(lam[-2:]))[0]
-        start_stellar_kinematics = [0, 1, 0, 0]
-        component = np.array([0])
-        moments = [-4]
+        if 'ppxf_emission_fit' in main_meta:
+            print(id_, 'Emission-line fitting', end='\n\n')
+            pp = execute_ppxf(
+                galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
+                models=models, em_model=em_model,
+                goodpixels=goodpixels,
+                stellar_kinematics_slice=stellar_kinematics_slice,
+                gas_kinematics_slice=gas_kinematics_slice,
+                bounds_rule=bounds_rule,
+                main_meta=main_meta, obs_meta=obs_meta, model_meta=model_meta,
+                pp=pp, kwargs_ppxf=main_meta['ppxf_emission_fit'])
+            print('*************', end='\n\n')
 
-        pp = ppxf(stellar, galaxy, noise, velscale, start_stellar_kinematics,
-                  moments=moments, component=component, lam=lam,
-                  **self.main_meta['ppxf_stellar_continuum'])
+        # Include index
+        pp.i = i
 
-        print('Elapsed time in PPXF: %.2f s' % (clock() - t))
-        return pp
+        # Include log
+        pp.out_log = f.getvalue()
 
-    def execute_ppxf(self,
-                     galaxy=None, noise=None, stellar=None,
-                     index=None,
-                     goodpixels=None,
-                     pp=None,
-                     conf=None):
-        assert conf is not None
-        assert galaxy is not None
-        assert noise is not None
-        t = clock()
+        data_out = pickle.dumps(pp)
+        out_log = f.getvalue()
+        logger.info(out_log)
 
-        stellar_kinematics = \
-            self.data.stellar_kinematics.kinematics_grid[:, index]
-        self.logger.debug(stellar_kinematics)
+        return data_out
 
-        gas_kinematics = self.data.gas_kinematics.kinematics_grid[:, index]
-        self.logger.debug(gas_kinematics)
 
-        gas_templates = self.data.em_model.template
-        gas_names = self.data.em_model.label
-        label_wave = self.data.em_model.label_wave
-        lam = self.data.obs.meta['wave_obs']
-        velscale = self.C*np.diff(np.log(lam[-2:]))[0]
-        gas_moments = self.data.main_meta['gas_template']['moments']
-        ngas_comp = self.data.main_meta['gas_template']['components']
-        em_shape = self.data.em_model.size
+def execute_ppxf_continuum(galaxy=None, noise=None, models=None, em_model=None,
+                           goodpixels=None, obs_meta=None, model_meta=None,
+                           main_meta=None, bounds_rule=None, pp=None,
+                           kwargs_ppxf=None, logger=None):
+    assert kwargs_ppxf is not None
+    assert galaxy is not None
+    assert noise is not None
 
-        comp = [1] + em_shape * ngas_comp
-        component = np.concatenate(
-            [[i]*value for i, value in enumerate(comp)]
-            )
+    if logger is None:
+        logger = logging.getLogger(__name__)
 
-        stellar_moments = stellar_kinematics.shape[0]
-        moments = [-stellar_moments] + [gas_moments] * ngas_comp*len(em_shape)
+    t = clock()
 
-        gas_templates = np.tile(gas_templates, ngas_comp)
-        gas_names = np.asarray(
-            [gas + f"_({p+1})" for p in range(ngas_comp) for gas in gas_names])
-        label_wave = np.tile(label_wave, ngas_comp)
-        gas_component = np.array(component) > 0
-        stars_gas_templates = np.column_stack([pp.bestfit, gas_templates])
+    C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
 
-        start_stellar_kinematics = np.array([0, 1, 0, 0])
-        start_gas_kinematics = gas_kinematics.reshape(-1, gas_moments)
-        start = [start_stellar_kinematics.tolist()] \
-            + start_gas_kinematics.tolist()
-        self.logger.debug(start)
+    star_templates = models.flux_grid
 
-        try:
-            bounds_rule = self.data.bounds_rule
-            bounds_gas = np.array(build_bounds(gas_kinematics, bounds_rule))
-            bounds_gas = bounds_gas.reshape(
-                ngas_comp * len(em_shape), -1, gas_moments)
-            bounds_gas = bounds_gas.tolist()
-            bounds_stellar = [[-1, 1], [1, 2], [-1, 1], [-1, 1]]
-            bounds = [bounds_stellar] + bounds_gas
-        except Exception:
-            bounds = None
-        self.logger.debug(bounds)
+    frac = obs_meta['wave_obs'][1]/obs_meta['wave_obs'][0]
+    velscale = np.log(frac)*C       # Velocity scale in km/s per pixel (eq.8 of Cappellari 2017)
 
-        try:
-            A_ineq_kin = self.data.main_meta['gas_template']['A_ineq_kin']
-            b_ineq_kin = self.data.main_meta['gas_template']['b_ineq_kin']
-            A_ineq_kin = np.asarray(A_ineq_kin, dtype=float)
-            b_ineq_kin = np.asarray(b_ineq_kin, dtype=float)
+    start_stellar_kinematics = np.array([0, 1, 0, 0])
+    component = np.array([0])
+    moments = [-4]
 
-            # Adjust Constraint conditioning
-            p = np.concatenate(start)
-            if not A_ineq_kin.dot(p) < b_ineq_kin:
-                self.logger.info('Try to get obtain well-posed constraint')
-                try:
-                    A_ineq_kin, b_ineq_kin = constr_cond(
-                        A_ineq_kin, b_ineq_kin, p)
-                except Exception:
-                    raise Exception
+    pp = ppxf(star_templates, galaxy, noise, velscale,
+              start_stellar_kinematics,
+              moments=moments, component=component, goodpixels=goodpixels,
+              lam=obs_meta['wave_obs'], #lam_temp=model_meta['wave'],
+              **main_meta['ppxf_stellar_continuum'])
 
-            b_ineq_kin = b_ineq_kin / velscale
-            constr_kinem = {"A_ineq": A_ineq_kin, "b_ineq": b_ineq_kin}
+    print('Elapsed time in PPXF: %.2f s' % (clock() - t))
+    return pp
 
-        except Exception:
-            constr_kinem = {}
-        self.logger.debug(constr_kinem)
 
-        pp = ppxf(stars_gas_templates, galaxy, noise, velscale, start,
-                  plot=False, moments=moments, component=component,
-                  gas_component=gas_component, gas_names=gas_names,
-                  lam=lam, vsyst=0,
-                  bounds=bounds,
-                  constr_kinem=constr_kinem,
-                  **self.main_meta['ppxf_emission_fit']
-                  )
+def execute_ppxf(galaxy=None, noise=None, models=None, em_model=None,
+                 goodpixels=None, obs_meta=None, model_meta=None,
+                 main_meta=None, bounds_rule=None,
+                 stellar_kinematics_slice=None, gas_kinematics_slice=None,
+                 pp=None, kwargs_ppxf=None, logger=None):
+    assert kwargs_ppxf is not None
+    assert galaxy is not None
+    assert noise is not None
 
-        pp.sol[0] = stellar_kinematics
+    global start
 
-        corrected_flux = np.full_like(gas_names, np.nan, dtype=float)
-        amplitude_rms = np.full_like(gas_names, np.nan, dtype=float)
-        rms = robust_sigma(pp.galaxy - pp.bestfit, zero=1)
-        for p, name in enumerate(gas_names):
-            kk = gas_names == name
-            # Angstrom per pixel at line wavelength (dlam/lam = dv/c)
-            dlam = label_wave[kk]*velscale/self.C
-            # Convert to ergs/(cm^2 s)
-            corrected_flux[p] = (pp.gas_flux[kk]*dlam)[0]
-            amplitude_rms[p] = np.max(pp.gas_bestfit_templates[:, kk])/rms
-            print(f"{name:20s}",
-                  f"-Amp/Res: {amplitude_rms[p]:6.2f};",
-                  f"flux: {corrected_flux[p]:6.0f} ergs/(cm^2 s)")
+    if logger is None:
+        logger = logging.getLogger(__name__)
 
-        pp.corrected_flux = corrected_flux
-        pp.amplitude_rms = amplitude_rms
-        pp.gas_names = gas_names
+    t = clock()
 
-        print('Elapsed time in PPXF: %.2f s' % (clock() - t))
-        return pp
+    C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
 
-    def store_output(self, input_queue, output_queue):
-        while not all([output_queue.empty(), input_queue.empty()]):
-            serial_out = output_queue.get()
-            self.logger.debug(output_queue.qsize())
-            total_time = clock()
+    stellar_kinematics = stellar_kinematics_slice
+    logger.debug(stellar_kinematics)
 
-            index, out_obj = pickle.loads(serial_out)
+    gas_kinematics = gas_kinematics_slice
+    logger.debug(gas_kinematics)
 
-            if out_obj is None:
-                continue
+    gas_templates = em_model.template
+    gas_names = em_model.label
+    label_wave = em_model.label_wave
+    lam = obs_meta['wave_obs']
+    velscale = C * np.diff(np.log(lam[-2:]))[0]
+    gas_moments = main_meta['gas_template']['moments']
+    ngas_comp = main_meta['gas_template']['components']
+    em_shape = em_model.size
 
-            with self.lock:
-                if self.storage.value is False:
-                    self.build_output_storage(out_obj)
+    comp = [1] + em_shape * ngas_comp
+    component = np.concatenate(
+        [[i]*value for i, value in enumerate(comp)]
+        )
 
-                    add_param = self.main_meta['output']['additional_param']
-                    self.keep_add_param(out_obj, parameters=add_param)
+    stellar_moments = stellar_kinematics[:4].shape[0]
+    moments = [-stellar_moments] + [gas_moments] * ngas_comp*len(em_shape)
 
-            [self._store(index=index, out_obj=out_obj, _p=_p)
-             for _p in self.par]
+    gas_templates = np.tile(gas_templates, ngas_comp)
+    gas_names = np.asarray(
+        [gas + f"_({p+1})" for p in range(ngas_comp) for gas in gas_names])
+    label_wave = np.tile(label_wave, ngas_comp)
+    gas_component = np.array(component) > 0
+    stars_gas_templates = np.column_stack([pp.bestfit, gas_templates])
 
-            self.logger.debug(
-                f'Elapsed time to save {index}: %.5f s' % (clock()-total_time))
+    start_stellar_kinematics = np.array([0, 1, 0, 0])
 
-    def _store(self, index, out_obj, _p):
-        t = clock()
+    start_gas_kinematics = np.zeros(gas_moments)
+    if gas_moments > 1:
+        start_gas_kinematics[:2] = [0., 2*velscale]
+    start_gas_kinematics = [start_gas_kinematics.tolist()]
+    start_gas_kinematics = start_gas_kinematics * ngas_comp * len(em_shape)
+
+    start = [start_stellar_kinematics.tolist()] + start_gas_kinematics
+
+    if len(start) == 1:
+        start = start[0]
+
+    try:
+        aux = np.asarray(start_gas_kinematics).ravel()
+        bounds_gas = np.array(build_bounds(aux, bounds_rule))
+        bounds_gas = bounds_gas.reshape(
+            ngas_comp * len(em_shape), -1, 2)
+        bounds_gas = bounds_gas.tolist()
+
+        bounds_stellar = [[-200, 200], [1, 200], [-1, 1], [-1, 1]]
+
+        bounds = [bounds_stellar] + bounds_gas
+    except Exception:
+        print('Could not build bounds')
+        bounds = None
+
+
+    try:
+        A_ineq_kin = main_meta['gas_template']['A_ineq_kin']
+        b_ineq_kin = main_meta['gas_template']['b_ineq_kin']
+        A_ineq_kin = np.asarray(A_ineq_kin, dtype=float)
+        b_ineq_kin = np.asarray(b_ineq_kin, dtype=float)
+
+        # Adjust Constraint conditioning
+        p = np.concatenate(start)
+        if not any(A_ineq_kin.dot(p) < b_ineq_kin):
+            logger.info('Try to get obtain well-posed constraint')
+            try:
+                A_ineq_kin, b_ineq_kin = constr_cond(
+                    A_ineq_kin, b_ineq_kin, p)
+            except Exception:
+                raise Exception
+
+        b_ineq_kin = b_ineq_kin / velscale
+        constr_kinem = {"A_ineq": A_ineq_kin, "b_ineq": b_ineq_kin}
+
+    except Exception:
+        print('Could not apply constraints on the kinematics')
+        constr_kinem = {}
+
+    logger.debug(constr_kinem)
+
+    pp = ppxf(stars_gas_templates, galaxy, noise, velscale, start,
+              plot=False, moments=moments, component=component,
+              gas_component=gas_component, gas_names=gas_names,
+              lam=lam, vsyst=0,
+              bounds=bounds, goodpixels=goodpixels,
+              constr_kinem=constr_kinem,
+              **main_meta['ppxf_emission_fit'],
+              )
+
+    pp.sol[0] = stellar_kinematics
+
+    corrected_flux = np.full_like(gas_names, np.nan, dtype=float)
+    amplitude_rms = np.full_like(gas_names, np.nan, dtype=float)
+    rms = robust_sigma(pp.galaxy - pp.bestfit, zero=1)
+    for p, name in enumerate(gas_names):
+        kk = gas_names == name
+        # Angstrom per pixel at line wavelength (dlam/lam = dv/c)
+        dlam = label_wave[kk]*velscale/C
+        # Convert to ergs/(cm^2 s)
+        corrected_flux[p] = (pp.gas_flux[kk]*dlam)[0]
+        amplitude_rms[p] = np.max(pp.gas_bestfit_templates[:, kk])/rms
+        print(f"{name:20s}",
+              f"-Amp/Res: {amplitude_rms[p]:6.2f};",
+              f"flux: {corrected_flux[p]:6.0f} ergs/(cm^2 s)")
+
+    pp.corrected_flux = corrected_flux
+    pp.amplitude_rms = amplitude_rms
+    pp.gas_names = gas_names
+
+    print('Elapsed time in PPXF: %.2f s' % (clock() - t))
+    return pp
+
+
+def store_output(serial_out=None, par=None, logger=None,
+                 out_dataset=None, lock=None):
+    assert par is not None
+    assert out_dataset is not None
+
+    total_time = clock()
+
+    if logger is None:
+        logger = logging.getLogger(__name__)
+
+    if serial_out is None:
+        return True
+
+    # add_param = self.main_meta['output']['additional_param']
+    # self.keep_add_param(out_obj, parameters=add_param)
+
+    [_store(out_obj=serial_out, _p=_p, out_dataset=out_dataset, logger=logger)
+     for _p in par]
+
+    logger.debug(
+        f'Elapsed time to save {serial_out.i}: %.5f s' % (clock()-total_time))
+
+    return True
+
+
+def build_output_storage(out_obj=None, out_dataset=None, logger=None,
+                         n_obj=None, par=None):
+    assert par is not None
+    assert out_dataset is not None
+    assert n_obj is not None
+
+    if logger is None:
+        logger = logging.getLogger(__name__)
+    if n_obj is None:
+        n_obj = 1
+
+    if out_obj is None:
+       raise Exception('Invalid data')
+
+    logger.info('Building storage')
+
+    for _p in par:
+        assert _p in dir(out_obj), f"{_p} is not available"
         _obj = out_obj.__getattribute__(_p)
 
-        if isinstance(_obj, list):
-            _obj = np.concatenate(_obj)
+        if _obj is None:
+            _shape = (n_obj,)
+        elif isinstance(_obj, (float, int, bool)):
+            _shape = (n_obj,)
+        elif _p == 'goodpixels':
+            # NOTE: goodpixels array has a variable size. It's trick to
+            # deal with this kind of object so I'm implementing a
+            # special case. <>
+            _aux = out_obj.__getattribute__('galaxy')
+            _shape = _aux.shape + (n_obj,)
+        elif isinstance(_obj, list):
+            _obj = np.hstack(_obj)
             _obj = _obj.ravel()
+            _shape = _obj.shape + (n_obj,)
+        else:
+            _shape = _obj.shape + (n_obj,)
 
         try:
-            self.out_ppxf[_p][..., index] = _obj
-        except ValueError:
-            shape = _obj.shape[0]
-            self.out_ppxf[_p][..., :shape, index] = _obj
+            dtype = _obj.dtype
+        except Exception:
+            dtype = type(_obj)
+        finally:
+            if dtype == float:
+                dtype = np.float32
+            if dtype == type(None):
+                dtype = np.float32
+            logger.debug(dtype)
 
-        self.logger.debug(
-            f'Time to save {_p: >15}_{index}: %.5f s' % (clock() - t))
+        if _p == 'goodpixels':
+            # chunks = list(_shape)
+            # chunks[1] = 100*n_process
 
-    def build_output_storage(self, out_obj=None):
-        assert out_obj is not None
+            data_axis = np.arange(_aux.shape[0])
+            index_axis = np.arange(n_obj)
+            coords = [data_axis, index_axis]
+            dims = [f'{_p}_data', 'index']
 
-        self.logger.info('Building storage')
-        n_obj = self.data.obs.flux_grid.shape[-1]
+        elif len(_shape) == 1:
+            # chunks = 100*n_process
 
-        for _p in self.par:
-            assert _p in dir(out_obj), f"ppxf doesn't output {_p}"
-            _obj = out_obj.__getattribute__(_p)
+            index_axis = np.arange(n_obj)
+            coords = [index_axis]
+            dims = ['index']
 
-            if _obj is None:
-                _shape = (n_obj,)
-            elif isinstance(_obj, (float, int, bool)):
-                _shape = (n_obj,)
-            elif _p == 'goodpixels':
-                # NOTE: goodpixels array has a variable size. It's trick to
-                # deal with this kind of object so I'm implementing a
-                # special case. <>
-                _aux = out_obj.__getattribute__('galaxy')
-                _shape = _aux.shape + (n_obj,)
-            elif isinstance(_obj, list):
-                _obj = np.concatenate(_obj)
-                _obj = _obj.ravel()
-                _shape = _obj.shape + (n_obj,)
-            else:
-                _shape = _obj.shape + (n_obj,)
+        elif len(_shape) == 2:
+            # chunks = list(_shape)
+            # chunks[1] = 100*n_process
 
-            try:
-                dtype = _obj.dtype
-            except Exception:
-                dtype = type(_obj)
-            finally:
-                if dtype == float:
-                    dtype = np.float32
-                self.logger.debug(dtype)
+            data_axis = np.arange(_obj.shape[0])
+            index_axis = np.arange(n_obj)
+            coords = [data_axis, index_axis]
+            dims = [f'{_p}_data', 'index']
 
-            if len(_shape) == 1:
-                chunks = 100*self.N_PROCESS
+        # logger.debug(chunks)
 
-                index_axis = np.arange(n_obj)
-                coords = [index_axis]
-                dims = ['index']
+        # empty_arr = np.empty(dtype=dtype, shape=_shape)
+        # empty_arr = da.empty(dtype=dtype, shape=_shape, chunks=chunks)
+        with tempfile.NamedTemporaryFile() as temp_file:
+            empty_arr = np.memmap(temp_file, dtype = float, shape = _shape)
+            empty_arr.fill(np.nan)
+            empty_arr.flush()
 
-            elif len(_shape) == 2:
-                chunks = list(_shape)
-                chunks[1] = 100*self.N_PROCESS
+        logger.debug(empty_arr)
+        logger.debug(_p)
+        logger.debug(empty_arr.dtype)
+        logger.debug(empty_arr.shape)
+        logger.debug(coords)
+        logger.debug(dims)
+        logger.debug('\n')
 
-                data_axis = np.arange(_obj.shape[0])
-                index_axis = np.arange(n_obj)
-                coords = [data_axis, index_axis]
-                dims = [f'{_p}_data', 'index']
+        data_array = xr.DataArray(
+            empty_arr, coords=coords, dims=dims, name=_p)
+        logger.debug(data_array)
 
-            self.logger.debug(chunks)
+        out_dataset[_p] = data_array
+        logger.debug(out_dataset)
 
-            # empty_arr = np.empty(dtype=dtype, shape=_shape)
-            # empty_arr = da.empty(1dtype=dtype, shape=_shape, chunks=chunks)
-            with tempfile.NamedTemporaryFile() as temp_file:
-                empty_arr = np.memmap(temp_file, dtype = float, shape = _shape)
-                # empty_arr.fill(np.nan)
-                empty_arr.flush()
+    return True
 
-            self.logger.debug(empty_arr)
-            self.logger.debug(_p)
-            self.logger.debug(empty_arr.dtype)
-            self.logger.debug(empty_arr.shape)
-            self.logger.debug(coords)
-            self.logger.debug(dims)
-            self.logger.debug('\n')
 
-            data_array = xr.DataArray(
-                empty_arr, coords=coords, dims=dims, name=_p)
-            self.logger.debug(data_array)
+def _store(out_obj, _p, out_dataset=None, logger=None):
+    assert out_dataset is not None
+    if logger is None:
+        logger = logging.getLogger(__name__)
 
-            self.out_ppxf[_p] = data_array
-            self.logger.debug(self.out_ppxf)
+    t = clock()
+    index = out_obj.i
+    _obj = out_obj.__getattribute__(_p)
 
-        self.storage.value = True
-        self.logger.info('Storage built')
+    if isinstance(_obj, list):
+        _obj = np.hstack(_obj)
+        _obj = _obj.ravel()
 
-    def keep_add_param(self, out_obj=None, parameters=[]):
-        assert out_obj is not None
+    try:
+        out_dataset[_p][..., index] = _obj
+    except ValueError:
+        shape = _obj.shape[0]
+        out_dataset[_p][..., :shape, index] = _obj
 
-        for parameter in parameters:
-            data = out_obj.__getattribute__(parameter)
-            path = os.path.join(self.main_meta['output_run'],
-                                f'{parameter}.json')
+    # try:
+    #     self.out_ppxf[_p].flush()
+    # except Exception:
+    #     pass
 
-            with open(path, 'w') as out:
-                json.dump(data, fp=out, indent=4, cls=JsonCustomEncoder)
+    logger.debug(
+        f'Time to save {_p: >15}_{index}: %.5f s' % (clock() - t))
+
 
 
 def constr_cond(A, b, p):
@@ -458,6 +548,55 @@ def constr_cond(A, b, p):
             n_iter += 1
     return A_new, b_new
 
+# test
 
 if __name__ == '__main__':
     t = ExecutePpxf(ppxf_prep.data, ppxf_prep.data.main_meta)
+    # t.run_all_data()
+
+
+#%% Test single spectrum
+
+    fits = []
+    i = 0
+    fit = worker(i,
+                t.data.obs.flux_grid[:, i],
+                t.data.obs.flux_grid_unc[:, i],
+                models=t.data.stellar, em_model=t.data.em_model,
+                logger=t.logger, size=t.size,
+                gas_kinematics_slice=t.data.gas_kinematics.kinematics_grid[:, i],
+                stellar_kinematics_slice=t.data.stellar_kinematics.kinematics_grid[:, i],
+                bounds_rule=t.data.bounds_rule,
+                main_meta=t.data.main_meta, obs_meta=t.data.obs.meta,
+                model_meta=t.data.stellar.meta)
+    fits.append(fit)
+
+#%% test with mpi
+
+    fits = []
+    with MPIPoolExecutor(3) as executor:
+        # executor =  MPIPoolExecutor(1)
+        # i = 0
+        for i in range(3):
+            fit = executor.submit(
+                    worker,
+                    i,
+                    t.data.obs.flux_grid[:, i],
+                    t.data.obs.flux_grid_unc[:, i],
+                    models=t.data.stellar, em_model=t.data.em_model,
+                    logger=t.logger, size=t.size,
+                    gas_kinematics_slice=t.data.gas_kinematics.kinematics_grid[:, i],
+                    stellar_kinematics_slice=t.data.stellar_kinematics.kinematics_grid[:, i],
+                    bounds_rule=t.data.bounds_rule,
+                    main_meta=t.data.main_meta, obs_meta=t.data.obs.meta,
+                    model_meta=t.data.stellar.meta)
+            fits.append(fit)
+
+        for _ in fits:
+            import matplotlib.pyplot as plt
+            a = pickle.loads(_.result())
+            print(a.out_log)
+            fig, ax = plt.subplots()
+            a.plot()
+
+# %%
