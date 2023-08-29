@@ -176,7 +176,7 @@ class DataPreprocessing:
             ext_conf = self.main_meta['observation']['foreground_extinction']
 
             map_name = ext_conf['dust_map']
-            self.logger.info(f'\tdust_map: {map_name}')
+            self.logger.info(f'\tdust map: {map_name}')
 
             law = ext_conf['law']
             self.logger.info(f'\tlaw: {law}')
