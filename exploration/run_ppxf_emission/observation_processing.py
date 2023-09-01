@@ -11,6 +11,7 @@ import os
 import tempfile
 import warnings
 from abc import ABC, abstractmethod
+from functools import partial
 
 import numpy as np
 import spectcube as sc
@@ -129,18 +130,44 @@ class Observation(ABC):
         self.meta['col'] = col + 1   # start counting from 1
         self.meta['row'] = row + 1
 
-    def vorbin(self, target_sn=None):
+    def vorbin(self, target_sn=None, sn_func=None):
         assert target_sn is not None
+
         signal = self.original_signal
         noise = self.original_noise
 
-        pixelsize = abs(self.header[1]['CD1_1'])*3600
+        pixelsize = abs(self.header[1]['CD1_1']) * 3600
 
-        out = voronoi_2d_binning(
-           self.meta['x_valid'], self.meta['y_valid'],
-           signal[self.meta['valid']], noise[self.meta['valid']],
-           pixelsize=pixelsize, target_sn=target_sn, plot=0)
-        bin_num, x_gen, y_gen, xbin, ybin, sn, nPixels, scale = out
+        if sn_func is None:
+            covar_a = 0
+            covar_b = 1
+            sn_func = partial(
+                sn_function, covar_sn_a=covar_a, covar_sn_b=covar_b)
+
+        try:
+            bin_num, x_gen, y_gen, xbin, ybin, sn, nPixels, scale = \
+                voronoi_2d_binning(
+                    x=self.meta['x_valid'], y=self.meta['y_valid'],
+                    signal=signal[self.meta['valid']],
+                    noise=noise[self.meta['valid']],
+                    sn_func=sn_func, pixelsize=pixelsize, target_sn=target_sn,
+                    plot=0)
+
+        except Exception as exp:
+            if "All pixels have enough S/N" in str(exp):
+                print(str(exp))
+                n_spec = self.flux_grid[:, self.meta['valid']].shape[-1]
+
+                bin_num = np.arange(n_spec)
+                x_gen = np.zeros((n_spec), float)
+                y_gen = np.zeros((n_spec), float)
+                xbin = self.meta['x_valid']
+                ybin = self.meta['y_valid']
+                sn = self.meta['original_snr'][self.meta['valid']]
+                nPixels = np.ones((n_spec,), float)
+                scale = np.zeros((n_spec), float)
+            else:
+                raise exp
 
         self.meta['bin_num'] = bin_num
         self.meta['x_gen'] = x_gen
@@ -182,10 +209,16 @@ class Observation(ABC):
                 shape= (n_pix, sn.size))
 
             for j in range(sn.size):
+                # Average
                 w = bin_num == j
-                flux_bin[:, j] = np.nansum(flux_valid[:, w], axis=1)
-                flux_unc_bin[:, j] = np.sqrt(np.nansum(
-                    flux_unc_valid[:, w]**2, axis=1))
+                covar_a = sn_func.keywords['covar_sn_a']
+                covar_b = sn_func.keywords['covar_sn_b']
+                corr_factor = (1 + covar_a * np.log10(nPixels[j]) ** covar_b)
+
+                flux_bin[:, j] = (1/w.sum())*np.nansum(flux_valid[:, w], 1)
+                flux_unc_bin[:, j] = \
+                    np.sqrt(np.nansum(flux_unc_valid[:, w]**2, 1))
+                flux_unc_bin[:, j] = (1/w.sum())*flux_unc_bin[:, j]*corr_factor
 
             self.flux_grid = flux_bin
             self.flux_grid_unc = flux_unc_bin
