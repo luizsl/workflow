@@ -24,8 +24,8 @@ class StellarContinuumFactory(ABC):
     @abstractmethod
     def __init__(self):
         pass
-    
-    
+
+
 class Observation(ABC):
     meta = {}
     @abstractmethod
@@ -46,7 +46,7 @@ class Observation(ABC):
                 new_sampling = 'ln')
         else:
             self.meta['wave_obs'] = new_wave
-            
+
         self.meta['new_obs_sampling'] = 'ln'
 
         self.flux_grid, _, self.flux_grid_unc = \
@@ -66,7 +66,7 @@ class Observation(ABC):
             wave = self.meta['wave_obs']
         else:
             raise Exception
-        assert len(wave) == self.flux_grid.shape[0]    
+        assert len(wave) == self.flux_grid.shape[0]
 
         self.flux_grid, self.meta['obs_norm_factor'] = normalize_band(
             self.flux_grid, wave, **kwargs)
@@ -194,7 +194,7 @@ class Observation(ABC):
         # Hide warning of empty slices at edge of FoV
         with warnings.catch_warnings():
             warnings.simplefilter("ignore", category=RuntimeWarning)
-            
+
             w = ((self.meta['wave_obs'] > snr_window[0])
                  & (self.meta['wave_obs'] < snr_window[1]))
             signal = np.nanmean(self.flux_grid[w], axis=0)
@@ -215,12 +215,12 @@ class Observation(ABC):
 
         # Invert mask to include in the fit
         mask = ~mask
-        
+
         # Convert to goodpixels index
         goodpixels = np.arange(mask.size)[mask]
 
         self.meta[kind] = goodpixels
-        
+
     def trim_spectral_axis(self, lower=None, upper=None):
         mask = np.ma.masked_outside(self.meta['wave_obs'], lower, upper)
         if mask.mask.size == 1:
@@ -269,7 +269,7 @@ class Muse(Observation):
         with fits.open(self.meta['path_obs'], memmap = True,
                        lazy_load_hdus = True, cache = False) as hdul:
             # NOTE: A considerable number of the spaxel has a NaN at the last
-            # pixel. To avoid further issues, when that occurs I'm assigning 
+            # pixel. To avoid further issues, when that occurs I'm assigning
             # to the last pixel the same value of the nearest one. <>
             where_nan = ~np.isfinite(hdul['DATA'].data[-1, ...])
             hdul['DATA'].data[-1, ...][where_nan] = \
@@ -295,15 +295,15 @@ class Muse(Observation):
             self.header = header
 
             self.meta['shape_obs'] = self.flux_grid.shape[1:]
-            
+
             if hdul['DATA'].header['NAXIS'] == 3:
                 self.reshape()
-                
+
             self.original_snr, self.original_signal ,self.original_noise, = \
                 self.compute_snr(snr_window=snr_window)
 
             self.validate_spaxels(min_sn=min_valid_sn)
-            
+
             if hdul['DATA'].header['NAXIS'] == 3:
                 self.build_coordinate()
 
@@ -313,17 +313,17 @@ class StellarContinuum(StellarContinuumFactory):
         self.meta = {}
         assert os.path.isfile(path_stellar_continuum), f'{path_stellar_continuum} is NOT a file'
         self.meta['path_stellar_continuum'] = path_stellar_continuum
-        
+
         self.meta['obs_sampling_type'] = 'ln'
         self.meta['wave'] = wave
-        
+
     def build_grid(self):
         with fits.open(self.meta['path_stellar_continuum'], memmap = True,
                        lazy_load_hdus = True) as hdul:
             self.flux_grid = np.array(hdul[0].data)
-        
+
         self.meta['shape_stellar'] = self.flux_grid.shape[1:]
-        
+
         if len(self.flux_grid.shape) == 3:
             self.reshape('flux_grid')
 
@@ -333,7 +333,7 @@ class StellarContinuum(StellarContinuumFactory):
     def reshape(self, prop):
         new_shape = (-1, np.array(self.meta['shape_stellar']).prod())
         self.__setattr__(prop, self.__getattribute__(prop).reshape(new_shape))
-        
+
     def convert_to_mmap(self):
         with tempfile.TemporaryFile() as f_stellar:
 
@@ -374,7 +374,7 @@ class StellarContinuum(StellarContinuumFactory):
             wave = self.meta['wave']
         else:
             raise Exception
-        assert len(wave) == self.flux_grid.shape[0]    
+        assert len(wave) == self.flux_grid.shape[0]
 
         self.flux_grid, self.meta['obs_norm_factor'] = normalize_band(
             self.flux_grid, wave, **kwargs)
@@ -384,34 +384,40 @@ class StellarContinuum(StellarContinuumFactory):
         scale = np.mean(scale_template[band], axis=0)
         mean_stellar =  np.mean(self.flux_grid[band], axis=0)
         scaled = self.flux_grid *  scale/mean_stellar
-        
+
         return scaled
 
-            
+
+def sn_function(index, signal=None, noise=None, covar_sn_a=0, covar_sn_b=1):
+    sn = np.sum(signal[index])/np.sqrt(np.sum(noise[index]**2))
+    sn = sn / (1 + covar_sn_a * (np.log10(index.size))**covar_sn_b)
+    return sn
+
+
 if __name__ == '__main__':
     path_obs = '../../data/fov_sample_1_3.fits'
-    
+
     path_metadata = '../../data_products/fov_sample_1_3/XSLAgeMh/ppxf/metadata.json'
     with open(path_metadata) as f:
         metadata = json.load(f)
     wave = np.array(metadata['obs']['wave_obs'])
-    
+
     obs = Muse(path_obs, z=0.0)
-    
+
     obs.build_grid(min_valid_sn=3, snr_window=[5450, 5550])
     obs.vorbin(target_sn=200)
     obs.normalize(limits=[5450, 5550])
     obs.convert_to_mmap()
-    
+
     path_stellar_continuum = '../../data_products/fov_sample_1_3/XSLAgeMh/ppxf/bestfit.fits'
     stellar = StellarContinuum(path_stellar_continuum, wave)
     stellar.build_grid()
     stellar.convert_to_mmap()
-        
+
     valid = obs.meta['valid']
     npixels = obs.meta['nPixels']
     bin_num = obs.meta['bin_num']
-    
+
     stellar.apply_binning(bin_num, npixels, valid)
     stellar.normalize(limits=[5450, 5550])
-    
+

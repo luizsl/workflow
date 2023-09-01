@@ -19,7 +19,7 @@ from compute_muse_lsf import equation_lsf
 from emission_modelling import EmissionModel
 from kinematics_processing import (AnomalyDetection, Field, FieldInferece,
                                    Kinematics)
-from observation_processing import Muse, StellarContinuum
+from observation_processing import Muse, StellarContinuum, sn_function
 
 
 class DataPreprocessing:
@@ -139,10 +139,38 @@ class DataPreprocessing:
 
         wave = np.array(self.stellar_fit_metadata['obs']['wave_obs'])
         self.obs.resample(wave)
+
         if self.main_meta['vorbin']['apply'] is True:
-            target_sn=self.main_meta['vorbin']['target_sn']
-            self.logger.info('--Voronoi binning with target SNR:{}'.format(target_sn))
-            self.obs.vorbin(target_sn=target_sn)
+
+            os.environ["MKL_NUM_THREADS"] = "1"
+            os.environ["NUMEXPR_NUM_THREADS"] = "1"
+            os.environ["OMP_NUM_THREADS"] = "1"
+
+            target_sn = self.main_meta['vorbin']['target_sn']
+
+            try:
+                covar_a = self.main_meta['vorbin']['covar_sn_a']
+            except Exception:
+                covar_a = 0
+
+            try:
+                covar_b = self.main_meta['vorbin']['covar_sn_b']
+            except Exception:
+                covar_b = 1
+
+            sn_func = partial(
+                sn_function, covar_sn_a=covar_a, covar_sn_b=covar_b
+            )
+
+            self.logger.info(
+                '--Voronoi binning with target SNR:{}'.format(target_sn)
+            )
+            self.obs.vorbin(target_sn=target_sn, sn_func=sn_func)
+
+            os.environ.pop("MKL_NUM_THREADS")
+            os.environ.pop("NUMEXPR_NUM_THREADS")
+            os.environ.pop("OMP_NUM_THREADS")
+
 
         # if 'normalization' in self.main_meta['common']:
         #     limits = self.main_meta['common']['normalization']
