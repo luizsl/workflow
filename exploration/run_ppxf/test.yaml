@@ -11,7 +11,7 @@ common:
 
 observation:
     class: Muse
-    obs_name: fov_sample_1_3     # should not include extensions in the name
+    obs_name: fov_sample_1_3    # should not include extensions in the name
     redshift: 0.004951
     spectral_mask: [
         [4000, 4770],
@@ -81,4 +81,3 @@ vorbin:
     target_sn: 300
     # covar_sn_a: 1.06          # beta(N) = 1 + a * (log_10 N)^b
     # covar_sn_b: 1
-

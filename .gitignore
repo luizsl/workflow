@@ -5,6 +5,8 @@ data/*
 data_products/*
 !data_products/.gitkeep
 
+!exploration/run_ppxf/conf/.gitkeep
+exploration/run_ifscube/previous_results
 exploration/run_ifscube/*.pdf
 exploration/run_ifscube/*.fits
 exploration/run_ifscube/ifscube
@@ -16,18 +18,18 @@ exploration/run_ppxf/ppxf_test.py
 exploration/run_ppxf/*.fits
 exploration/run_ppxf/test_voronoi.py
 exploration/run_ppxf/conf/*
-exploration/run_ppxf/__pycache__/*
-exploration/run_ppxf/*.pdf
-exploration/run_ppxf/test_vonoroi.py
-exploration/run_ppxf/*.yaml
-exploration/run_ppxf/slurm_files
 
 exploration/run_ppxf_emission/__pycache__/*
-exploration/run_ppxf_emission/*yaml
+exploration/run_ppxf_emission/test.yaml
+exploration/run_ppxf_emission/voronoi_2d_binning_example.py
+exploration/run_ppxf_emission/test_ppxf_em.py
 
 exploration/run_inla/.Rhistory
 exploration/run_inla/*.txt
 exploration/run_inla/*.json
+exploration/run_ppxf/__pycache__/*
+exploration/run_ppxf/*.pdf
+exploration/run_ppxf/test_vonoroi.py
 
 miscellaneous/.ipynb_checkpoints
 miscellaneous/*.ipynb
@@ -40,6 +42,3 @@ plots/*/
 duvidas.md
 melhorias.md
 improvements.md
-
-**/*.dat
-**/.ipynb_checkpoints/*
