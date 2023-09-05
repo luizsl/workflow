@@ -1,7 +1,5 @@
 # README
 
-This file uses the markdown syntax, it can be converted to an elegant pdf or HTML with some application that manage such format. After the compilation # , ## and so on are converted to a chain of hierarchical titles and subtitles. But it's readable even without any compilation.
-
 ## Directory architecture
 
 ```
