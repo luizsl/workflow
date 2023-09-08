@@ -52,12 +52,19 @@ class ExecutePpxf:
 
         self.size = self.data.obs.flux_grid[0, ...].size
 
-        par = []
+        try:
+            to_save = self.main_meta['output']['to_save']
+        except:
+            to_save = []
+
+        try:
+            to_map = self.main_meta['output']['to_map']
+        except:
+            to_map = []
 
         # NOTE: Saving output unforeseen
-        new_par = self.main_meta['output']['to_save'] \
-            + self.main_meta['output']['to_map']
-        self.par = list(set(par) | set(new_par))
+        par = to_save + to_map
+        self.par = list(set(par))
 
 
     def start_logging(self):
@@ -100,7 +107,7 @@ class ExecutePpxf:
         except Exception:
             self.N_PROCESS = mp.cpu_count()
 
-        with MPIPoolExecutor() as executor:
+        with MPIPoolExecutor(self.N_PROCESS) as executor:
         # with ProcessPoolExecutor(self.N_PROCESS) as executor:
             self.storage_flag.value = False
 
@@ -114,7 +121,8 @@ class ExecutePpxf:
                         index,
                         self.data.obs.flux_grid[:, index],
                         self.data.obs.flux_grid_unc[:, index],
-                        models=self.data.stellar,
+                        models=None,
+                        stellar_bestfit=self.data.stellar.flux_grid[:, index],
                         em_model=self.data.em_model,
                         logger=self.logger, size=self.size,
                         gas_kinematics_slice=self.data.gas_kinematics.kinematics_grid[:, index],
@@ -160,7 +168,7 @@ class ExecutePpxf:
 
 
 def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
-           em_model=None, logger=None, size=None,
+           em_model=None, stellar_bestfit=None, logger=None, size=None,
            stellar_kinematics_slice=None, gas_kinematics_slice=None,
            bounds_rule=None, main_meta=None, obs_meta=None, model_meta=None):
 
@@ -186,6 +194,7 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
             pp = execute_ppxf_continuum(
                 galaxy=flux_obs_slice, noise=flux_obs_unc_slice,
                 models=models, em_model=em_model,
+                stellar_bestfit=stellar_bestfit,
                 goodpixels=goodpixels, bounds_rule=bounds_rule,
                 main_meta=main_meta, obs_meta=obs_meta, model_meta=model_meta,
                 pp=pp, kwargs_ppxf=main_meta['ppxf_stellar_continuum'])
@@ -218,7 +227,8 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
 
 
 def execute_ppxf_continuum(galaxy=None, noise=None, models=None, em_model=None,
-                           goodpixels=None, obs_meta=None, model_meta=None,
+                           stellar_bestfit=None, goodpixels=None,
+                           obs_meta=None, model_meta=None,
                            main_meta=None, bounds_rule=None, pp=None,
                            kwargs_ppxf=None, logger=None):
     assert kwargs_ppxf is not None
@@ -232,7 +242,7 @@ def execute_ppxf_continuum(galaxy=None, noise=None, models=None, em_model=None,
 
     C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
 
-    star_templates = models.flux_grid
+    star_templates = stellar_bestfit
 
     frac = obs_meta['wave_obs'][1]/obs_meta['wave_obs'][0]
     velscale = np.log(frac)*C       # Velocity scale in km/s per pixel (eq.8 of Cappellari 2017)
