@@ -157,7 +157,8 @@ class ExecutePpxf:
                 out_obj = pickle.loads(out_obj)
                 store_output(out_obj, par=self.par, logger=self.logger,
                     out_dataset=self.out_ppxf)
-                self.logger.info(out_obj.out_log)
+                if out_obj is not None:
+                    self.logger.info(out_obj.out_log)
                 self.logger.debug('saving')
 
         # keep end time
@@ -174,7 +175,6 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
 
     if logger is None:
         logger = logging.getLogger(__name__)
-
 
     with redirect_stdout(io.StringIO()) as f:
         id_ = f'{i+1}/{size}'
@@ -582,32 +582,31 @@ if __name__ == '__main__':
 
 #%% Test single spectrum
 
-    for i in range(500):
-        fits = []
-        # i = 400
-        fit = worker(i,
-                    t.data.obs.flux_grid[:, i],
-                    t.data.obs.flux_grid_unc[:, i],
-                    models=None,
-                    stellar_bestfit=t.data.stellar.flux_grid[:, i],
-                    em_model=t.data.em_model,
-                    logger=t.logger, size=t.size,
-                    gas_kinematics_slice=t.data.gas_kinematics.kinematics_grid[:, i],
-                    stellar_kinematics_slice=t.data.stellar_kinematics.kinematics_grid[:, i],
-                    bounds_rule=t.data.bounds_rule,
-                    main_meta=t.data.main_meta, obs_meta=t.data.obs.meta,
-                    model_meta=t.data.stellar.meta)
-        fits.append(fit)
+    fits = []
+    i = 698
+    fit = worker(i,
+                t.data.obs.flux_grid[:, i],
+                t.data.obs.flux_grid_unc[:, i],
+                models=None,
+                stellar_bestfit=t.data.stellar.flux_grid[:, i],
+                em_model=t.data.em_model,
+                logger=t.logger, size=t.size,
+                gas_kinematics_slice=t.data.gas_kinematics.kinematics_grid[:, i],
+                stellar_kinematics_slice=t.data.stellar_kinematics.kinematics_grid[:, i],
+                bounds_rule=t.data.bounds_rule,
+                main_meta=t.data.main_meta, obs_meta=t.data.obs.meta,
+                model_meta=t.data.stellar.meta)
+    fits.append(fit)
 
-        pp = pickle.loads(fit)
+    pp = pickle.loads(fit)
 
 #%% test with mpi
 
     fits = []
-    with MPIPoolExecutor(1) as executor:
+    with MPIPoolExecutor() as executor:
         # executor =  MPIPoolExecutor(1)
         # i = 0
-        for i in range(500):
+        for i in range(700):
             # print(i)
             fit = executor.submit(
                     worker,
@@ -631,9 +630,60 @@ if __name__ == '__main__':
             try:
                 print(a.out_log)
                 if a is not None:
-                    fig, ax = plt.subplots()
-                    a.plot()
+                    pass
+                    # fig, ax = plt.subplots()
+                    # a.plot()
             except:
                 pass
 
 # %%
+    n_obj = t.data.obs.flux_grid.shape[-1]
+    futures = []
+    with MPIPoolExecutor() as executor:
+        t.storage_flag.value = False
+        for index in np.arange(1000):
+            t.logger.debug(index, end='\n')
+            fit = executor.submit(
+                    worker,
+                    index,
+                    t.data.obs.flux_grid[:, index],
+                    t.data.obs.flux_grid_unc[:, index],
+                    models=None,
+                    stellar_bestfit=t.data.stellar.flux_grid[:, index],
+                    em_model=t.data.em_model,
+                    logger=t.logger, size=t.size,
+                    gas_kinematics_slice=t.data.gas_kinematics.kinematics_grid[:, index],
+                    stellar_kinematics_slice=t.data.stellar_kinematics.kinematics_grid[:, index],
+                    bounds_rule=t.data.bounds_rule,
+                    main_meta=t.data.main_meta,
+                    obs_meta=t.data.obs.meta,
+                    model_meta=t.data.stellar.meta)
+            futures.append(fit)
+
+            with t.lock:
+                if t.storage_flag.value is False:
+                    future = futures.pop(0)
+                    out_obj = future.result()
+                    out_obj = pickle.loads(out_obj)
+                    try:
+                        build_output_storage(
+                            out_obj=out_obj, out_dataset=t.out_ppxf,
+                            logger=t.logger, n_obj=n_obj, par=t.par)
+                        t.storage_flag.value = True
+                        t.logger.info('Storage built')
+                        futures.append(future)
+                    except Exception as e:
+                        if str(e) == 'Invalid data':
+                            pass
+                        else:
+                            raise Exception
+
+        while len(futures) > 0:
+            future = futures.pop(0)
+            out_obj = future.result()
+            out_obj = pickle.loads(out_obj)
+            store_output(out_obj, par=t.par, logger=t.logger,
+                out_dataset=t.out_ppxf)
+            if out_obj is not None:
+                t.logger.info(out_obj.out_log)
+            t.logger.debug('saving')
