@@ -270,7 +270,7 @@ def execute_ppxf(galaxy=None, noise=None, models=None, em_model=None,
     assert galaxy is not None
     assert noise is not None
 
-    global start
+    global start, bounds, A_ineq_kin, b_ineq_kin
 
     if logger is None:
         logger = logging.getLogger(__name__)
@@ -583,11 +583,13 @@ if __name__ == '__main__':
 #%% Test single spectrum
 
     fits = []
-    i = 0
+    i = 1000
     fit = worker(i,
                 t.data.obs.flux_grid[:, i],
                 t.data.obs.flux_grid_unc[:, i],
-                models=t.data.stellar, em_model=t.data.em_model,
+                models=None,
+                stellar_bestfit=t.data.stellar.flux_grid[:, i],
+                em_model=t.data.em_model,
                 logger=t.logger, size=t.size,
                 gas_kinematics_slice=t.data.gas_kinematics.kinematics_grid[:, i],
                 stellar_kinematics_slice=t.data.stellar_kinematics.kinematics_grid[:, i],
@@ -596,19 +598,24 @@ if __name__ == '__main__':
                 model_meta=t.data.stellar.meta)
     fits.append(fit)
 
+    pp = pickle.loads(fit)
+
 #%% test with mpi
 
     fits = []
-    with MPIPoolExecutor(3) as executor:
+    with MPIPoolExecutor(1) as executor:
         # executor =  MPIPoolExecutor(1)
         # i = 0
-        for i in range(3):
+        for i in range(t.data.obs.flux_grid.shape[1]):
+            print(i)
             fit = executor.submit(
                     worker,
                     i,
                     t.data.obs.flux_grid[:, i],
                     t.data.obs.flux_grid_unc[:, i],
-                    models=t.data.stellar, em_model=t.data.em_model,
+                    models=None,
+                    stellar_bestfit=t.data.stellar.flux_grid[:, i],
+                    em_model=t.data.em_model,
                     logger=t.logger, size=t.size,
                     gas_kinematics_slice=t.data.gas_kinematics.kinematics_grid[:, i],
                     stellar_kinematics_slice=t.data.stellar_kinematics.kinematics_grid[:, i],
@@ -616,12 +623,13 @@ if __name__ == '__main__':
                     main_meta=t.data.main_meta, obs_meta=t.data.obs.meta,
                     model_meta=t.data.stellar.meta)
             fits.append(fit)
+            print(sys.getsizeof(fits))
 
-        for _ in fits:
-            import matplotlib.pyplot as plt
-            a = pickle.loads(_.result())
-            print(a.out_log)
-            fig, ax = plt.subplots()
-            a.plot()
+        # for _ in fits:
+        #     import matplotlib.pyplot as plt
+        #     a = pickle.loads(_.result())
+        #     print(a.out_log)
+        #     fig, ax = plt.subplots()
+        #     a.plot()
 
 # %%
