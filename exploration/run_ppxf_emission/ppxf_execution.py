@@ -180,7 +180,7 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
         id_ = f'{i+1}/{size}'
         print(70*'*')
 
-        if np.any(np.isnan(flux_obs_unc_slice) | np.isnan(flux_obs_slice)):
+        if np.any(np.isnan(flux_obs_unc_slice) | np.isnan(flux_obs_slice) | np.isnan(stellar_bestfit)):
                     return pickle.dumps(None)
 
         pp = None
@@ -582,23 +582,24 @@ if __name__ == '__main__':
 
 #%% Test single spectrum
 
-    fits = []
-    i = 1000
-    fit = worker(i,
-                t.data.obs.flux_grid[:, i],
-                t.data.obs.flux_grid_unc[:, i],
-                models=None,
-                stellar_bestfit=t.data.stellar.flux_grid[:, i],
-                em_model=t.data.em_model,
-                logger=t.logger, size=t.size,
-                gas_kinematics_slice=t.data.gas_kinematics.kinematics_grid[:, i],
-                stellar_kinematics_slice=t.data.stellar_kinematics.kinematics_grid[:, i],
-                bounds_rule=t.data.bounds_rule,
-                main_meta=t.data.main_meta, obs_meta=t.data.obs.meta,
-                model_meta=t.data.stellar.meta)
-    fits.append(fit)
+    for i in range(500):
+        fits = []
+        # i = 400
+        fit = worker(i,
+                    t.data.obs.flux_grid[:, i],
+                    t.data.obs.flux_grid_unc[:, i],
+                    models=None,
+                    stellar_bestfit=t.data.stellar.flux_grid[:, i],
+                    em_model=t.data.em_model,
+                    logger=t.logger, size=t.size,
+                    gas_kinematics_slice=t.data.gas_kinematics.kinematics_grid[:, i],
+                    stellar_kinematics_slice=t.data.stellar_kinematics.kinematics_grid[:, i],
+                    bounds_rule=t.data.bounds_rule,
+                    main_meta=t.data.main_meta, obs_meta=t.data.obs.meta,
+                    model_meta=t.data.stellar.meta)
+        fits.append(fit)
 
-    pp = pickle.loads(fit)
+        pp = pickle.loads(fit)
 
 #%% test with mpi
 
@@ -606,8 +607,8 @@ if __name__ == '__main__':
     with MPIPoolExecutor(1) as executor:
         # executor =  MPIPoolExecutor(1)
         # i = 0
-        for i in range(t.data.obs.flux_grid.shape[1]):
-            print(i)
+        for i in range(500):
+            # print(i)
             fit = executor.submit(
                     worker,
                     i,
@@ -623,13 +624,16 @@ if __name__ == '__main__':
                     main_meta=t.data.main_meta, obs_meta=t.data.obs.meta,
                     model_meta=t.data.stellar.meta)
             fits.append(fit)
-            print(sys.getsizeof(fits))
 
-        # for _ in fits:
-        #     import matplotlib.pyplot as plt
-        #     a = pickle.loads(_.result())
-        #     print(a.out_log)
-        #     fig, ax = plt.subplots()
-        #     a.plot()
+        for _ in fits:
+            import matplotlib.pyplot as plt
+            a = pickle.loads(_.result())
+            try:
+                print(a.out_log)
+                if a is not None:
+                    fig, ax = plt.subplots()
+                    a.plot()
+            except:
+                pass
 
 # %%

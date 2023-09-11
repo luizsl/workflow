@@ -149,6 +149,6 @@ if __name__ == '__main__':
     ppxf_control.run_all()
 
 # Debug
-    # conf = 'test_toy_1comp_binned0.yaml'
+    # conf = 'test_ngc613_emission_1comp_binned101.yaml'
     # ppxf_prep = Main(conf)
     # ppxf_prep.run_all()
