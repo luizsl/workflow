@@ -54,8 +54,8 @@ class Main:
         self.execution = ExecutePpxf(self.data, self.meta)
         self.execution.run_all_data()
 
-        # self.meta_to_json()
-        # self.results_to_map()
+        self.meta_to_json()
+        self.results_to_map()
 
     def read_config(self):
         with open(self.conf_file) as f:
