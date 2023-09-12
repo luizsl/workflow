@@ -153,13 +153,15 @@ class ExecutePpxf:
 
             while len(futures) > 0:
                 future = futures.pop(0)
-                out_obj = future.result()
-                out_obj = pickle.loads(out_obj)
-                store_output(out_obj, par=self.par, logger=self.logger,
-                    out_dataset=self.out_ppxf)
-                if out_obj is not None:
-                    self.logger.info(out_obj.out_log)
-                self.logger.debug('saving')
+                try:
+                    out_obj = future.result()
+                    out_obj = pickle.loads(out_obj)
+                    store_output(out_obj, par=self.par, logger=self.logger,
+                        out_dataset=self.out_ppxf)
+                    if out_obj is not None:
+                        self.logger.info(out_obj.out_log)
+                except:
+                    continue
 
         # keep end time
         end_time = datetime.now().strftime("%d/%m/%Y %H:%M")
@@ -181,7 +183,7 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
         print(70*'*')
 
         if np.any(np.isnan(flux_obs_unc_slice) | np.isnan(flux_obs_slice) | np.isnan(stellar_bestfit)):
-                    return pickle.dumps(None)
+            return pickle.dumps(None)
 
         pp = None
 
