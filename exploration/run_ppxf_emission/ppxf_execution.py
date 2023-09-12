@@ -585,7 +585,7 @@ if __name__ == '__main__':
 #%% Test single spectrum
 
     fits = []
-    i = 698
+    i = 7323
     fit = worker(i,
                 t.data.obs.flux_grid[:, i],
                 t.data.obs.flux_grid_unc[:, i],
@@ -608,7 +608,7 @@ if __name__ == '__main__':
     with MPIPoolExecutor() as executor:
         # executor =  MPIPoolExecutor(1)
         # i = 0
-        for i in range(700):
+        for i in range(1300):
             # print(i)
             fit = executor.submit(
                     worker,
