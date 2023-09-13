@@ -66,7 +66,6 @@ class ExecutePpxf:
         par = to_save + to_map
         self.par = list(set(par))
 
-
     def start_logging(self):
         name_log_file = os.path.join(
             self.main_meta['output_run'],
@@ -92,7 +91,6 @@ class ExecutePpxf:
         logger.addHandler(file_handler)
         logger.addHandler(stream_handler)
         self.logger = logger
-
 
     def run_all_data(self):
         self.logger.info('pPXF execution started')
@@ -272,8 +270,6 @@ def execute_ppxf(galaxy=None, noise=None, models=None, em_model=None,
     assert galaxy is not None
     assert noise is not None
 
-    global start, bounds, A_ineq_kin, b_ineq_kin
-
     if logger is None:
         logger = logging.getLogger(__name__)
 
@@ -337,7 +333,6 @@ def execute_ppxf(galaxy=None, noise=None, models=None, em_model=None,
     except Exception:
         print('Could not build bounds')
         bounds = None
-
 
     try:
         A_ineq_kin = main_meta['gas_template']['A_ineq_kin']
@@ -585,7 +580,7 @@ if __name__ == '__main__':
 #%% Test single spectrum
 
     fits = []
-    i = 7323
+    i = 70000
     fit = worker(i,
                 t.data.obs.flux_grid[:, i],
                 t.data.obs.flux_grid_unc[:, i],
