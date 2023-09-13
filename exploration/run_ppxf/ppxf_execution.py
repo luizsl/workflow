@@ -262,8 +262,6 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
             print(f'<metallicity>: {av_mh: .2f} dex')
             print(f'<alpha>: {av_alpha: .2f} dex')
 
-            weighting = main_meta['model']['weighting']
-            weighting = weighting.lower()
             pp.average_age = av_age
             pp.average_metallicity = av_mh
             pp.average_alpha = av_alpha
