@@ -49,6 +49,7 @@ class Main:
         self.read_config()
         self.create_output_folder()
         self.keep_conf_copy()
+
         self.data = DataPreprocessing(self.meta)
 
         self.execution = ExecutePpxf(self.data, self.meta)
@@ -145,6 +146,8 @@ class Main:
 
 if __name__ == '__main__':
     conf = sys.argv[1]
+    # conf = 'test_toy_3comp_binned0.yaml'
+    # conf = 'test_toy_3comp_binned100.yaml'
     ppxf_control = Main(conf)
     ppxf_control.run_all()
 

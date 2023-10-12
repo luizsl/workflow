@@ -475,4 +475,4 @@ class DataPreprocessing:
 
 
 if __name__ == '__main__':
-    data = DataPreprocessing(ppxf_prep.meta)
+    data = DataPreprocessing(ppxf_control.meta)

@@ -16,7 +16,6 @@ from contextlib import redirect_stdout
 from datetime import datetime
 from time import perf_counter as clock
 
-# import dask.array as daz
 import numpy as np
 import xarray as xr
 from ppxf.ppxf import ppxf, robust_sigma
@@ -309,13 +308,17 @@ def execute_ppxf(galaxy=None, noise=None, models=None, em_model=None,
 
     start_stellar_kinematics = np.array([0, 1, 0, 0])
 
-    start_gas_kinematics = np.zeros(gas_moments)
-    if gas_moments > 1:
-        start_gas_kinematics[:2] = [0., 2*velscale]
-    start_gas_kinematics = [start_gas_kinematics.tolist()]
-    start_gas_kinematics = start_gas_kinematics * ngas_comp * len(em_shape)
+    # start_gas_kinematics = np.zeros(gas_moments)
+    # if gas_moments > 1:
+    #     start_gas_kinematics[:2] = [0., 2*velscale]
+    # start_gas_kinematics = [start_gas_kinematics.tolist()]
+    # start_gas_kinematics = start_gas_kinematics * ngas_comp * len(em_shape)
 
-    start = [start_stellar_kinematics.tolist()] + start_gas_kinematics
+    # start = [start_stellar_kinematics.tolist()] + start_gas_kinematics
+
+    start_gas_kinematics = gas_kinematics.reshape([-1, gas_moments])
+
+    start = [start_stellar_kinematics.tolist()] + start_gas_kinematics.tolist()
 
     if len(start) == 1:
         start = start[0]
@@ -342,11 +345,13 @@ def execute_ppxf(galaxy=None, noise=None, models=None, em_model=None,
 
         # Adjust Constraint conditioning
         p = np.concatenate(start)
-        if not any(A_ineq_kin.dot(p) < b_ineq_kin):
-            logger.info('Try to get obtain well-posed constraint')
+        if not np.all(A_ineq_kin.dot(p) <= b_ineq_kin):
+            print('Try to get well-posed constraint and initial guess')
             try:
-                A_ineq_kin, b_ineq_kin = constr_cond(
-                    A_ineq_kin, b_ineq_kin, p)
+                p = constr_cond(A_ineq_kin, b_ineq_kin, p)
+                star = p[:start_stellar_kinematics.size].reshape(start_stellar_kinematics.shape)
+                gas =p[-start_gas_kinematics.size:].reshape(start_gas_kinematics.shape)
+                start = [star.tolist()] + gas.tolist()
             except Exception:
                 raise Exception
 
@@ -355,10 +360,13 @@ def execute_ppxf(galaxy=None, noise=None, models=None, em_model=None,
 
     except Exception:
         print('Could not apply constraints on the kinematics')
-        constr_kinem = {}
+        constr_kinem = None
 
     logger.debug(constr_kinem)
-
+    # print(constr_kinem)
+    print(start)
+    print(A_ineq_kin)
+    print(b_ineq_kin)
     pp = ppxf(stars_gas_templates, galaxy, noise, velscale, start,
               plot=False, moments=moments, component=component,
               gas_component=gas_component, gas_names=gas_names,
@@ -562,25 +570,26 @@ def constr_cond(A, b, p):
     A_new = A.copy()
     b_new = b.copy()
     n_iter = 0
-    while np.any(A_new.dot(p) > b_new):
+    while not np.all(A_new.dot(p) <= b_new):
         if n_iter > 1_000:
             raise StopIteration
         else:
-            A_new[A < 0] = A_new[A < 0] * 1.01
-            n_iter += 1
-    return A_new, b_new
+            where = np.argwhere(A_new.dot(p) > b_new)
+            for w in where:
+                p[A_new[w[0]] < 0] = p[A_new[w[0]] < 0] * 1.01
+    return p
 
 # test
 
 if __name__ == '__main__':
-    t = ExecutePpxf(ppxf_prep.data, ppxf_prep.data.main_meta)
+    t = ExecutePpxf(ppxf_control.data, ppxf_control.data.main_meta)
     # t.run_all_data()
 
 
 #%% Test single spectrum
 
     fits = []
-    i = 70000
+    i = 5
     fit = worker(i,
                 t.data.obs.flux_grid[:, i],
                 t.data.obs.flux_grid_unc[:, i],
@@ -603,8 +612,8 @@ if __name__ == '__main__':
     with MPIPoolExecutor() as executor:
         # executor =  MPIPoolExecutor(1)
         # i = 0
-        for i in range(1300):
-            # print(i)
+        for i in range(100):
+            print(i)
             fit = executor.submit(
                     worker,
                     i,
@@ -638,7 +647,7 @@ if __name__ == '__main__':
     futures = []
     with MPIPoolExecutor() as executor:
         t.storage_flag.value = False
-        for index in np.arange(1000):
+        for index in np.arange(100):
             t.logger.debug(index, end='\n')
             fit = executor.submit(
                     worker,
@@ -684,3 +693,103 @@ if __name__ == '__main__':
             if out_obj is not None:
                 t.logger.info(out_obj.out_log)
             t.logger.debug('saving')
+
+# %%
+    i = 5
+    start_stellar_kinematics = np.array([0, 1, 0, 0])
+    gas_moments = t.data.main_meta['gas_template']['moments']
+
+    gas_kinematics_slice = t.data.gas_kinematics.kinematics_grid[:, i]
+    gas_kinematics = gas_kinematics_slice
+
+    gas_templates = t.data.em_model.template
+    gas_names = t.data.em_model.label
+    label_wave = t.data.em_model.label_wave
+    lam = t.data.obs.meta['wave_obs']
+    velscale = 50
+    gas_moments = t.data.main_meta['gas_template']['moments']
+    ngas_comp = t.data.main_meta['gas_template']['components']
+    em_shape = t.data.em_model.size
+
+    # start_gas_kinematics = np.zeros(gas_moments)
+    # # start_gas_kinematics = gas_kinematics_slice
+
+    # if gas_moments > 1:
+    #     start_gas_kinematics[:2] = [0., 2*velscale]
+    # start_gas_kinematics = [start_gas_kinematics.tolist()]
+    # start_gas_kinematics = start_gas_kinematics * ngas_comp * len(em_shape)
+
+    start_gas_kinematics = gas_kinematics.reshape([-1, gas_moments])
+
+    start = [start_stellar_kinematics.tolist()] + start_gas_kinematics.tolist()
+
+#
+    bounds_rule = t.data.bounds_rule
+
+    aux = np.asarray(start_gas_kinematics).ravel()
+    bounds_gas = np.array(build_bounds(aux, bounds_rule))
+    bounds_gas = bounds_gas.reshape(
+        ngas_comp * len(em_shape), -1, 2)
+    bounds_gas = bounds_gas.tolist()
+
+    bounds_stellar = [[-200, 200], [1, 200], [-1, 1], [-1, 1]]
+
+    bounds = [bounds_stellar] + bounds_gas
+
+#%%
+    from scipy import linalg
+
+    def constr_cond(A, b, p):
+        A_new = A.copy()
+        b_new = b.copy()
+        n_iter = 0
+        while not np.all(A_new.dot(p) <= b_new):
+            if n_iter > 1_000:
+                raise StopIteration
+            else:
+                where = np.argwhere(A_new.dot(p) > b_new)
+                for w in where:
+                    p[A_new[w[0]] < 0] = p[A_new[w[0]] < 0] * 1.01
+        return A_new, b_new
+
+    main_meta = t.data.main_meta
+    A_ineq_kin = main_meta['gas_template']['A_ineq_kin']
+    b_ineq_kin = main_meta['gas_template']['b_ineq_kin']
+    A_ineq_kin = np.asarray(A_ineq_kin, dtype=float)
+    b_ineq_kin = np.asarray(b_ineq_kin, dtype=float)
+
+    # Adjust Constraint conditioning
+    p = np.concatenate(start)
+    if not np.all(A_ineq_kin.dot(p) <= b_ineq_kin):
+        print('Try to get well-posed constraint and initial guess')
+        try:
+            A_ineq_kin, b_ineq_kin = constr_cond(
+                A_ineq_kin, b_ineq_kin, p)
+            star = p[:start_stellar_kinematics.size].reshape(start_stellar_kinematics.shape)
+            gas =p[-start_gas_kinematics.size:].reshape(start_gas_kinematics.shape)
+            start = [star.tolist()] + gas.tolist()
+        except Exception:
+            raise Exception
+
+
+    b_ineq_kin = b_ineq_kin / velscale
+    constr_kinem = {"A_ineq": A_ineq_kin, "b_ineq": b_ineq_kin}
+
+    #%%
+    p = np.concatenate(start)
+    A_new = A_ineq_kin.copy()
+    b_new = b_ineq_kin.copy()
+    n_iter = 0
+    while not np.all(A_new.dot(p) <= b_new):
+        if n_iter > 1_000:
+            raise StopIteration
+        else:
+            where = np.argwhere(A_new.dot(p) > b_new)
+            for w in where:
+                p[A_new[w[0]] < 0] = p[A_new[w[0]] < 0] * 1.01
+            n_iter += 1
+
+    #%%
+    where = np.argwhere(A_new.dot(p) > b_new)
+    for w in where:
+        p[A_new[w[0]] < 0] = p[A_new[w[0]] < 0] * 1.01
