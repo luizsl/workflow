@@ -146,8 +146,8 @@ class Main:
 
 if __name__ == '__main__':
     conf = sys.argv[1]
-    # conf = 'test_toy_3comp_binned0.yaml'
-    # conf = 'test_toy_3comp_binned100.yaml'
+    # conf = 'test_toy_1comp_binned0.yaml'
+    # conf = 'test_toy_1comp_binned100.yaml'
     ppxf_control = Main(conf)
     ppxf_control.run_all()
 

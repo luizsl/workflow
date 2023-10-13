@@ -364,9 +364,9 @@ def execute_ppxf(galaxy=None, noise=None, models=None, em_model=None,
 
     logger.debug(constr_kinem)
     # print(constr_kinem)
-    print(start)
-    print(A_ineq_kin)
-    print(b_ineq_kin)
+    # print(start)
+    # print(A_ineq_kin)
+    # print(b_ineq_kin)
     pp = ppxf(stars_gas_templates, galaxy, noise, velscale, start,
               plot=False, moments=moments, component=component,
               gas_component=gas_component, gas_names=gas_names,
