@@ -590,7 +590,7 @@ if __name__ == '__main__':
 #%% Test single spectrum
 
     fits = []
-    i = 1000
+    i = 70000
     fit = worker(i,
                 t.data.obs.flux_grid[:, i],
                 t.data.obs.flux_grid_unc[:, i],
