@@ -377,6 +377,7 @@ def execute_ppxf(galaxy=None, noise=None, models=None, em_model=None,
               )
 
     pp.sol[0] = stellar_kinematics
+    pp.error[0] = np.zeros_like(pp.sol[0])
 
     corrected_flux = np.full_like(gas_names, np.nan, dtype=float)
     amplitude_rms = np.full_like(gas_names, np.nan, dtype=float)
@@ -589,7 +590,7 @@ if __name__ == '__main__':
 #%% Test single spectrum
 
     fits = []
-    i = 5
+    i = 1000
     fit = worker(i,
                 t.data.obs.flux_grid[:, i],
                 t.data.obs.flux_grid_unc[:, i],
