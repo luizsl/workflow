@@ -54,6 +54,8 @@ class Line(LineFactory):
 
         if ratios is not None:
             self._apply_ratio()
+        else:
+            self.ratios = np.asarray([1])
 
     def _apply_ratio(self):
         assert self.template.shape[1] == self.ratios.shape[0]
@@ -141,7 +143,16 @@ class KinematicsGroup:
         group_spectral_axis = [line.spectral_axis for line in self.lines]
         group_spectral_axis = np.column_stack(group_spectral_axis)
         return group_spectral_axis
-
+    
+    # @property
+    # def ratios(self):
+    #     ratios = [line.ratios for line in self.lines]
+        
+    #     group = np.array([])
+    #     for ratio in ratios:
+    #         group = np.append(group, ratio)
+    #     return group
+        
     def __str__(self):
         str_ = '\n'.join(line.__str__() for line in self.lines)
         return str_
@@ -227,6 +238,12 @@ class EmissionModel:
         array = np.concatenate(_)
         return array
 
+    @property
+    def ratios(self):
+        _ = [self.__getattribute__(name).ratios for name in self.names]
+        array = np.concatenate(_)
+        return array
+    
     @property
     def size(self):
         len_ = [self.__getattribute__(name).size for name in self.names]

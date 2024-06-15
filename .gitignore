@@ -5,6 +5,9 @@ data/*
 data_products/*
 !data_products/.gitkeep
 
+analysis*
+analysis/*
+
 !exploration/run_ppxf/conf/.gitkeep
 exploration/run_ifscube/previous_results
 exploration/run_ifscube/*.pdf

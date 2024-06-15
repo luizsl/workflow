@@ -28,8 +28,8 @@ low_potential:
         line_wave: [6300.30, 6363.78]
         ratios: [1.00, 0.33]
         
-    SIII6731_d:
-        line_name: ['[SIII]6716', '[SIII]6731']
+    SII6731_d:
+        line_name: ['[SII]6716', '[SII]6731']
         line_wave: [6716.47, 6730.85]    
         ratios: [[0.44, 1.43],
                  [1.00, 1.00]]

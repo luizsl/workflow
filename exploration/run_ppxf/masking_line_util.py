@@ -10,10 +10,12 @@ from scipy.constants import physical_constants
 
 C = physical_constants['speed of light in vacuum'][0]/1e3  #km/s
 
+# Emission-lines mask
+
 linewidth = 1200 # km/s
 
 wave_list = [     # air
-    4861.333, 	# Hβ
+    4861.333, 	# Hb
     4958.911, 	# [O III]
     5006.843, 	# [O III]
     5197.577, 	# Fe II
@@ -22,7 +24,7 @@ wave_list = [     # air
     6300.304, 	# [O I]
     6363.776, 	# [O I]
     6548.050, 	# [N II]
-    6562.819, 	# Hα
+    6562.819, 	# Ha
     6583.460, 	# [N II]
     6716.440, 	# [S II]
     6730.810, 	# [S II]
@@ -58,3 +60,21 @@ np.round(upper_bound, 1, out=upper_bound)
 
 for i in range(wave_list.size):
    print(f'[{lower_bound[i]}, {upper_bound[i]}],  # {wave_list[i]:.2f} {name_list[i]:10} ({linewidth} km/s)')
+
+#%% Spectrum edges mask
+
+edges = [4800, 5800]
+edge_name = ["Nominal start", "Nominal end  "]
+sigma = 200
+edge_width = 2*3*sigma
+
+edges = np.asarray(edges)
+
+lower_bound_edge = edges / np.e**((edge_width*0.5) / C)
+upper_bound_edge = edges * np.e**((edge_width*0.5) / C)
+
+np.round(lower_bound_edge, 1, out=lower_bound_edge)
+np.round(upper_bound_edge, 1, out=upper_bound_edge)
+
+for i in range(edges.size):
+   print(f'[{lower_bound_edge[i]}, {upper_bound_edge[i]}], # {edges[i]:.2f} {edge_name[i]:10} (+-3*sigma_star ~{edge_width} km/s)')
