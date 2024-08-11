@@ -234,6 +234,7 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
             print('*************', end='\n\n')
 
         error_corr = np.hstack(pp.error) * np.sqrt(pp.chi2)
+        error_kin = pp.error
 
         if 'ppxf_regularization' in main_meta:
             print(id_, 'Fit with regulazired solution', end='\n\n')
@@ -284,6 +285,7 @@ def worker(i, flux_obs_slice=None, flux_obs_unc_slice=None, models=None,
 
         # Include corrected kinematics uncertainty
         pp.error_corr = error_corr
+        pp.error = error_kin
 
         # Include reddening fitted on the fly if exists
         pp.a_v = a_v
