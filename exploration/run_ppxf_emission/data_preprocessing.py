@@ -401,6 +401,9 @@ class DataPreprocessing:
                             )
                         stuck = np.full_like(values, False, dtype=bool)
 
+                # Not a number
+                nan_bin = np.isnan(values)
+                
                 # Anomaly detection
                 if 'anomaly_detection' in guess_handling:
                     self.logger.info('--Employing anomaly detector')
@@ -415,7 +418,7 @@ class DataPreprocessing:
 
                     outliers = np.full_like(values, False, dtype=bool)
                     for i in range(iterations):
-                        valid = np.logical_and(~stuck, ~outliers)
+                        valid = np.logical_and.reduce([~stuck, ~outliers, ~nan_bin])
                         self.logger.info(
                             f'\tIteration: {i + 1}\n'
                             f'\t\t#valid entries: {valid.sum()}'
@@ -439,7 +442,7 @@ class DataPreprocessing:
                 self.logger.info('--Starting field inference')
                 self.logger.info(f'\tMethod: {method}')
 
-                valid = np.logical_and(~stuck, ~outliers)
+                valid = np.logical_and.reduce([~stuck, ~outliers, ~nan_bin])
                 grid = np.asarray((x_full, y_full)).T
                 points = coordinates[valid]
                 data = values[valid]

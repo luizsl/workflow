@@ -180,42 +180,16 @@ class Bounds:
 
 if __name__ == '__main__':
 
-    # Stellar kinematics
-
-    path_stellar_kinematics = (
-        '../../data_products/toy_trick/MilesAgeMh/'
-        'ppxf/sol.fits'
+    datapath = (
+        '/mnt/m2/Git/agn_timer/data_products/'
+        'NGC1365_DATACUBE_FINAL_clean/MilesAgeMhAlpha/'
+        'ppxf_emission_line_binned100_2components/sol.fits'
         )
-
-    # path_stellar_kinematics_unc = (
-    #     '../../data_products/toy_trick/MilesAgeMh/'
-    #     'ppxf/sol.fits'
-    #     )
-
-    metadatapath = ('../../data_products/toy_trick/MilesAgeMh/ppxf/'
-                    'metadata.json')
-
-    with open(metadatapath) as f:
-        metadata = json.load(f)
-        bin_num = np.array(metadata['obs']['bin_num'])
-        npixels = np.array(metadata['obs']['nPixels'])
-        valid = np.array(metadata['obs']['valid'])
-        xbin = np.array(metadata['obs']['xbin'])
-        ybin = np.array(metadata['obs']['ybin'])
-
-    star_kin = Kinematics()
-    star_kin.from_file(path_stellar_kinematics)
-
-    star_kin = star_kin.mean_binning_field(bin_num, npixels, valid, xbin, ybin)
-
-    # Gas kinematics
-
-    datapath = ('../../data_products/toy_trick/MilesAgeMh/'
-                'ppxf_emission_line_1/sol.fits'
-                )
-    metadatapath = ('../../data_products/toy_trick/MilesAgeMh'
-                    '/ppxf_emission_line_1/metadata.json'
-                    )
+    metadatapath = (
+        '/mnt/m2/Git/agn_timer/data_products/'
+        'NGC1365_DATACUBE_FINAL_clean/MilesAgeMhAlpha/'
+        'ppxf_emission_line_binned100_2components/metadata.json'
+        )
 
     with open(metadatapath) as f:
         metadata = json.load(f)
@@ -228,44 +202,51 @@ if __name__ == '__main__':
         y_full = np.array(metadata['obs']['y_full'])
 
     gas_kin = Kinematics()
-    gas_kin.from_file(path_stellar_kinematics)
+    gas_kin.from_file(datapath)
     gas_kin.reshape()
 
     gas_field = gas_kin.mean_binning_field(bin_num, npixels, valid, xbin, ybin)
 
+    #%%
+
     #  Find neighbour
     n_neighbors = 3
-    iteractions = 3
-    values = gas_field.kinematics_grid[0]
+    iteractions = 2
+    values = gas_field.kinematics_grid[14]
     coordinates = np.vstack([gas_field.xbin, gas_field.ybin]).T
 
     # Stuck detector
     stuck = gas_field.filter_stuck(values)
-
+    
+    # Not a number
+    nan_bin = np.isnan(values)
+    
     # Anomaly detector test
     outliers = np.full_like(values, False, dtype=bool)
     for i in range(iteractions):
-        valid = np.logical_and(~stuck, ~outliers)
+        valid = np.logical_and.reduce([~stuck, ~outliers, ~nan_bin])
         # print(valid.sum())
         detector_data = values[valid]
         detector_coordinates = coordinates[valid]
         detector = AnomalyDetection(detector_coordinates, detector_data)
 
         outliers[valid] = detector.outliers_lof(n_neighbors=n_neighbors)
-
+        
+    #%%
     # Field inference
     # without filtering
     inference = FieldInferece()
     grid = np.asarray((x_full, y_full)).T
-    points = coordinates
-    data = values
+    points = coordinates[~nan_bin]
+    data = values[~nan_bin]
 
     res_no_filter = inference.rbf(data, points, grid)
     res_no_filter = res_no_filter.reshape(gas_kin.shape_kinematics)
     res_no_filter = np.clip(res_no_filter, data.min(), data.max())
 
-    # with filtering
-    valid = ~np.logical_or(stuck, outliers)
+    #%% with filtering
+    # valid = ~np.logical_or(stuck, outliers, nan_bin)
+    valid = np.logical_and.reduce([~stuck, ~outliers, ~nan_bin])
     inference = FieldInferece()
     grid = np.asarray((x_full, y_full)).T
     points = coordinates[valid]
@@ -277,6 +258,8 @@ if __name__ == '__main__':
     res_filter = res_filter.reshape(gas_kin.shape_kinematics)
 
 
+    #%% 
+    
     # plot
 
     fig, axs = plt.subplots(2, 2, figsize=(8, 8), sharex=True, sharey=True)
@@ -310,9 +293,11 @@ if __name__ == '__main__':
     extent = [x_full.min(), x_full.max(),
               y_full.min(), y_full.max()]
     axs[1, 0].imshow(res_no_filter, origin='lower', cmap=cmap, extent=extent,
-                     **common)
+                     **common
+                     )
     axs[1, 1].imshow(res_filter, origin='lower', cmap=cmap, extent=extent,
-                     **common)
+                     **common
+                     )
 
     axs[0, 0].set_ylabel('arcsec')
     axs[1, 0].set_ylabel('arcsec')
