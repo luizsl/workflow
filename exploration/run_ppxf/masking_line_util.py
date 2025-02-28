@@ -63,7 +63,7 @@ for i in range(wave_list.size):
 
 #%% Spectrum edges mask
 
-edges = [4800, 5800]
+edges = [4750, 7350]
 edge_name = ["Nominal start", "Nominal end  "]
 sigma = 200
 edge_width = 2*3*sigma
