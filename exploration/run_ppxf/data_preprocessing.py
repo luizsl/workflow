@@ -170,6 +170,16 @@ class DataPreprocessing:
         self.obs.build_grid(
             min_valid_sn=self.main_meta['observation']['snr']['min'],
             snr_window=self.main_meta['observation']['snr']['window'])
+        
+        ao_wi = self.obs.meta['ao_wi']
+        ao_wf = self.obs.meta['ao_wf']
+        if not any(np.isnan([ao_wi, ao_wf])):
+            pass
+            self.logger.info('--Filtering AO region')
+            self.logger.info(f'\t{ao_wi:.2f} - {ao_wf:.2f} A')
+            
+            self.logger.info('\tInclude region in the spectral mask')
+            self.main_meta['observation']['fixed_spectral_mask'].append([ao_wi, ao_wf])
 
         self.logger.info('--Foreground extinction')
         try:
@@ -218,9 +228,9 @@ class DataPreprocessing:
 
         if self.main_meta['vorbin']['apply'] is True:
 
-            os.environ["MKL_NUM_THREADS"]     = "1"
+            os.environ["MKL_NUM_THREADS"] = "1"
             os.environ["NUMEXPR_NUM_THREADS"] = "1"
-            os.environ["OMP_NUM_THREADS"]     = "1"
+            os.environ["OMP_NUM_THREADS"] = "1"
 
             target_sn = self.main_meta['vorbin']['target_sn']
 
