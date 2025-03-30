@@ -129,13 +129,15 @@ class DataPreprocessing:
             min_valid_sn=self.main_meta['observation']['snr']['min'],
             snr_window=self.main_meta['observation']['snr']['window'])
 
-        # if (self.model.meta['o_limit_model'][0] > self.obs.meta['limit_obs'][0] - 100
-        #     or self.model.meta['o_limit_model'][1] < self.obs.meta['limit_obs'][1] + 100):
-        #     self.logger.info("--Observation's spectral axis needs to be trimmed")
-        #     lower, upper = self.model.meta['o_limit_model']
-        #     lower+=100
-        #     upper-=100
-        #     self.obs.trim_spectral_axis(lower, upper)
+        ao_wi = self.obs.meta['ao_wi']
+        ao_wf = self.obs.meta['ao_wf']
+        if not any(np.isnan([ao_wi, ao_wf])):
+            pass
+            self.logger.info('--Filtering AO region')
+            self.logger.info(f'\t{ao_wi:.2f} - {ao_wf:.2f} A')
+            
+            self.logger.info('\tInclude region in the spectral mask')
+            self.main_meta['observation']['fixed_spectral_mask'].append([ao_wi, ao_wf])
 
         wave = np.array(self.stellar_fit_metadata['obs']['wave_obs'])
         self.obs.resample(wave)

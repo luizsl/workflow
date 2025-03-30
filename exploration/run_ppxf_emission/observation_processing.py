@@ -270,9 +270,47 @@ class Observation(ABC):
         valid = (sn_trigger & finite)
         self.meta['valid'] = np.asarray(valid, dtype=bool)
 
+    def ao_correction(self):
+        w = self.meta['wave_obs']
+        z = self.meta['redshift']
+        f = self.flux_grid.copy()
+        f_unc = self.flux_grid_unc.copy()
 
+        fov_nan = np.isnan(f.mean(axis=0)).sum() / f.mean(axis=0).size
+        if fov_nan > 0.5:
+            # Note: AO spectral region detected <>.
+            pass
+        else:
+            return
+
+        ao_wi = 5800 / (1 + z)
+        ao_wf = 5970 / (1 + z)
+
+        is_nan = np.isnan(f[(w > ao_wi) & (w < ao_wf)])
+        f_nan = is_nan.sum() / is_nan.size
+
+        if f_nan > 0.1:
+            # Note: Filtering AO region <>.
+            
+            f_av = np.nanmean(f[(w < ao_wi) | (w > ao_wf)], axis=0)
+            f[(w > ao_wi) & (w < ao_wf)] = f_av
+            
+            f_unc_av = np.nanmean(f_unc[(w < ao_wi) | (w > ao_wf)]**2, axis=0)
+            f_unc[(w > ao_wi) & (w < ao_wf)] = f_unc_av**0.5
+            
+            self.flux_grid = f.copy()
+            self.flux_grid_unc = f_unc.copy()
+            
+            self.meta['ao_wi'] = ao_wi
+            self.meta['ao_wf'] = ao_wf
+        else:
+            pass
+        
+        
 class Muse(Observation):
     def __init__(self, path_obs, z=None):
+        self.meta['redshift'] = z
+        
         assert os.path.isfile(path_obs), f'{path_obs} is NOT a file'
         self.meta['path_obs'] = path_obs
 
@@ -310,13 +348,16 @@ class Muse(Observation):
             self.flux_grid = np.array(hdul['DATA'].data)
             del hdul['DATA'].data
 
-            # NOTE: See previous note above
+            # NOTE: See note above
             # (A note that points to a note) <>
             hdul['STAT'].data[-1, ...][where_nan] = \
                 hdul['STAT'].data[-2, ...][where_nan]
             flux_grid_unc = np.array(hdul['STAT'].data)
             self.flux_grid_unc = np.sqrt(flux_grid_unc)
             del hdul['STAT'].data
+            
+            # Note: Check and correct spectrum if affected by AO laser <>
+            self.ao_correction()
 
             header = []
             h = {card[0]: card[1] for card in hdul['PRIMARY'].header._cards}
