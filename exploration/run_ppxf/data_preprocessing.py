@@ -171,15 +171,19 @@ class DataPreprocessing:
             min_valid_sn=self.main_meta['observation']['snr']['min'],
             snr_window=self.main_meta['observation']['snr']['window'])
         
-        ao_wi = self.obs.meta['ao_wi']
-        ao_wf = self.obs.meta['ao_wf']
-        if not any(np.isnan([ao_wi, ao_wf])):
-            pass
-            self.logger.info('--Filtering AO region')
-            self.logger.info(f'\t{ao_wi:.2f} - {ao_wf:.2f} A')
-            
-            self.logger.info('\tInclude region in the spectral mask')
-            self.main_meta['observation']['fixed_spectral_mask'].append([ao_wi, ao_wf])
+        self.logger.info('--AO spectral region')
+        self.obs.ao_correction()
+        try:
+            ao_wi = self.obs.meta['ao_wi']
+            ao_wf = self.obs.meta['ao_wf']
+            if not any(np.isnan([ao_wi, ao_wf])):
+                self.logger.info(
+                    f'\tFiltering AO region: {ao_wi:.2f} - {ao_wf:.2f} A')
+                
+                self.logger.info('\tInclude region in the spectral mask')
+                self.main_meta['observation']['fixed_spectral_mask'].append([ao_wi, ao_wf])
+        except:
+            self.logger.info('\tNot detecting AO region')
 
         self.logger.info('--Foreground extinction')
         try:
@@ -340,6 +344,4 @@ if __name__ == '__main__':
 
     # plt.plot(data.model.meta['wave_model'], data.model.flux_grid[:, 0])
     # plt.plot(data.obs.meta['wave_obs'], data.obs.flux_grid[:, 0])
-
-#%%
 
