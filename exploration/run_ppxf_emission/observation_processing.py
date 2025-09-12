@@ -19,6 +19,7 @@ from astropy.io import fits
 from vorbin.voronoi_2d_binning import voronoi_2d_binning
 
 from normalize_median import normalize_band
+from smooth_cube import kernel, smooth
 
 
 class StellarContinuumFactory(ABC):
@@ -305,7 +306,7 @@ class Observation(ABC):
             self.meta['ao_wf'] = ao_wf
         else:
             pass
-        
+ 
         
 class Muse(Observation):
     def __init__(self, path_obs, z=None):
@@ -336,7 +337,8 @@ class Muse(Observation):
             self.meta['wave_obs'] = self.correct_z(wave=wave, z=z)
         self.meta['limit_obs'] = self.meta['wave_obs'][[0, -1]]
 
-    def build_grid(self, min_valid_sn=0, snr_window=[-np.inf, np.inf]):
+    def build_grid(self, min_valid_sn=0, snr_window=[-np.inf, np.inf], 
+                   smoothing=None):
         with fits.open(self.meta['path_obs'], memmap = True,
                        lazy_load_hdus = True, cache = False) as hdul:
             # NOTE: A considerable number of the spaxel has a NaN at the last
@@ -355,9 +357,6 @@ class Muse(Observation):
             flux_grid_unc = np.array(hdul['STAT'].data)
             self.flux_grid_unc = np.sqrt(flux_grid_unc)
             del hdul['STAT'].data
-            
-            # Note: Check and correct spectrum if affected by AO laser <>
-            self.ao_correction()
 
             header = []
             h = {card[0]: card[1] for card in hdul['PRIMARY'].header._cards}
@@ -367,7 +366,14 @@ class Muse(Observation):
             h = {card[0]: card[1] for card in hdul['STAT'].header._cards}
             header.append(h)
             self.header = header
-
+               
+            if smoothing == True:
+                _kernel = kernel(mu=0, sigma=1)
+                
+                ## Smooth observations
+                self.flux_grid, smooth_unc = smooth(
+                    self.flux_grid, self.flux_grid_unc, _kernel)
+            
             self.meta['shape_obs'] = self.flux_grid.shape[1:]
 
             if hdul['DATA'].header['NAXIS'] == 3:
@@ -469,16 +475,16 @@ def sn_function(index, signal=None, noise=None, covar_sn_a=0, covar_sn_b=1):
 
 
 if __name__ == '__main__':
-    path_obs = '../../data/fov_sample_1_3.fits'
+    path_obs = '../../data/toy_20x20_1068.fits'
 
-    path_metadata = '../../data_products/fov_sample_1_3/XSLAgeMh/ppxf/metadata.json'
+    path_metadata = '../../data_products/toy_20x20_1068/MilesAgeMhAlpha/ppxf/metadata.json'
     with open(path_metadata) as f:
         metadata = json.load(f)
     wave = np.array(metadata['obs']['wave_obs'])
 
     obs = Muse(path_obs, z=0.0)
 
-    obs.build_grid(min_valid_sn=3, snr_window=[5450, 5550])
+    obs.build_grid(min_valid_sn=3, snr_window=[5450, 5550], smoothing=True)
     obs.vorbin(target_sn=200)
     obs.normalize(limits=[5450, 5550])
     obs.convert_to_mmap()

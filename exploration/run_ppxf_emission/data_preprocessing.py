@@ -125,19 +125,32 @@ class DataPreprocessing:
     def prepare_observation(self):
         t = clock()
         self.logger.info('''\nObservation preparation\n***********************''')
+        
+        try:
+            smoothing = self.main_meta['observation']['smoothing']
+            if smoothing == True:
+                self.logger.info('--Smoothing datacube')
+        except:
+            smoothing = False
+            
         self.obs.build_grid(
             min_valid_sn=self.main_meta['observation']['snr']['min'],
-            snr_window=self.main_meta['observation']['snr']['window'])
+            snr_window=self.main_meta['observation']['snr']['window'],
+            smoothing=smoothing)
 
-        ao_wi = self.obs.meta['ao_wi']
-        ao_wf = self.obs.meta['ao_wf']
-        if not any(np.isnan([ao_wi, ao_wf])):
-            pass
-            self.logger.info('--Filtering AO region')
-            self.logger.info(f'\t{ao_wi:.2f} - {ao_wf:.2f} A')
-            
-            self.logger.info('\tInclude region in the spectral mask')
-            self.main_meta['observation']['fixed_spectral_mask'].append([ao_wi, ao_wf])
+        self.logger.info('--AO spectral region')
+        self.obs.ao_correction()
+        try:
+            ao_wi = self.obs.meta['ao_wi']
+            ao_wf = self.obs.meta['ao_wf']
+            if not any(np.isnan([ao_wi, ao_wf])):
+                self.logger.info(
+                    f'\tFiltering AO region: {ao_wi:.2f} - {ao_wf:.2f} A')
+                
+                self.logger.info('\tInclude region in the spectral mask')
+                self.main_meta['observation']['fixed_spectral_mask'].append([ao_wi, ao_wf])
+        except:
+            self.logger.info('\tNot detecting AO region')
 
         wave = np.array(self.stellar_fit_metadata['obs']['wave_obs'])
         self.obs.resample(wave)
