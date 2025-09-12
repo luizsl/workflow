@@ -172,7 +172,6 @@ class DataPreprocessing:
             snr_window=self.main_meta['observation']['snr']['window'])
         
         self.logger.info('--AO spectral region')
-        self.obs.ao_correction()
         try:
             ao_wi = self.obs.meta['ao_wi']
             ao_wf = self.obs.meta['ao_wf']

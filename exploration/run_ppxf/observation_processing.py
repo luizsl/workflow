@@ -380,10 +380,10 @@ class Muse(Observation):
             flux_grid_unc = np.array(hdul['STAT'].data)
             self.flux_grid_unc = np.sqrt(flux_grid_unc)
             del hdul['STAT'].data
-            
-            # Note: Check and correct spectrum if affected by AO laser <>
+                        
+        
             self.ao_correction()
-                    
+            
             header = []
             h = {card[0]: card[1] for card in hdul['PRIMARY'].header._cards}
             header.append(h)
@@ -418,14 +418,14 @@ def sn_function(index, signal=None, noise=None, covar_sn_a=0, covar_sn_b=1):
     sn = sn / (1 + covar_sn_a * (np.log10(index.size))**covar_sn_b)
     return sn
 
-#%%
+
 if __name__ == '__main__':
     # obs = Muse('../../data/NGC613/Muse/NGC0613_DATACUBE_FINAL_clean.fits.gz', 0.004951)
     # obs_bin = Muse('../../data//NGC613/Muse/NGC0613_DATACUBE_FINAL_clean', 0.004951)
-    obs_bin = Muse('../../data//NGC4254/Muse/toy_20x20.fits', 0.008098)
+    obs_bin = Muse('../../data/toy_20x20_4254.fits', 0.008098)
     obs_bin.build_grid(min_valid_sn=3, snr_window=[5450, 5550])
     obs_bin.reshape()
-    obs_bin.ao_correction()
+    # obs_bin.ao_correction()
     obs_bin.foreground_extinction(map_name='sfd', map_parameter='ebv', mode='map')
     obs_bin.resample()
 
