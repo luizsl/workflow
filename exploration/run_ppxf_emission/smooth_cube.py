@@ -13,8 +13,6 @@ from astropy.io import fits
 from scipy.stats import multivariate_normal
 
 
-## Define functions
-
 def kernel(mu, sigma, d=1):
     pix = np.linspace(-3*sigma, 3*sigma, num=2*3*sigma+1, endpoint=True)
     
@@ -41,12 +39,12 @@ def smooth(obs, unc, k):
     smooth_unc = np.full_like(obs, np.nan)
     
     for i in np.arange(obs.shape[0]):
-        smooth_obs[i] = convolve(np.nan_to_num(obs[i],0), weights=k)
-        smooth_unc[i] = convolve(np.nan_to_num(unc[i],0), weights=k**2)
+        smooth_obs[i] = convolve(np.nan_to_num(obs[i], nan=0), weights=k)
+        smooth_unc[i] = convolve(np.nan_to_num(unc[i], nan=0), weights=k**2)
     
     nan_footprint = np.isnan(obs)
-    smooth_obs[nan_footprint] = 0
-    smooth_unc[nan_footprint] = 0
+    smooth_obs[nan_footprint] = np.nan
+    smooth_unc[nan_footprint] = np.nan
     
     return smooth_obs, smooth_unc
 
@@ -61,8 +59,10 @@ def save_cube(smooth_obs,smooth_unc, path_obs):
 
 
 if __name__ == '__main__':
+    
     ## Read data
     path_obs = sys.argv[1]
+    # path_obs = '../../data/NGC1068/Muse/NGC1068_DATACUBE_FINAL_clean.fits'
     obs, unc, obs_head = read_data(path_obs)
 
     ## Create kernel     
@@ -72,7 +72,6 @@ if __name__ == '__main__':
     
     ## Smooth observations
     smooth_obs, smooth_unc = smooth(obs, unc, k)
-    
+
     ## Save smoothed cube
     save_cube(smooth_obs,smooth_unc, path_obs)
-    
