@@ -104,7 +104,7 @@ class ExecutePpxf:
         except Exception:
             self.N_PROCESS = mp.cpu_count()
 
-        with MPIPoolExecutor() as executor:
+        with MPIPoolExecutor(self.N_PROCESS) as executor:
         # with ProcessPoolExecutor(self.N_PROCESS) as executor:
             self.storage_flag.value = False
 
