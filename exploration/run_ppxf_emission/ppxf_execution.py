@@ -32,6 +32,10 @@ class ExecutePpxf:
         assert data is not None
         assert metadata is not None
 
+        os.environ["MKL_NUM_THREADS"] = "2"
+        os.environ["NUMEXPR_NUM_THREADS"] = "2"
+        os.environ["OMP_NUM_THREADS"] = "2"
+        
         self.meta = {}
         self.data = data
         self.main_meta = metadata
@@ -104,7 +108,7 @@ class ExecutePpxf:
         except Exception:
             self.N_PROCESS = mp.cpu_count()
 
-        with MPIPoolExecutor(self.N_PROCESS) as executor:
+        with MPIPoolExecutor() as executor:
         # with ProcessPoolExecutor(self.N_PROCESS) as executor:
             self.storage_flag.value = False
 
